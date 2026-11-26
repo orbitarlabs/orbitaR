@@ -1,0 +1,5 @@
+kind = "analytic"
+citation = "Kapil et al., Comput. Phys. Commun. 236, 214 (2019): the i-PI protocol that ASE's SocketIOCalculator drives; Bernstein's inequality (Rahman, Schmeisser, Analytic Theory of Polynomials, 2002, Thm. 14.1.1): a trigonometric polynomial of degree G changes at most G times its largest value per unit length"
+locator = "doi:10.1016/j.cpc.2018.09.020"
+convention = "the reference is the stop rule: a warm and a cold SCF of one geometry meet one tolerance, so the warm outcome of a relaxation's last geometry equals one cold orbitar run of it within that rule; no number comes from outside; Ha, Bohr, Cartesian"
+license = "no data is copied; the rule is the engine's own"

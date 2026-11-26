@@ -1,0 +1,6 @@
+# Written by `cargo xtask family orbitaR-PBE-v0 --from datasets/orbitaR-PBE-v0/tuning.toml`; a family never changes.
+base = "jth-2.0"
+functional = "pbe"
+
+[element]
+O = { file = "orbitaR-PBE-v0/O.xml", sha256 = "b9ad66a373184ecbd8e39f89bac9d337275a297019432470d998ee3e3fbb2bb1", cutoff_hint_ha = 17.5 }

@@ -1,0 +1,28 @@
+schema = 1
+
+[structure]
+cell_bohr = [[4.6314388694862565, 0.0, 0.0],
+             [-1.5438129564954173, 4.366562441686251, 0.0],
+             [-1.5438129564954173, -2.1832812208431265, 3.7815540017113007]]
+species = ["Fe"]
+positions_fractional = [[0.0, 0.0, 0.0]]
+
+[basis]
+cutoff_ha = 12.0
+density_cutoff_ha = 24.0
+
+[kpoints]
+mesh = [4, 4, 4]
+
+[spin]
+moments = [2.5]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.01
+
+[xc]
+functional = "r2scan"
+
+[datasets]
+files = { Fe = "JTH-PBE-v2.0/Fe/Fe.GGA_PBE-JTH.xml" }

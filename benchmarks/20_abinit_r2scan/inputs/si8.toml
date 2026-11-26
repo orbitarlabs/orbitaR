@@ -1,0 +1,28 @@
+schema = 1
+
+[structure]
+cell_bohr = [[10.33718960390119, 0.0, 0.0],
+             [0.0, 10.33718960390119, 0.0],
+             [0.0, 0.0, 10.33718960390119]]
+species = ["Si", "Si", "Si", "Si", "Si", "Si", "Si", "Si"]
+positions_fractional = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0], [0.25, 0.25, 0.25], [0.25, 0.75, 0.75], [0.75, 0.25, 0.75], [0.75, 0.75, 0.25]]
+
+[basis]
+cutoff_ha = 10.0
+density_cutoff_ha = 20.0
+
+[kpoints]
+mesh = [2, 2, 2]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.00225
+
+[bands]
+count = 48
+
+[xc]
+functional = "r2scan"
+
+[datasets]
+files = { Si = "JTH-PBE-v2.0/Si/Si.GGA_PBE-JTH.xml" }

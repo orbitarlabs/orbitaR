@@ -1,0 +1,49 @@
+[case]
+tier = "pr"
+status = "active"
+claims = ["correctness"]
+reference = "analytic"
+
+# reference   (1/Ω) ∂F/∂ε of the engine's own free energy F, at a fixed plane-wave set, so the cutoffs sit below the
+#             JTH hints (8 Ha); the measure refuses a triple whose basis sizes differ, where F would jump
+# step        h = 1e-5 along a symmetric direction E with ‖E‖ = 1 (ε⁺ = h E in each triple): no plane wave or
+#             density-sphere G crosses its cutoff; F's rounding of 1e-12 Ha over 2 h Ω (3e-3 to 6e-3 Bohr³) is
+#             2e-10 to 4e-10 Ha/Bohr³
+# SCF stop    1e-10, as case 13
+# Pulay       the fixed set makes this an exact identity. A relax at a fixed cutoff sees F(V) across set changes
+#             instead: GaAs P from a quartic E(V) fit at fixed cutoff (±1%), minus −tr σ / 3 here, is +57 GPa at
+#             8 Ha, +0.13 at 16 and +0.03 at 24, where P = 11.7 GPa; converge the cutoff before a cell relax
+#
+# metric        E                  error source                                          record    bound
+# fe_lda        integer, trace 1   F rounding (Fe: 3.3e-10)                              1.0e-10   3e-9 (10× the rounding)
+# gaas          traceless, shear   PBE one-center D^xc ≠ ∂E/∂ρ_ij (case 13): Σ (g − D) Δρ   2.2e-9    1e-8 (4.5×)
+# gaas_volume   1/√3, E(V)           predicts 2.3e-9, 3.1e-8, 4.6e-9 and 1.8e-9 of the      3.0e-8    1e-7 (3.3×)
+# fe_pbe        integer, trace 1     four records; then 1.2e-10 or less is left            4.6e-9    3e-8 (6.5×)
+# feo           integer, trace 1                                                         1.9e-9    1e-8 (5.4×)
+# afm           integer, trace 1     fe's pair, moments ±2.5; PBE as fe_pbe, not split      4.4e-9    3e-8 (6.8×)
+# symmetry      one SCF on two k sets: rounding only                                     2.3e-13   1e-10 (the rotation bound's floor)
+# moment        fe, fe-lda and feo each ≥ 2 μB; within a triple |m± − m|                  4.2e-5    1e-3
+# order         afm: (F_nm − F_afm) / (F_nm − F_fm)                                     0.308     0.1 to 0.9
+#               afm-nm and fe are afm's cell without spin and with aligned start moments, so the share is 0 if
+#               the moments vanish and 1 if they align; afm's net |m| ≤ 0.1 μB (record 2.4e-4). A triple end that lost
+#               the order needs no guard of its own: its F moves by about 5e-3 Ha, 60× the strain rise of 8e-5
+#
+# The harness moves each σ entry by ±1e-3 with random signs. GaAs's volume triple sees every diagonal sign pattern.
+# The other cells take E = K / ‖K‖ for an integer K with an odd count of odd diagonal entries: Σ ± K_ij is then
+# odd, so every pattern moves the metric by at least 1e-3 / ‖K‖ (1.7e-4 for fe, ‖K‖ = √35), far past each bound.
+#
+# Each bound lies ≥ 40× below every term along its E but the core terms: Fe's and afm's are 0, FeO's 4.8e-8. afm's
+# smallest other term is its GGA gradient term, 4.8e-4: 1.6e4× its bound.
+# GaAs carries the core term: 1.0e-6 (gaas) and 2.8e-5 Ha/Bohr³ (gaas_volume). The smallest other term is the
+# GGA gradient term on gaas, 4.8e-6.
+[tolerance]
+gaas_stress_difference_ha_bohr3_max = 1e-8
+gaas_volume_stress_difference_ha_bohr3_max = 1e-7
+fe_pbe_stress_difference_ha_bohr3_max = 3e-8
+feo_stress_difference_ha_bohr3_max = 1e-8
+afm_stress_difference_ha_bohr3_max = 3e-8
+afm_order_share_min = 0.1
+afm_order_share_max = 0.9
+fe_lda_stress_difference_ha_bohr3_max = 3e-9
+symmetry_stress_difference_ha_bohr3_max = 1e-10
+moment_spread_bohr_magneton_max = 1e-3

@@ -1,0 +1,134 @@
+# cargo-mutants (CI job `mutants`): mutants that cannot change a result. Each entry names why. A small function in
+# src/ can exist only so that an entry names its operator.
+exclude_re = [
+  # The guard only keeps a variable above the rung off the jet (cost); jets then sets that slot to +0 either way.
+  "replace match guard rung.reads\\(v\\) with true in jets$",
+  # The packaging levers' process wrappers: each only starts docker, uv, or a full engine build and collects what it
+  # prints (stdout trims it), in the order the lever needs. The package workflow (.github/workflows/package.yml) runs
+  # them; every decision on their output is a pure function with seeded tests (install_verdict, image_verdict, baked,
+  # readme_lines, contents, named, stamped; xtask/tests/release.rs, xtask/tests/reproduce.rs). Both forms: `replace <fn> -> …` and `… in <fn>`.
+  "^xtask/src/release\\.rs:.*(replace (build|build_wheel|venv_run|install|readme_tests|observe_image|prove_wheel|prove_images|stdout) -> | in (build|build_wheel|venv_run|install|readme_tests|observe_image|prove_wheel|prove_images|stdout)$)",
+  "^xtask/src/reproduce\\.rs:.*(replace twice -> | in twice$)",
+  # `how` is read only inside `head != base && …`, where head < base and head <= base agree.
+  "^xtask/src/version\\.rs:.*replace < with <= in check$",
+  # The mirrored copy flips every random sign, so flipping the sign test changes nothing.
+  "replace == with != in perturb",
+  # Any derivation gives distinct seeds; xtask/tests/harness.rs checks that every copy differs.
+  "replace \\^ with [|&] in seeds",
+  # Ranges that touch at one time report "overlap" (`<` is strict); the `<=` mutant reports them apart. Two cold
+  # runs that last exactly as long, to the nanosecond, cannot be produced on purpose. xtask/tests/same.rs runs both
+  # sides apart and an overlap.
+  "replace < with <= in compared$",
+  # The same for a literal exactly 1e-4 away from a conversion factor.
+  "replace < with <= in conversion",
+  # The same for a quaternion norm of exactly 0.1 or 1.0; xtask/tests/harness/engine.rs pins seed 7's turn.
+  "replace > with >= in rotation",
+  "replace <= with < in rotation",
+  # E_H[−ρ] = E_H[ρ]: negating every Gaussian of a Hartree probe leaves its one output unchanged.
+  "replace \\+= with -= in gaussian_density$",
+  # Every lattice and its grid are symmetric under r → −r, so mirroring every Gaussian keeps E_H.
+  "replace - with \\+ in gaussian_density$",
+  # Across x = max(1, l) the two branches of spherical_jn agree to 20 ε|j| and those of reduced_jn to 14, up to l = 10
+  # (tests/paw/sphere.rs both_bessel_branches_agree_across_their_switch).
+  "replace < with <= in by_series",
+  # An SCF change exactly at its bound, or a top band holding exactly 1e-14 of a state, cannot be produced on
+  # purpose; tests/ks/scf.rs runs both sides of each (the top band: 1.8e-14 at 0.0021 Ha refused; every other smeared run lies below).
+  "replace < with <= in below(_limit)?$",
+  "replace > with >= in holds_charge$",
+  # An Ewald G-list estimate of exactly MOST_VECTORS = 2e7 cannot be produced on purpose; tests/ks/ewald.rs runs both
+  # sides (1.25e7 summed, 2.6e7 Unsupported).
+  "replace > with >= in too_many$",
+  # Both eigensolvers reach one ground state (tests/ks/crystal.rs, case 5), so swapping them moves no result by
+  # more than 1e-10.
+  "replace == with != in Crystal<'a>::solve$",
+  # Crystal::output adds each band's w |ψ(r)|² in band order for any batch of 1 or more bands; the batch size moves only
+  # memory and time. `+` gives 4 + threads ≥ 5 and `with 1` gives 1. (`/` gives 0 at 5 threads, where chunks(0)
+  # panics: tests/ks/scf.rs more_threads_than_bands_per_thread_give_the_output_of_one catches it.)
+  "replace \\* with \\+ in batch_bands$",
+  "replace batch_bands -> usize with 1$",
+  # A spherical spin density sits exactly at FLOOR = RHO_MIN only where ρ_ij and the core give it nothing. There its
+  # L > 0 moments, which multiply dv/dn, are 0 as well.
+  "replace > with >= in Species::expansion(_polarized)?$",
+  # converged(mid) returns first where N(mid) equals the electron count, so this test never sees that N.
+  "replace < with <= in bisect$",
+  # At x = 0 both branches of the Fermi–Dirac θ give ½.
+  "replace > with >= in shape$",
+  # One-center integrals stop at r_PAW. A longer mesh changes only derivative stencils past r_PAW + 2 points, which
+  # no integral reads.
+  "replace \\+ with \\* in mesh_size$",
+  # tests/paw/sphere.rs checks that each kept coefficient up to l = 3, L = 6 exceeds 1e-3. Where symmetry makes a
+  # coefficient 0, the quadrature leaves under 1e-15 (measured for l up to 4). So no coefficient lies at 1e-14.
+  "replace < with <= in Gaunt::up_to$",
+  # Whether a bisection width lands exactly at 1e-15 hi depends on l alone. If one did, one more halving would move
+  # that root by under 1e-15 of it.
+  "replace > with >= in bessel_shape$",
+  # evaluate raises each spin density to at least 1e-14 before it builds jets, so pbe_exchange never sees a jet at 0.
+  "replace <impl Real for Jet1<N>>::value -> f64 with -?1\\.0$",
+  # box_size's doc: each growth is forced, so the order in which tying faces grow cannot change the box.
+  "replace < with <= in box_size$",
+  # The sign of Duersch's P leaves the span of [X R P] unchanged, so every Ritz pair too.
+  "delete - in duersch$",
+  # The entries down to the next comment change only how many rounds run: Cholesky-QR rounds in ortho before it
+  # returns or falls to its SVD, and projection rounds in ortho_against after its first orthonormalization. Each
+  # round keeps the columns orthonormal and S-orthogonal to rounding, and s_normalize then makes them S-orthonormal.
+  # So no eigenpair moves past the solver's tolerance.
+  "replace \\* with \\+ in orthonormal$",
+  "replace < with (==|<=) in orthonormal$",
+  "replace orthonormal -> bool with false$",
+  "replace != with == in normest$",
+  "replace > with < in unchanged$",
+  "replace < with (==|<=) in unchanged$",
+  "replace unchanged -> bool with false$",
+  "replace < with <= in ortho_against$",
+  # stamped checks a held stream once per POLL (50 ms) on a nanosecond clock, so no run lands exactly on exit + HELD;
+  # xtask/tests/harness/engine.rs runs both sides (a child that holds stderr 8 s, and every run that closes it).
+  "replace > with >= in stamped$",
+  # clocked compares stamped arrivals (nanoseconds) with clocks that the codes print to 0.01 or 0.1 s, so no run lands
+  # exactly on a slack; xtask/tests/harness/rival.rs runs both sides of each (a burst, a block, steps on time, late).
+  "replace > with >= in clocked$",
+  "replace < with <= in clocked$",
+  # In calibrate, each `*` computes a number that is only printed: the density cutoff of a row and the estimate of a
+  # cell's rungs. The rows and frozen cutoffs in TUNED.toml, which xtask/tests/tune/calibrate.rs reads, use no `*`.
+  "replace \\* with (/|\\+) in calibrate$",
+  # block_rows: a smaller guard product, or the other block size, only splits a product less often or in other row
+  # blocks, each on the whole product's kernel (src/pw/parallel.rs NANO); or, at n = 1 or k = 1, where `*` to `+`
+  # grows the guard, every row block and the whole take faer's vector kernel (tests/pw/parallel.rs (700, 9, 1),
+  # (513, 1, 9), (600, 1, 1000)).
+  "replace \\* with [+/] in block_rows$",
+  "replace >= with < in block_rows$",
+  # A block_rows that returns 0 or 1 for either value gives one row block: the whole product.
+  "replace block_rows -> \\(usize, usize\\) with",
+  # The busy retry runs only when a fork in another thread races the fresh copy; no test can time that race.
+  " in spawn$",
+  # pool decides only which threads solve the bands, never what a solve computes, and each result lands at its index:
+  # with or without a pool, at 1, 3, and 4 threads, every output is the same bytes (tests/ks/scf.rs, case 9). The
+  # error branch needs a system that cannot start a thread.
+  "replace == with != in pool$",
+  "replace pool -> Result<Option<Pool>, String> with Ok\\(None\\)$",
+  # per_batch takes its points in batches of any size of 1 or more, each in order, and lands each result at its index;
+  # the batch count moves only time (tests/pw/parallel.rs). `+` gives 4 + threads batches; `with 1`, single points.
+  "replace \\* with \\+ in batch_size$",
+  "replace batch_size -> usize with 1$",
+  # The mixing search's same-state bound differs from `>=` only for a candidate exactly target · natom Ha off the
+  # defaults, which no run lands on; xtask/tests/tune/mixing.rs runs a candidate on each side of the bound.
+  "tune/mixing\\.rs:.*replace > with >= in search$",
+  # ATOMPAW's logderiv poles sit at φ = π/2 + kπ; a threshold at φ + π/2 is the same set one branch over, so the
+  # branch differences and the pole count stay the same (xtask/tests/atompaw.rs counts one pole and a ghost's two).
+  "atompaw\\.rs:.*replace - with \\+ in branch$",
+  # At a1 / p^{1/4} = 700 exactly (three p near 2.4963e-9) both forms of r2SCAN's g_x give 1: 1 − e^{−700} rounds to 1,
+  # and its slope e^{−700} · 700 / 4p · ∂p is under half an ulp of each partial it joins. At 69 such (ρ, σ) points,
+  # 400 τ each, polarized and not, every output is the same bytes either way.
+  "^src/xc/r2scan\\.rs:.*replace > with >= in flat_gx$",
+  # Operation::isometry's stop test ends Newton's iteration once a step moves no entry past 1e-15. The `+` and `/`
+  # mutants of that step's change never stop it, so it runs all 8 steps. The claim covers the finite, near-orthogonal
+  # matrices that the symmetry finder returns, where each step past convergence is a fixed point to rounding:
+  # - over the 48 operations of a 6-Bohr carbon cube strained by 4e-7, and of a 1e-4-Bohr cube strained by 5%
+  #   (orthogonality defect up to 0.09), the 8-step isometry differs from the early exit's by at most 2.22e-16 in
+  #   any entry; one entry, 2.4e-3, moves 57 of its own ulps;
+  # - `cargo xtask same --base 1754b67` with a fixed 8 steps moved one push or pr input, case 20's fe, by
+  #   |ΔF| = 2.70006e-13 Ha at 1 and 15 threads; the other 162 runs gave the same bytes.
+  # An Operation built through its public fields outside that domain lies outside the claim: entries of 1e200 (NaN
+  # diagonal, which f64::max skips, so the original stops on an off-diagonal 5e-16 and the mutants run on to NaN), or
+  # an ill-conditioned swap (W[0][1] = 1e6, W[1][0] = 1e-6), which never stops within 8 steps either way.
+  "^src/model/symmetry\\.rs:91:43: replace - with [+/] in Operation::isometry$",
+]

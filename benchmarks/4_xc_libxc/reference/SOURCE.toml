@@ -1,0 +1,73 @@
+# Rebuild on macOS arm64 from benchmarks/4_xc_libxc/reference/ (network for the conda-forge files once):
+#   uv venv --python 3.12.16 <venv> && uv pip install --python <venv>/bin/python zstandard==0.23.0
+#   <venv>/bin/python -I table.py <cache dir> > table.json.new && mv table.json.new table.json
+# table.py checks each archive's sha256 at every run and unpacks it afresh (conda.anaconda.org/conda-forge/osx-arm64):
+#   libxc-c-6.2.2-cpu_h5d0f620_6.conda 3b3b409a227779e337c68aba7d931fcc9a77d223ddcde8cb1d800eeeb1c23dae
+#   libxc-c-7.0.0-cpu_h7ee64da_6.conda 48447188ab20b8c65d1a6c696246a56129a34ad07dcec68eae6d18a340cc9780
+# r2scan: values, ε (Libxc's zk), spreads, κ, and the fixtures from 6.2.2, the version that the X2 ABINIT 10.0.3 reference
+# build links; table.py stops unless the build is flat in σ above 8ρτ.
+# lda and pbe: e, partials, and the top-level `libxc` are data, written by the table.py of 923012c with PySCF 2.14.0's
+# Libxc 7.0.0 on Linux and copied unchanged; ε, spreads, and κ come from the osx-arm64 7.0.0 build, κ's denominator being
+# the stored Linux e. table.py holds that build's values to the stored ones by the rule (they meet it at K = 4, and at
+# K = 0 since C and D).
+# Spread: per value, Libxc's largest |change| when one input moves by one ulp, up or down, one input at a time, over the
+# neighbours with the centre's pattern of finite outputs and exact zeros. The pattern is not the branch: at row 39, ρ↑
+# one ulp up puts σ↑↓ at its cap with no zero changed, and that neighbour enters.
+# κ: |e_LDA| / |e| of a part (LDA_X, LDA_C_PW_MOD) at the same point, rounded up to two digits; null at an exact zero.
+# Rule (`rule`; tests/xc/functional.rs `matches`): an exact 0 of Libxc's admits only 0, a NaN (null) only a NaN; else
+# |got − want| ≤ (1e-12 + C κ u) |want| + K spread + D u |ε| (D on a density partial alone), u = 2^-53, K = 4, C = 16,
+# D = 8. C κ u is relative, the part's energy standing in for each value's cancellation; D u |ε| is absolute and applies
+# to strict parts too; a strict part drops K spread alone. K, C, and D are empirical, set 2026-11-24 on these rows: K = 4
+# from the two 7.0.0 builds above (f4076c3; the r2SCAN rows need 1.22, row 39's correlation vσ); C = 16 above 8.82 at
+# fixture P42 (the 822.237 point's majority density partial of the correlation, κ 2e5: G_c ∝ 1 − ζ¹² is all rounding
+# there and the chain after it cancels; next 7.70 at P38); D = 8 above 4.22 at rows 27 and 28 (the exchange's density
+# partials of a near-empty spin).
+# `<part>_strict` (r2scan): the part's total density at its threshold (the correlation of row 25 and of unpolarized row
+# 26, the exchange of row 40 in both layouts), or Libxc's
+# 1 ∓ ζ quantized by its subtraction (prepared minority share 2ρ_s/ρ below 2^-26: rows 11, 12, 17, 18, 23, 27–37).
+# `<part>_case`: C κ u ≤ 1e-12 (κ ≤ 563), an exact zero always in; it takes the correlation of r2scan rows 31, 32 (κ
+# 7.2e10), 33 (1.2e9), 34 (9.6e9), 40 (4.0e4), and 41 (4.9e5) out of the case's energy measure, nothing else.
+# `fixtures` (r2scan, the unit test alone, each part strict; P and U number the polarized and unpolarized rows from 1):
+# the screens and ζ's thresholds of src/xc/libxc.rs at their binary64 edge and on each side, the per-spin drop at its
+# edge and above it (its below side is not reached after the ρ_s floor), the zero of x^{5/3} at zero and above it (below
+# zero only past a subnormal reciprocal, outside the claim), and the floors, caps, and cross clamp at their equality and
+# on each side, table.py asserting the relation (<, ==, >) of the value each comparison reads; a side 2e-6 away where
+# that value scales with an input (one ulp would put a long number within science S1's 1e-6 of the engine constant).
+# - total-density screens P1–3 (exchange), P7–9 (correlation), U1–3, U4–6; the exchange's drop ρ_s ≤ thr P4–6, U7–9;
+#   ρ_s floors P4–6, P10–12;
+# - σ_ss floor (thr^{4/3})²: P13–15, U10–12 (exchange), P19–21, U13–15 (correlation, near its threshold, where an output
+#   resolves σ ≈ 1e-40; P16–18 at 3e-11 do not); Fermi-hole caps 8ρ_sτ_s P22–27, U16–18; τ floor P28–30, U19–21 (both
+#   parts keep both spins); the cross term at ±s_ave P31–36;
+# - ζ: the exchange's share 2ρ_s/ρ at ε P37–39; 1 − ζ quantized near ε P40–42 (1.5ε, ε, 1.5ε; C's rows); 1 − ζ at ε/2,
+#   ε, 1.5ε in the exchange's share of a kept spin P43–45 and in the correlation P46–48, 1 + ζ = ε P49; the zero of
+#   x^{5/3} on the share (1 − ζ)/2 P50 (0) and P46 (ε/4);
+# - the review's three points where Libxc's correlation is NaN P51–53; p of r2SCAN's exchange rounding to 0, its g_x
+#   exponent +inf, with Libxc's partials finite (r2scan.rs flat_gx): P54, U22, at the fourth review's n and σ = 0 with τ
+#   near τ_unif (at its τ the correlation is −b1c to every digit, an engine constant to science S1).
+# Equalities with no row of their own, as no output can change there: each floor, cap, and clamp is a max, min, or
+# select of two equal binary64 values at its equality (ρ_s, σ_ss, τ_s, n, σ, τ floors, the caps, ±s_ave); the exchange's
+# screen at a total of thr holds two spins at or below thr, both dropped (U2: n/2 below thr); the drop's below side is
+# not reached after the ρ_s floor (P4 reads ==); the unpolarized n floor follows its screen; x^{5/3} below 0 is not
+# reached while RN(1/ρ) is a normal number (ζ = RN(RN(ρ↑ − ρ↓) RN(1/ρ)) ≤ RN(ρ RN(1/ρ)) ≤ 1), nor at ρ_s ≥ thr; at a
+# density whose reciprocal is subnormal ζ can round above 1 (the fourth review's finite input [7.500222739218275e307, 0,
+# 0, 0, 0, 1, 1] gives (1 − ζ)/2 = −2^-53 and a nonfinite result), which lies outside the sampled claim; the spin mirror
+# of each ζ comparison other than P49.
+# No guard holds rows 31–34's correlation energy at 1e-12: the ζ-threshold fixtures beside them differ by 3e-7 relative
+# at n ≈ 1.8e5 (2.5e-12 Ha/bohr³, 1.3 u |n ε_LDA|), by 1.3e-7 at 1.5e5 (2.1e-12, 1.3 u |n ε_LDA|), and by 5.6e-11 at 822
+# (1.1e-14, 1.8 u |n ε_LDA|): the share is quantized, and the chain after it is not mirrored.
+# Parity with Libxc 6.2.2 is sampled: the rows and fixtures above. What is known outside them (the fourth review,
+# 2026-11-24, 18,630 points of seed 761 at 4ebb2dd under this rule; tests/xc does not hold them): 2,162 points fail a
+# comparison, 2,323 of the 2,325 failing comparisons in the correlation.
+#   regime                            points   failing   e / ε / partial   largest |diff|: energy, partial
+#   both spins near thresholds         1,152         0       0 / 0 / 0
+#   unpolarized thresholds               378         0       0 / 0 / 0
+#   cross term near its clamp, dilute  7,600     1,147    16 / 8 / 1,169   9.6e-16 Ha/bohr³ (Libxc 0), 1.6e-4 Ha on 1.1e8
+#   τ floor with σ at its cap          4,000       382     0 / 0 / 382     -, 3.4e-17 Ha on 5.0e-16
+#   density and τ tails                5,500       633    45 / 25 / 680    4.0e-13 Ha/bohr³ (Libxc 0), 7.9e3 Ha on 1.7e15
+# 40 of the failing values are nonzero against Libxc's exact zeros (largest 4.0e-13 Ha/bohr³); at 3 points both give a
+# NaN correlation (P51–53). The engine code is the same at this table's commit.
+kind = "oracle"
+citation = "Lehtola, Steigemann, Oliveira, Marques, SoftwareX 7, 1-5 (2018): Libxc 6.2.2 for r2scan (conda-forge osx-arm64 libxc-c build cpu_h5d0f620_6, Fermi-hole curvature enforced as built by default), Libxc 7.0.0 as PySCF 2.14.0 ships it for the lda and pbe values, and the conda-forge osx-arm64 Libxc 7.0.0 build cpu_h7ee64da_6 for their epsilon, spreads, and kappa"
+locator = "doi:10.1016/j.softx.2017.11.002"
+convention = "Per xc.functional of each case input: its probe points [rho_up, rho_down (Bohr^-3), sigma_uu, sigma_ud, sigma_dd (Bohr^-8), then tau_up, tau_down (Ha Bohr^-3) for a meta-GGA], its Libxc exchange and correlation (`libxc`), and at each point a row [e = exc * (rho_up + rho_down) of the point passed, in Ha per Bohr^3, de/drho_up, de/drho_down, de/dsigma_uu, de/dsigma_ud, de/dsigma_dd, de/dtau_up, de/dtau_down], 0 for a variable the functional does not read, with `<part>_epsilon` (Libxc's zk), `<part>_spread` and `<part>_epsilon_spread`, `<part>_kappa`, `<part>_case`, and for r2scan `<part>_strict`. lda and pbe (no `inputs` key, the engine's floors): Libxc's spin-polarized call at each point raised to the engine's floors (rho_s 1e-14, tau_s 1e-20) with Libxc's density and sigma thresholds below them, and the exchange also as `exchange_scaled` (Libxc's unpolarized path through exact spin scaling, E_x = 1/2 E_x[2 rho_up, 4 sigma_uu, 2 tau_up] + 1/2 E_x[2 rho_down, 4 sigma_dd, 2 tau_down]) with its spread. r2scan (`inputs` \"shipped\", `version` 6.2.2): Libxc's spin-polarized call at each point as given, at Libxc's own thresholds; `unpolarized`: its unpolarized call at (n, sigma, tau) = (2 rho_up, 4 sigma_uu, 2 tau_up) of each point, each row [e, de/dn, de/dsigma, de/dtau] with the same fields; `fixtures`: polarized and unpolarized rows in the same layout, null for a NaN of Libxc's. `rule`: K, C, and D of tests/xc/functional.rs"
+license = "Libxc is MPL-2.0; the generated numbers carry no license"

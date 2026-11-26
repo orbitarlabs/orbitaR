@@ -1,0 +1,16 @@
+# Rock salt, a = 10.66 Bohr: the anion at the body center of the fcc primitive cell.
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 5.33, 5.33], [5.33, 0.0, 5.33], [5.33, 5.33, 0.0]]
+
+[basis]
+cutoff_ha = 10.0
+
+[kpoints]
+list = [[0.0, 0.0, 0.0]]
+
+[probe]
+term = "ewald"
+charges = [1.0, -1.0]
+positions_fractional = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]

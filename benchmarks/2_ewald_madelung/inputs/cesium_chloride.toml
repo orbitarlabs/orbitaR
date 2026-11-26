@@ -1,0 +1,16 @@
+# Cesium chloride, a = 7.78 Bohr: the anion at the cube center.
+schema = 1
+
+[structure]
+cell_bohr = [[7.78, 0.0, 0.0], [0.0, 7.78, 0.0], [0.0, 0.0, 7.78]]
+
+[basis]
+cutoff_ha = 10.0
+
+[kpoints]
+list = [[0.0, 0.0, 0.0]]
+
+[probe]
+term = "ewald"
+charges = [1.0, -1.0]
+positions_fractional = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]

@@ -1,0 +1,90 @@
+["src/ks/crystal.rs"]
+FNV_OFFSET = "Fowler, Noll, Vo: the 64-bit FNV-1a offset basis (IETF draft-eastlake-fnv, section 5)."
+FNV_PRIME = "Fowler, Noll, Vo: the 64-bit FNV prime 2⁴⁰ + 2⁸ + 0xb3 (IETF draft-eastlake-fnv, section 5)."
+
+["src/ks/mixer.rs"]
+KERKER_SCREENING_LENGTH_BOHR = "ABINIT 10.0.3 m_invars1.F90 dielng."
+MIXING_DAMPING = "ABINIT 10.0.3 diemix for PAW (m_invars1.F90): the damping of each residual."
+OLDER_RESIDUAL_STEPS = "ABINIT 10.0.3 npulayit (m_invars1.F90): the steps that one mixing step combines, besides the newest."
+
+["src/ks/occupations.rs"]
+DENSITY_AND_ENERGY_OCCUPATION_THRESHOLD = "ABINIT 10.0.3 tol8, kept where `abs(occ) > tol8` in the occopt 3 path: m_mkrho.F90:452, 457 (ñ), m_paw_occupancies.F90:415, 420 (ρ_ij), m_vtorho.F90:1583 (T and Σ f ε)."
+FERMI_BRACKET_WIDTHS = "ABINIT 10.0.3 m_occ.F90, the bisection bracket: 6.001 widths, or 30.001 for Fermi–Dirac."
+RELATIVE_ELECTRON_COUNT_TOLERANCE = "ABINIT 10.0.3 m_occ.F90 (tol14): the relative error allowed in the electron count."
+
+["src/ks/scf.rs"]
+ATOMS_PER_BAND = "DFTK 8128675 src/scf/nbands_algorithm.jl AdaptiveBands (MIT): solve few bands, add more while the top ones hold charge."
+FIRST_EIGENSOLVER_RESIDUAL_TOLERANCE = "DFTK 8128675 src/scf/scf_callbacks.jl (MIT): the eigensolver’s residual tolerance on the first step."
+MOMENT_PER_EXTRA_BAND = "ABINIT 10.0.3 m_invars1.F90 mband_upper adds ⌈½ Σ m_a⌉ bands for spin."
+
+["src/paw/dataset.rs"]
+PSEUDO_CORE_DENSITY_FLOOR_PER_BOHR3 = "ABINIT 10.0.3 m_pawpsp.F90 pawpsp_read_pawheader (PAW-XML, usetcore 0): a pseudo core density below this everywhere, in e Bohr⁻³, counts as none."
+
+["src/paw/form_factors.rs"]
+LOCAL_RADIUS_BOHR = "ABINIT 10.0.3 pawpsp_calc rm_vloc (m_pawpsp.F90): the local potential ends at the last grid point at or below this radius."
+
+["src/paw/mesh.rs"]
+SPHERE_DENSITY_AND_TAU_FLOOR = "ABINIT 10.0.3 xc_denpos and xc_taupos (m_invars1.F90, m_invars2.F90): pawxc raises each spin’s ρ (Bohr⁻³) and τ (Ha Bohr⁻³) in a sphere to this before a meta-GGA sees them."
+
+["src/paw/onecenter.rs"]
+MIN_SQUARED_DENSITY_GRADIENT_PER_BOHR8 = "ABINIT 10.0.3 m_pawxc.F90 pawxc and pawxcsph drop a gradient term of v where the squared gradient they test is below 1e-24 Bohr⁻⁸."
+RHO_MIN = "ABINIT 10.0.3 m_pawxc.F90 rho_min: dv/dn is 0 below this spherical density, in Bohr⁻³."
+SPHERE_RADIUS_SQUARED_MARGIN = "ABINIT 10.0.3 pawrfgd_fft (m_paw_finegrid.F90): fine-grid points with |r − R|² ≤ this × r_shape²."
+
+["src/paw/projectors.rs"]
+PROJECTOR_ZERO = "ABINIT 10.0.3 pawpsp_nl eps = tol14⁴ (m_pawpsp.F90): r p̃ below this counts as zero."
+
+["src/pw/eigensolver.rs"]
+LCG = "Knuth's MMIX linear congruential generator (TAOCP vol. 2, §3.3.4): multiplier and increment mod 2⁶⁴."
+
+["src/pw/grid.rs"]
+RECIPROCAL_SPHERE_SQUARED_MARGIN = "ABINIT 10.0.3 tolfix (m_spacepar.F90 hartre, m_mklocl.F90)."
+
+["src/pw/parallel.rs"]
+NANO = "faer 0.24.4 src/linalg/matmul/mod.rs, NANO_GEMM_THRESHOLD."
+
+["src/pw/ritz.rs"]
+ATOMIC_ORBITAL_NOISE_AMPLITUDE = "QE 7.3 PW/src/wfcinit.f90 init_wfc ('atomic+random', GPL-2.0): each plane-wave coefficient of an atomic orbital times 1 + 0.05 r e^{iφ}, with r and φ/2π uniform in [0, 1)."
+
+["src/xc/functional.rs"]
+DENSITY_FLOOR_PER_BOHR3 = "ABINIT 10.0.3 m_invars1.F90 default xc_denpos."
+
+["src/xc/lda.rs"]
+PW_A = "Perdew and Wang, Phys. Rev. B 45, 13244 (1992), Table I. Libxc 7.0.0 lda_c_pw.mpl: A as published (Libxc LDA_C_PW)."
+PW_ALPHA1 = "Perdew and Wang, Phys. Rev. B 45, 13244 (1992), Table I. Libxc 7.0.0 lda_c_pw.mpl."
+PW_BETA_FERROMAGNETIC = "Perdew and Wang, Phys. Rev. B 45, 13244 (1992), Table I. Libxc 7.0.0 lda_c_pw.mpl: β₁ to β₄ of ε_c(ζ = 1)."
+PW_BETA_PARAMAGNETIC = "Perdew and Wang, Phys. Rev. B 45, 13244 (1992), Table I. Libxc 7.0.0 lda_c_pw.mpl: β₁ to β₄ of ε_c(ζ = 0)."
+PW_BETA_STIFFNESS = "Perdew and Wang, Phys. Rev. B 45, 13244 (1992), Table I. Libxc 7.0.0 lda_c_pw.mpl: β₁ to β₄ of −α_c."
+PW_FZ20 = "Perdew and Wang, Phys. Rev. B 45, 13244 (1992), Table I. Libxc 7.0.0 lda_c_pw.mpl: f''(0) to 7 digits, as published."
+PW_MOD_A = "Libxc 7.0.0 lda_c_pw.mpl and lda_c_pw.c, LDA_C_PW_MOD: the digits of A that PBE and r2SCAN use."
+
+["src/xc/libxc.rs"]
+CORRELATION_DENSITY_THRESHOLD_PER_BOHR3 = "Libxc 6.2.2 mgga_c_r2scan.c:47 dens_threshold."
+EXCHANGE_DENSITY_THRESHOLD_PER_BOHR3 = "Libxc 6.2.2 mgga_x_r2scan.c:49 dens_threshold."
+TAU_FLOOR_HA_PER_BOHR3 = "Libxc 6.2.2 functionals.c:347 tau_threshold: the floor of each τ_s."
+ZETA_THRESHOLD = "Libxc 6.2.2 functionals.c:346 zeta_threshold: 1 ± ζ below it reads as it."
+
+["src/xc/pbe.rs"]
+BETA = "Perdew, Burke, and Ernzerhof, Phys. Rev. Lett. 77, 3865 (1996), Eq. (4). Digits from Libxc 7.0.0 gga_c_pbe.c."
+KAPPA = "Perdew, Burke, and Ernzerhof, Phys. Rev. Lett. 77, 3865 (1996), Eq. (14)."
+
+["src/xc/r2scan.rs"]
+A1 = "Libxc 7.0.0 mgga_x_scan.mpl scan_a1: a1 of g_x(s)."
+BETA_RS = "Libxc 7.0.0 mgga_c_r2scan.mpl beta_b, beta_c: β(rs) = β (1 + 0.1 rs) / (1 + 0.1778 rs)."
+CHI_INFINITY = "Libxc 7.0.0 mgga_c_scan.mpl scan_chi_infty: χ∞ of g∞(s)."
+C_SWITCH_EXP = "Libxc 7.0.0 mgga_c_scan.mpl params_a_c1, params_a_c2, params_a_d: c1, c2, and d of the correlation switch f_c(α)."
+C_SWITCH_HIGH = "Libxc 7.0.0 mgga_c_rscan.mpl rscan_fc: c7 to c5 of the switch polynomial for 0 < α ≤ 2.5."
+C_SWITCH_LOW = "Libxc 7.0.0 mgga_c_rscan.mpl rscan_fc: c1 and c0."
+C_SWITCH_MIDDLE = "Libxc 7.0.0 mgga_c_rscan.mpl rscan_fc: c4 to c2."
+DP2 = "Libxc 7.0.0 mgga_x_r2scan.c par_r2scan and mgga_c_r2scan.mpl params_a_dp2: the damping d_{p2}."
+ETA = "Libxc 7.0.0 mgga_x_r2scan.c par_r2scan and mgga_c_r2scan.c r2scan_values: the regularization η."
+FLAT_EXPONENT = "IEEE 754 binary64, rounding to nearest and exponent range."
+G_C = "Libxc 7.0.0 mgga_c_scan.mpl scan_G_cnst: the constant of G_c(ζ), 2.363 (the paper prints 2.3631)."
+H0X = "Libxc 7.0.0 mgga_x_scan.mpl scan_h0x: the enhancement factor at α = 0."
+K1 = "Libxc 7.0.0 mgga_x_r2scan.c par_r2scan: k1 of h1x."
+LDA0 = "Libxc 7.0.0 mgga_c_scan.mpl scan_b1c, scan_b2c, scan_b3c: ε_c^{LDA0}(rs) = −b1c / (1 + b2c √rs + b3c rs)."
+POLYNOMIAL_END = "Libxc 7.0.0 rscan_f_alpha (mgga_x_rscan.mpl, mgga_c_rscan.mpl): the polynomial holds for 0 < α ≤ 2.5."
+X_SWITCH_EXP = "Libxc 7.0.0 mgga_x_r2scan.c par_r2scan: c1, c2, and d of the exchange switch f_x(α)."
+X_SWITCH_HIGH = "Libxc 7.0.0 mgga_x_rscan.mpl rscan_fx: c7 to c5 of the switch polynomial for 0 < α ≤ 2.5."
+X_SWITCH_LOW = "Libxc 7.0.0 mgga_x_rscan.mpl rscan_fx: c1 and c0."
+X_SWITCH_MIDDLE = "Libxc 7.0.0 mgga_x_rscan.mpl rscan_fx: c4 to c2."

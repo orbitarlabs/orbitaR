@@ -1,0 +1,38 @@
+[package]
+name = "xtask"
+version = "0.0.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+autotests = false
+
+[dependencies]
+clap = { version = "=4.6.7", features = ["derive"] }
+gauss-quad = "=0.3.2"
+libtest-mimic = "=0.8.2"
+nalgebra = { version = "=0.35.0", default-features = false, features = ["alloc", "libm"] }
+nix = { version = "=0.31.3", default-features = false, features = ["signal"] }
+proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
+roxmltree = "=0.21.2"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+sha2 = "=0.11.1"
+statrs = { version = "=0.18.0", default-features = false }
+syn = { version = "=3.0.9", default-features = false }
+toml = "=1.1.8"
+wait4 = "=0.2.0"
+walkdir = "=2.5.0"
+yaml-rust2 = { version = "=0.13.0", default-features = false }
+
+[[test]]
+name = "unit"
+path = "tests/lib.rs"
+
+[[test]]
+name = "benchmarks"
+path = "../tests/benchmarks.rs"
+harness = false
+
+[lints]
+workspace = true

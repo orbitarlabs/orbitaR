@@ -1,0 +1,28 @@
+# r2-fe-b4.abi in the engine's upright frame (Cell::upright: a1 on +x, a2 in the xy plane), xred unchanged.
+# Symmetry on (ABINIT finds the group; RUN.txt step 5 omits nsym 1): symrhoij and symdij act; kptopt 3 keeps the
+# full k mesh, so every engine k-point has its ABINIT row.
+# r2-fe.abi with 4 more bands than its 14 (nbdbuf 4: tolwfr holds on the first 14, the ones compared).
+acell 3*1.0 Angstrom
+rprim 2.450851892709962 0.000000000000000 0.000000000000000  -0.816950630903320 2.310685324025465 0.000000000000000  -0.816950630903320 -1.155342662012733 2.001112190757930
+natom 1
+ntypat 1
+znucl 26
+typat 1
+xred 0.0 0.0 0.0
+pseudos "Fe/Fe.GGA_PBE-JTH.xml"
+ecut 12.0
+pawecutdg 24.0
+ngkpt 4 4 4
+nshiftk 1
+shiftk 0 0 0
+occopt 3
+nband 18
+nbdbuf 4
+tsmear 0.01
+nsppol 2
+spinat 0 0 2.5
+istwfk 64*1
+iscf 17
+ixc -497498
+usekden 1
+pawxcdev 0

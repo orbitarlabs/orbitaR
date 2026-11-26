@@ -1,0 +1,20 @@
+kind = "literature"
+citation = """\
+DeltaCodesDFT (molmod/DeltaCodesDFT, LGPL-2.1), commit f9b6693763dea92d43ee48f172c02bc506876f06 (2020-04-28): \
+WIEN2k.txt, "# WIEN2k version 13.1, calcDelta package version 3.0", the all-electron reference of the Delta test \
+(Lejaeghere et al., Science 351, aad3000 (2016))"""
+locator = "https://github.com/molmod/DeltaCodesDFT/tree/f9b6693763dea92d43ee48f172c02bc506876f06"
+convention = """\
+wien2k.json copies the rows Fe, Co, Ni, Cr, Mn of WIEN2k.txt as printed: V0 in Å³/atom, B0 in GPa, B1. \
+cif_volume_ang3 is the volume per atom of each primCIFs/<El>.cif cell (Å, fractional sites): Fe Im-3m a = 2.833509; \
+Co P63/mmc a = 2.496799, c = 4.030808, site (1/3, 2/3, 3/4); Ni Fm-3m a = 3.524138; Cr Pm-3m a = 2.870999 and Mn \
+P4/mmm a = 2.542416, c = 3.595519, sites (0, 0, 0) and (1/2, 1/2, 1/2). README: "Include spin polarization for O, \
+Cr and Mn (antiferromagnetic) and Fe, Co, and Ni (ferromagnetic)"; Mn's cell is "a simpler structure that appears \
+at higher temperatures or pressures". sha256: WIEN2k.txt b9702aebe1063eca970f7a9bd2f25879584ab342bfc51a8c646ef7b18c8debaa, \
+calcDelta.py 88035c19db15e583e66fda084b3fa30c51de10c5462eb4e9fc9ecfeaee01ec71, primCIFs Fe \
+598a9a43ea52c7243b55057a15293d35a3d1f1b8a1d7b1bbc31b6e597ac12e7a, Co \
+a4ad923e2d1016202a2d676e3f08dafd5d3a6c32faef2fa44b17fc3ee419b629, Ni \
+7ac4fd3894cf9eb9961e6ae13788f310aa406932ef7f12a4b536d2390941019e, Cr \
+2bbbfb958942037fd241c14911bf3621d0d8f9c5d67ad23e78ecb9a75c717a20, Mn \
+d154fdc0d07909887d2197fdec205686d4c42cb04f2480070f02c86c8f8d8bcc"""
+license = "LGPL-2.1 at the source; this repository holds fifteen published numbers and the cell constants, and no file of it"

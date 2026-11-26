@@ -1,0 +1,23 @@
+acell 3*2.83 Angstrom
+rprim -0.5 0.5 0.5  0.5 -0.5 0.5  0.5 0.5 -0.5
+natom 1
+ntypat 1
+znucl 26
+typat 1
+xred 0.0 0.0 0.0
+pseudos "Fe/Fe.GGA_PBE-JTH.xml"
+ecut 12.0
+pawecutdg 24.0
+ngkpt 4 4 4
+nshiftk 1
+shiftk 0 0 0
+occopt 3
+tsmear 0.01
+nsppol 2
+spinat 0 0 2.5
+fband 4.0
+istwfk 64*1
+iscf 17
+ixc -497498
+usekden 1
+pawxcdev 0

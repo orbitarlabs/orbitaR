@@ -1,0 +1,51 @@
+# r2-input-upright-sym-b4.abi with the engine's own operations: the 24 of step 6's run whose tnons are 0 (the site group of each
+# atom), as the engine keeps them (Operation::keeps_grid: an operation counts if its translation maps both FFT grids;
+# ABINIT's tnons of 1/4 and 1/2 miss its fine grid). nsym, symrel and tnons given, so ABINIT's finder does not run.
+acell 3*1.0 Angstrom
+rprim 3.868019148450835 0.000000000000000 0.000000000000000  1.934009574225417 3.349802844883074 0.000000000000000  1.934009574225417 1.116600948294358 3.158224409673080
+natom 2
+ntypat 1
+znucl 14
+typat 1 1
+xred 0.0 0.0 0.0  0.25 0.25 0.25
+pseudos "Si/Si.GGA_PBE-JTH.xml"
+ecut 10.0
+pawecutdg 20.0
+ngkpt 2 2 2
+nshiftk 1
+shiftk 0 0 0
+occopt 3
+nband 16
+nbdbuf 4
+tsmear 0.00225
+istwfk 8*1
+iscf 17
+ixc -497498
+usekden 1
+pawxcdev 0
+nsym 24
+symrel 1 0 0 0 1 0 0 0 1
+       0 -1 1 0 -1 0 1 -1 0
+       -1 0 0 -1 0 1 -1 1 0
+       0 1 -1 1 0 -1 0 0 -1
+       -1 0 0 -1 1 0 -1 0 1
+       0 -1 1 1 -1 0 0 -1 0
+       1 0 0 0 0 1 0 1 0
+       0 1 -1 0 0 -1 1 0 -1
+       -1 0 1 -1 1 0 -1 0 0
+       0 -1 0 1 -1 0 0 -1 1
+       1 0 -1 0 0 -1 0 1 -1
+       0 1 0 0 0 1 1 0 0
+       1 0 -1 0 1 -1 0 0 -1
+       0 -1 0 0 -1 1 1 -1 0
+       -1 0 1 -1 0 0 -1 1 0
+       0 1 0 1 0 0 0 0 1
+       0 0 -1 0 1 -1 1 0 -1
+       1 -1 0 0 -1 1 0 -1 0
+       0 0 1 1 0 0 0 1 0
+       -1 1 0 -1 0 0 -1 0 1
+       0 0 1 0 1 0 1 0 0
+       1 -1 0 0 -1 0 0 -1 1
+       0 0 -1 1 0 -1 0 1 -1
+       -1 1 0 -1 0 1 -1 0 0
+tnons 72*0.0

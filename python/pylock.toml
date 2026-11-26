@@ -1,0 +1,21 @@
+lock-version = "1.0"
+created-by = "uv"
+requires-python = ">=3.12"
+
+[[packages]]
+name = "ase"
+version = "3.29.0"
+sdist = { url = "https://files.pythonhosted.org/packages/aa/36/cfe17324ea701d2caa479f25b134c54aeb36998443fd88c13e4f1af06f52/ase-3.29.0.tar.gz", upload-time = 2026-06-21T16:03:06Z, size = 2466051, hashes = { sha256 = "ef4e2caa38169e3fbbc4164764a060d1877a6692519a4bed82521328eeb0d9aa" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/66/a6/a3d29378618d3d9ba0962473f8bbf09a5ad15eb8b210c5153fb88d0b8aad/ase-3.29.0-py3-none-any.whl", upload-time = 2026-06-21T16:03:03Z, size = 3014724, hashes = { sha256 = "7b9dd103f007810339c24acfee2f6b677c0c48443b21d3c98e52959246cf4ebf" } }]
+
+[[packages]]
+name = "numpy"
+version = "2.5.4"
+sdist = { url = "https://files.pythonhosted.org/packages/95/b0/c7453d0b6e2073c3264468b106ee1563750cecc910965e67357e3698c83e/numpy-2.5.4.tar.gz", upload-time = 2026-10-10T20:05:31Z, size = 20866315, hashes = { sha256 = "9a94cf751c9ad8ebaa835bcd3d40dacf8534ad086b88c38029b65123c7999d2a" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/43/a3/c799c62e19c337e6d3770b08e475887fb30ce8477d3c09efca6b2f0228a6/numpy-2.5.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", upload-time = 2026-10-10T20:02:53Z, size = 16727283, hashes = { sha256 = "fbde6962867ee75b48b0ee29b2b9372ec5d617799dbaf38e82dc0596f2f7738a" } }]
+
+[[packages]]
+name = "scipy"
+version = "1.18.1"
+sdist = { url = "https://files.pythonhosted.org/packages/7e/74/66de6258867beb2ef08f35f9f2ac017a52cacd5081714d239ff1a442d458/scipy-1.18.1.tar.gz", upload-time = 2026-08-21T23:28:50Z, size = 30781235, hashes = { sha256 = "52c4b7422442aba924d03ad4019852b08a92e64ea187b933135687bfe2747307" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/df/64/ff35eb9e54894cf471ff4716abd3c81eb0a0626869217ce3e6ba4ccf17d7/scipy-1.18.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", upload-time = 2026-08-21T23:24:07Z, size = 35344199, hashes = { sha256 = "f55fa87b6c612ecd6b058f167c53231b1d14e412efe361d3d6e38b3631c73218" } }]

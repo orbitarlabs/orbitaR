@@ -1,0 +1,32 @@
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 5.34, 5.34],
+             [5.34, 0.0, 5.34],
+             [5.34, 5.34, 0.0]]
+species = ["Ga", "As"]
+positions_fractional = [[0.01200588924065574, -0.009009815401092901, 0.006003926160437161],
+                        [0.24298920305879781, 0.2589990184598907, 0.2620088338609836]]
+
+[basis]
+cutoff_ha = 8.0
+
+[kpoints]
+mesh = [2, 2, 2]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.005
+
+[scf]
+energy_tolerance_ha = 1e-10
+max_iterations = 200
+
+[xc]
+functional = "r2scan"
+
+[outputs]
+discretization = true
+
+[datasets]
+files = { Ga = "JTH-PBE-v2.0/Ga/Ga.GGA_PBE-JTH.xml", As = "JTH-PBE-v2.0/As/As.GGA_PBE-JTH.xml" }

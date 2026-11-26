@@ -1,0 +1,17 @@
+{
+ "source": "ABINIT 10.0.3 build P (the pinned build with exccore.patch and abinit-paw-dump.patch), nstep 1: E_xc of the core alone in Ha, its EXCCORE_DBG lines, with the pseudo core tau (as ABINIT runs) and with the all-electron one (EXCCORE_AE=1), by Z",
+ "pseudo_core_tau_ha": {
+  "13": -18.876716039311,
+  "14": -20.737345859747,
+  "26": -43.461047166708,
+  "31": -65.227747845264,
+  "33": -70.325591833875
+ },
+ "all_electron_core_tau_ha": {
+  "13": -17.770329487527,
+  "14": -19.519166907423,
+  "26": -40.549230830022,
+  "31": -60.184200776237,
+  "33": -64.835832104582
+ }
+}

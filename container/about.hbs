@@ -1,0 +1,10 @@
+Third-party notices of the orbitar binary: each crate that it links, and the license text that applies.
+{{#each licenses}}
+
+== {{name}} ({{id}})
+{{#each used_by}}
+used by: {{crate.name}} {{crate.version}}
+{{/each}}
+
+{{text}}
+{{/each}}

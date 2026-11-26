@@ -1,0 +1,16 @@
+kind = "same-dataset"
+citation = """\
+Gonze et al., Comput. Phys. Commun. 248, 107042 (2020): ABINIT 10.0.3 (edbeb66; conda-forge build h2b8cb88_2 with \
+MPICH 4.3.2 and libxc 4.3.4) on orbitar-node, PAW with the JTH v2.0 PBE files at a03e3f0b that \
+datasets/jth-2.0.toml pins. input.json: case 6's reference/input.json. gaas, al2o3, si32, nio: runner-jobs run \
+41219900436 (runner/jobs 7659411, inputs at 701a81b) on 4, 2, 2, and 4 MPI ranks, reduced by h5py 3.16.0 and \
+numpy 2.5.4 (python 3.12.16)"""
+locator = "doi:10.1016/j.cpc.2019.107042"
+convention = """\
+cells.py writes <name>.abi and inputs/<name>.toml from one cell. Case 6's reference/run.sh runs each .abi (nstep \
+200; tolvrs 1e-24 lies out of reach, so each run ends at nstep with ABINIT's scprqt warning), and case 6's \
+reference.py reduces it (GSR terms in Ha; etotal is the free energy F). Each <name>.json is its RESULT line, \
+sha256-checked against that log. Runner-jobs run 41223751005 read the ETOT histories in place: F lies within 1e-11 Ha \
+per atom of its step-200 value from step 20 (gaas), 11 (al2o3), 10 (si32), and 23 (nio) on. NiO's sphere moments: \
+±1.12 μB on Ni, 0 on O"""
+license = "ABINIT is GPL-3.0; the printed numbers carry no license"

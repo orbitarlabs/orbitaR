@@ -1,0 +1,8 @@
+[case]
+tier = "push"
+status = "active"
+claims = ["correctness"]
+reference = "analytic"
+
+[tolerance]
+hartree_relative_error_max = 1e-12

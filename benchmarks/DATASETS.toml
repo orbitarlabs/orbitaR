@@ -1,0 +1,90 @@
+# The files that rival runs read, each pinned by its sha256; xtask/src/harness/datasets.rs reads this file.
+# A dataset family that orbitaR reads is a table of its own: datasets/<family>.toml.
+
+# QE's own files for the rival runs (harness/rival/qe.rs): SSSP 1.3.0 PBE efficiency, Prandini et al., npj Comput.
+# Mater. 4, 72 (2018), doi:10.24435/materialscloud:f3-ym. CC BY 4.0; each file keeps its source's license (pslibrary:
+# GPL). The install job unpacks the archive into ORBITAR_RIVALS/<directory>; a run checks each file by its sha256.
+# A rival must solve each cell with JTH's electron count.
+# SSSP's As.pbe-n-rrkjus_psl.0.2 holds 5 valence electrons and JTH's As holds 15, so QE's As is not SSSP's.
+# pslibrary 1.0.0 defines As.pbe-dn-kjpaw_psl.1.0.0 (3d in valence, 15 electrons) but publishes no UPF for it.
+# The install job builds that file by [qe.built.As]:
+#   pslibrary's paw_ps_high.job + pbe/environment.job's values ─▶ the As input ─▶ the node's QE ld1.x ─▶ <directory>
+# The pinned file came from runner-jobs run 42486149733; run 42503693733 rebuilt it to the same sha256.
+# The file is GPL-2.0 (pslibrary's License) and stays out of the repository.
+# Fe, Sr, and Ti: the archive's files, each sha256 recomputed from the archive at its pin (PR #39); runner-jobs run 50
+# (job 129010467389) found Fe on the node's disk at its pin.
+[qe]
+archive = "https://archive.materialscloud.org/records/rcyfm-68h65/files/SSSP_1.3.0_PBE_efficiency.tar.gz"
+archive_sha256 = "7a85b71fa3d68df1b5ed33c55c7057681fbf10377ae3b3eac9392924d9189f12"
+directory = "SSSP-1.3.0-PBE-efficiency"
+
+[qe.files]
+Al = { file = "Al.pbe-n-kjpaw_psl.1.0.0.UPF", sha256 = "fd7b78921e6d0939095b681c328732668eaefd1dee6882fdbc03be463550cc97" }
+As = { file = "As.pbe-dn-kjpaw_psl.1.0.0.UPF", sha256 = "74d377e1f47f3c9166a53111d6c2c3c97b67c0a7f900517cae56074f4352bb5f" }
+Fe = { file = "Fe.pbe-spn-kjpaw_psl.0.2.1.UPF", sha256 = "2317a0d3b136c09b6263e1ba328b505fb1ebf33bb4b28dc3df9e39af3184ef19" }
+Ga = { file = "Ga.pbe-dn-kjpaw_psl.1.0.0.UPF", sha256 = "cf8a2be9b30552dd9bb12304d2aa96978e5d10636ca562b42d5a37dc385acd15" }
+Ni = { file = "ni_pbe_v1.4.uspp.F.UPF", sha256 = "f76b86ce60cde3d83dfcc8df79ba05478db573d158289f1b226919442d977d25" }
+O = { file = "O.pbe-n-kjpaw_psl.0.1.UPF", sha256 = "7c4b6ed541f83d0afdf5c1d3a8c611340f073f3e2b11e95b7963bb2ee26929aa" }
+Si = { file = "Si.pbe-n-rrkjus_psl.1.0.0.UPF", sha256 = "ae3aefd0811f9499dbc4a72f1f9ae02ef4fc7f3568bf6f559b68668719c69e2b" }
+Sr = { file = "Sr_pbe_v1.uspp.F.UPF", sha256 = "292f7f1da5cae4b18da817ab2e82943ad90e74f267a06a6172db8dbcb6edf0ce" }
+Ti = { file = "ti_pbe_v1.4.uspp.F.UPF", sha256 = "747afa52fa17dc061e9eff72bcea534e81ffa5a4a5d33af3eb8fc9f1b3aee580" }
+
+# The recipe of each file that the install job builds.
+[qe.built.As]
+pslibrary = "https://raw.githubusercontent.com/dalcorso/pslibrary/835dd6477c90fa9d59524914de50901d4be73e36"
+jobs = { "paw_ps_high.job" = "b7bb6caf346bbcd3796f65ce75d9f963c1d46b9c6c9ab30e83585311b35d1219", "pbe/environment.job" = "45e09f00ea5114125cbc05b2a74ee65781f01e7dab125d32168c6a28ea7027d7", License = "204d8eff92f95aac4df6c8122bc1505f468f3a901e5a4cc08940e0ede1938994" }
+input = "As.pbe-dn-kjpaw_psl.1.0.0.in"
+input_sha256 = "1f4dca0370581725cb57c3ce7c8e27b422d5a42c5cec4a4d5b63d17e9cee2747"
+generator = "ld1.x of the QE install"
+# ld1.x writes the day it runs into the UPF, on 2 lines. The pin is of a build on that day: ' 8Nov2026'. A rebuild sets
+# its own date on those 2 lines back to this one before the sha256 check (runner-jobs run 57: '11Nov2026' to ' 8Nov2026',
+# pin ok; ld1.x v.7.5).
+pinned_date = " 8Nov2026"
+
+# Our own datasets: datasets/<family>/<element>.in ─▶ the pinned ATOMPAW ─▶ <element>.xml beside
+# it, which the family table datasets/<family>.toml pins. This table pins the builder alone.
+# `cargo xtask atompaw` (xtask/src/atompaw.rs) installs ATOMPAW from conda-forge with micromamba into a directory
+# outside the repository, checks that install against `packages` and `binaries`, builds each file twice, and checks
+# the rebuild's numbers against the committed datasets/<family>/<element>.xml at its family table's pin. `--write`
+# writes that file. The bytes are data, the rebuild is
+# judged by numbers: the host's libm (glibc 2.39, FMA on and off) moves them by 2e-8 (atompaw.rs REBUILD_REL).
+# ATOMPAW writes the day and time of its run on one line (xmlinterface.F90, PrintDate); a build sets that line to
+# pinned_date, the stamp of the build that made the pins, before the sha256 check. Two builds of O.in differ on that
+# line alone (lead's container, 2026-11-21: `cmp` finds line 11 only).
+# ATOMPAW also writes its author's name and email address on two header lines; a build drops them (atompaw.rs CONTACT),
+# because the repository holds no address, and refuses a file that still names one.
+# Each run gets PATH and atompaw.rs NUMERICS alone: OPENBLAS_CORETYPE=HASWELL, OPENBLAS_NUM_THREADS=1. OpenBLAS picks
+# its kernel by CPU, and the kernels write other bits (lead's container, 2026-11-21: SkylakeX, Haswell = Zen, and
+# SandyBridge = Nehalem give three O files); Haswell runs on any x86-64 CPU with AVX2. ci.yml's check job rebuilds
+# every input on a GitHub runner, a second CPU class, against the committed files.
+# packages: the whole install that micromamba solved for atompaw=4.2.0.4=h8876d29_0 on 2026-11-21, each md5 matched to
+# api.anaconda.org; BLAS, libxc, and the GCC runtime can change output bits, so the set is pinned.
+[atompaw]
+version = "4.2.0.4"
+build = "h8876d29_0"
+sha256 = "6b28f546e012636620d811f08a87a4bdda074a6a75e3819dfdbb1b3959ccf13f"
+pinned_date = "11/21/2026, 02:23:53.367"
+packages = [
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libgomp-16.2.0-he0feb66_7.conda", sha256 = "92a0bb350c7be6a4eedcb4e111c60aefd176018e6b1c009a6e025dbe9bbcd758" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda", sha256 = "1dd3fffd892081df9726d7eb7e0dea6198962ba775bd88842135a4ddb4deb3c9" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libgcc-16.2.0-ha9f2e26_7.conda", sha256 = "e031634c3a928f9594eba868bc46ef5230d6571a364a0c63215b06c4563bfcea" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libgfortran5-16.2.0-h6b99dfc_7.conda", sha256 = "04dbab12c925b92977bb835dd2f5eda413607afa79f95a554e5a04b07a380322" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libgfortran-16.2.0-h69a702a_7.conda", sha256 = "9682ae4dd11487e10b904b3cb3ab6379cad25233d45fdfdf90d54349df244494" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libopenblas-0.3.34-pthreads_hf13c14d_2.conda", sha256 = "69a722751e14eab2eb3bfdcb9acb1187afbd962b0c49b48d829341e0f6787f60" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libblas-3.11.0-12_h4a7cf45_openblas.conda", sha256 = "6a6263c3d4a484dbac4ae7a8191be5f868c0574bbc7faa42b258bb59dc6d5fa2" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/liblapack-3.11.0-12_h47877c9_openblas.conda", sha256 = "f048e68a22fbdd927b8a7e007c3da19c6f1d2c08a9e4f6065af68f463c369f19" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libgcc-ng-16.2.0-h69a702a_7.conda", sha256 = "03b54d7008de080a17cc2174b0e4acd6d06e1c981b2eb19846f46d8f59966034" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libgfortran-ng-16.2.0-h69a702a_7.conda", sha256 = "d5c80029e15b2e4c404a9a7189b607be566c7ea6142d43291c81648958ffe1f0" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/libxc-4.3.4-hd8f1df9_4.conda", sha256 = "3c0a6aa19df8d7c0c803ebc42346ae4354759a5ba51219c23077ef28b41845d8" },
+  { url = "https://conda.anaconda.org/conda-forge/linux-64/atompaw-4.2.0.4-h8876d29_0.conda", sha256 = "6b28f546e012636620d811f08a87a4bdda074a6a75e3819dfdbb1b3959ccf13f" },
+]
+
+# The bytes that run: bin/atompaw and each library that ldd finds for it in the prefix, read through their symlinks
+# (lead's container, 2026-11-21). libc, libm, libpthread, and ld.so come from the host and stay unpinned.
+[atompaw.binaries]
+"bin/atompaw" = "63ffb5fa339c21258b15492f64089a767c6d994be85c05238a1efd940195b890"
+"lib/libxc.so.5" = "9dd50986f56b9b03126c1e8b6c38425cff63b92cb952bc42d598588fa58866c3"
+"lib/libgfortran.so.5" = "8b93406aef97f0f39ebac58aed3b63c58c9c26eb246595d8141dde5baeee5b33"
+"lib/liblapack.so.3" = "f1424288e9ac125331102c0150b66fbd244560987779552e0e97d5cfd9de572b"
+"lib/libgcc_s.so.1" = "5444fbe71e8cfe3bd05cdf2b44bd8c2e553e6e7e276977089b5e4e1a1ceed531"
+"lib/libquadmath.so.0" = "9fa4807097fa47da1815765f0a43177c45e7ec7cc94e44cfa95a4c3a1a341ee6"

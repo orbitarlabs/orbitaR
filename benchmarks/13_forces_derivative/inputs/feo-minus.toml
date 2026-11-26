@@ -1,0 +1,26 @@
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 4.09, 4.09],
+             [4.09, 0.0, 4.09],
+             [4.09, 4.09, 0.0]]
+species = ["Fe", "O"]
+positions_fractional = [[0.011002556031166207, -0.007015336186997242, 0.009005112062332413],
+                        [0.49398594182858585, 0.5120063900779155, 0.4890025560311662]]
+
+[basis]
+cutoff_ha = 8.0
+
+[kpoints]
+mesh = [2, 2, 2]
+
+[spin]
+moments = [3.5, 0.0]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.01
+
+[scf]
+energy_tolerance_ha = 1e-10
+max_iterations = 200

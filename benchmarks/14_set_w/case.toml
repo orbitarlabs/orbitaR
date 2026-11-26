@@ -1,0 +1,21 @@
+[case]
+tier = "claim"
+status = "planned"
+claims = ["speed", "correctness"]
+reference = "same-dataset"
+rivals = ["qe", "abinit"]
+milestone = "m4"
+
+# The set W of the M4 bar (reference/cells.py), apart from case 11: each case writes its own record, so G on W
+# reads this case's record alone. Case 11's bound is per atom, so it holds at any cell size.
+# milestone m4: the M4 bar on G, against each rival, on W (harness/speed.rs `Milestone`).
+# gaas32_as is in W because Ga and As show the widest frozen cutoff gap between the rivals (TUNED.toml): QE's
+# 35 Ha against ABINIT's 18 Ha, ABINIT on the JTH files that orbitaR reads. W includes that gap; the record shows its
+# cost.
+# The ABINIT references stop by the rule that reference/SOURCE.toml states with each cell's numbers.
+# Activation blocker: orbitaR's SCF diverges on fe2o3_30, so the case stays planned until it converges.
+# Claim budget: the projected claim node wall, all codes and repeats, from the pre-claim pilot pricing
+# (ORBITAR_PILOT), must be <= 48 h. Only if it is not, timed cells give way to their untimed replacements/ (cells.py)
+# in descending order of projected cost until it fits; past the last one the maintainers decide. No cell is dropped.
+[tolerance]
+free_energy_error_ha_per_atom_max = 2.5e-10

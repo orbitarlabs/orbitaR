@@ -1,0 +1,5 @@
+kind = "analytic"
+citation = "Torrent, Jollet, Bottin, Zérah, Gonze, Comput. Mater. Sci. 42, 337 (2008): PAW forces as the derivative of the PAW total energy; Nielsen, Martin, Phys. Rev. B 32, 3780 (1985): the stress theorem at a fixed plane-wave set"
+locator = "doi:10.1016/j.commatsci.2007.07.020 doi:10.1103/PhysRevB.32.3780"
+convention = "the reference is the identities f = −dF/dτ and σ = (1/Ω) ∂F/∂ε for the free energy F at r2SCAN: the case compares the forces and the stress with central differences of orbitaR's own free energy, so no number comes from outside; Ha, Bohr, Cartesian; ε takes each lattice vector a to (1 + ε) a"
+license = "no data is copied; the identity is a fact"

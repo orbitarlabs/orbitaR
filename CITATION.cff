@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: orbitaR
+abstract: >-
+  orbitaR is a Kohn–Sham DFT code in Rust with plane waves and the projector augmented-wave (PAW) method,
+  for researchers who need a PAW code that they can read, change, and verify.
+authors:
+  - name: The orbitaR developers
+version: 0.0.1
+license: PolyForm-Noncommercial-1.0.0

@@ -1,0 +1,5 @@
+kind = "all-electron"
+citation = "Bosoni et al., Nat. Rev. Phys. 6, 45 (2024): the all-electron average of WIEN2k and FLEUR, and VASP's results, for the ACWF verification set (aiidateam/acwf-verification-scripts 8eb1e9a, acwf_paper_plots/code-data)"
+locator = "doi:10.1038/s42254-023-00655-3"
+convention = "acwf-ae-average.json and acwf-vasp.json: the entries of benchmarks/10_acwf_subset/reference/ of the same names (BM_fit_data: min_volume, bulk_modulus_ev_ang3, bulk_deriv; num_atoms_in_sim_cell), numbers unchanged, for the 430 systems of crystals.json alone. crystals.json: the entries of jobs/structures.json on the runner branch (the same 8eb1e9a structures as case 10) whose element has a pbe row in datasets/jth-2.0.toml and whose structure type is in the tune part of benchmarks/ACWF.toml"
+license = "acwf-verification-scripts is MIT (Copyright (c) 2021 AiiDA team and individual contributors); the printed numbers carry no license"

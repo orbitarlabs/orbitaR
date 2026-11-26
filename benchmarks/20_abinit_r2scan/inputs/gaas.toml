@@ -1,0 +1,27 @@
+schema = 1
+
+[structure]
+cell_bohr = [[7.549745621791112, 0.0, 0.0],
+             [3.774872810895556, 6.538271500581445, 0.0],
+             [3.774872810895556, 2.179423833527148, 6.164341487066512]]
+species = ["Ga", "As"]
+positions_fractional = [[0.0, 0.0, 0.0], [0.26, 0.24, 0.255]]
+
+[basis]
+cutoff_ha = 12.0
+density_cutoff_ha = 24.0
+
+[kpoints]
+mesh = [2, 2, 2]
+
+[bands]
+count = 15
+
+[xc]
+functional = "r2scan"
+
+[datasets]
+files = { Ga = "JTH-PBE-v2.0/Ga/Ga.GGA_PBE-JTH.xml", As = "JTH-PBE-v2.0/As/As.GGA_PBE-JTH.xml" }
+
+[outputs]
+forces = true

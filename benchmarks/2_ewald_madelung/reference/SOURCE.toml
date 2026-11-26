@@ -1,0 +1,5 @@
+kind = "literature"
+citation = "OEIS A085469 (NaCl), A181152 (CsCl), A182566 (zincblende ZnS): Madelung constants, negated"
+locator = "oeis:A085469 A181152 A182566"
+convention = "nearest-neighbor distance as the length unit; unit charges; positive constants"
+license = "OEIS data under CC BY-SA 4.0; these three numbers are facts"

@@ -1,0 +1,59 @@
+[package]
+name = "orbitar"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+autotests = false
+exclude = ["datasets/*/"]
+
+[dependencies]
+compensated-summation = "=0.3.1"
+faer = { version = "=0.24.4", default-features = false, features = ["std", "linalg"] }
+gauss-quad = "=0.3.2"
+hyperjet = "=1.15.0"
+libm = "=0.2.16"
+mimalloc = { version = "=0.1.52", default-features = false }
+moyo = "=0.21.0"
+rayon = "=1.12.0"
+roxmltree = "=0.21.2"
+rustfft = "=6.4.1"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+sha2 = "=0.11.1"
+toml = "=1.1.8"
+
+[[test]]
+name = "unit"
+path = "tests/lib.rs"
+
+[lints]
+workspace = true
+
+[workspace]
+members = ["xtask"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.99.1"
+license = "PolyForm-Noncommercial-1.0.0"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+
+[profile.release]
+lto = "thin"
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1

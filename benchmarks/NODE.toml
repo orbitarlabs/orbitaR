@@ -1,0 +1,32 @@
+[host]
+core_cpus = ["0", "1", "2", "3", "4", "5", "6", "7"]
+cores = 8
+cpu = "AMD EPYC 9645 96-Core Processor"
+cpus_allowed = "0-7"
+governor = "unknown"
+kernel = "6.8.0-147-generic"
+logical_cpus = 8
+memory_bytes = 16762847232
+microcode = "0xb101058"
+smt = "notsupported"
+
+[orbitar]
+build = "cargo build --release --locked --package orbitar --bin orbitar"
+
+[orbitar.profile_release]
+lto = "thin"
+
+[abinit]
+abinit = "10.0.3 h2b8cb88_2 sha256:d6e50e88abb41ba371118d3ad468665ec00ea8b7256e1e6fc9d23d4e5166f379"
+fftw = "3.3.10 mpi_mpich_h084ba78_11 sha256:2206800d2d50f5f7f25ef8ae30fc96d0be2ad7c70f103350479e2f132bf6ff0b"
+libblas = "3.11.0 11_h4a7cf45_openblas sha256:d942e0c820d60a613a6f786d074f0820fb6343e3f1ccfb110b1d98b44fb75968"
+libopenblas = "0.3.34 pthreads_hf13c14d_2 sha256:69a722751e14eab2eb3bfdcb9acb1187afbd962b0c49b48d829341e0f6787f60"
+libxc = "4.3.4 hd8f1df9_4 sha256:3c0a6aa19df8d7c0c803ebc42346ae4354759a5ba51219c23077ef28b41845d8"
+mpich = "4.3.2 h79b1c89_101 sha256:c3f819f0e6986d775140773a840cff2a6c1b6a620f299b2408227a63886c6b16"
+
+[qe]
+fftw = "3.3.11 nompi_h3b011a4_100 sha256:6fd5d681fba20adaca771f138ac52dbf0a52e0dc2ac31b9ce7406068d102a9a7"
+libblas = "3.11.0 11_h4a7cf45_openblas sha256:d942e0c820d60a613a6f786d074f0820fb6343e3f1ccfb110b1d98b44fb75968"
+libopenblas = "0.3.34 pthreads_hf13c14d_2 sha256:69a722751e14eab2eb3bfdcb9acb1187afbd962b0c49b48d829341e0f6787f60"
+openmpi = "5.0.11 hee33aa4_0 sha256:14b0aac9c9253586558fdede5e0ccfaf3a359dd5c702514af642b96e1f3322f0"
+qe = "7.5 h19104ac_2 sha256:4f21a746fcc644d2170caf28e6b620716e993f8a994a9810dce694c49a3f03da"

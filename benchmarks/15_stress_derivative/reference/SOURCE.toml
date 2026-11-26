@@ -1,0 +1,5 @@
+kind = "analytic"
+citation = "Nielsen, Martin, Phys. Rev. B 32, 3780 (1985): the stress theorem at a fixed plane-wave set; Torrent, Jollet, Bottin, Zérah, Gonze, Comput. Mater. Sci. 42, 337 (2008): its PAW terms"
+locator = "doi:10.1103/PhysRevB.32.3780 doi:10.1016/j.commatsci.2007.07.020"
+convention = "the reference is the identity σ = (1/Ω) ∂F/∂ε for the stress σ and the free energy F: the case compares the stress with strain differences of orbitaR's own free energy, so no number comes from outside; Ha, Bohr, Cartesian; ε takes each lattice vector a to (1 + ε) a"
+license = "no data is copied; the identity is a fact"

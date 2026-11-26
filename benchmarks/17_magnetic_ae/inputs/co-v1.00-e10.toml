@@ -1,0 +1,31 @@
+schema = 1
+
+[structure]
+cell_bohr = [[4.718266318862741, 0.0, 0.0],
+             [-2.3591331594313707, 4.086138493955622, 0.0],
+             [0.0, 0.0, 7.617123214244514]]
+species = ["Co", "Co"]
+positions_fractional = [[0.3333333333333333, 0.6666666666666666, 0.75], [0.6666666666666666, 0.3333333333333333, 0.25]]
+
+[basis]
+cutoff_ha = 40.0
+
+[kpoints]
+mesh = [24, 24, 15]
+
+[xc]
+functional = "pbe"
+
+[datasets]
+family = "jth-2.0"
+
+[spin]
+moments = [1.7, 1.7]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.002
+
+[scf]
+energy_tolerance_ha = 1e-9
+max_iterations = 200

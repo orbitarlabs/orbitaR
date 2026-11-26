@@ -1,0 +1,30 @@
+[case]
+tier = "pr"
+status = "active"
+claims = ["correctness"]
+reference = "analytic"
+
+# reference   −dF/dτ of the engine's own free energy F, so the cutoffs sit below the JTH hints (8 Ha)
+# step        ±1e-4 Bohr: the real-space n̂ makes F(τ) only once differentiable (fine-grid points cross r_shape)
+#             at ±1e-2 Bohr a five-point difference misses by 5e-8 (fe_lda, its bound) and 3.3e-7 (gaas, 4× its record)
+# SCF stop    1e-10: F and the forces lie within 1e-12 of a stop at 1e-12. Rotated, the stop step moves, the outputs
+#             not: fe-sym on ORBITAR_SEED 1 to 20 stops at 37 to 40 steps, within 2.5e-11 of the unrotated run (4×
+#             inside the rotation bound's floor 1e-10); the stop asks for a density change near rounding
+#
+# metric      error source                                                 record    bound
+# fe_lda      F rounding: 1e-12 Ha over 2e-4 Bohr = 5e-9                     5.2e-9    5e-8 (10× the rounding)
+# feo         F rounding (5e-9) plus FeO's PBE D^xc residual                 9.8e-9    5e-8 (5.1×)
+# gaas        PBE one-center D^xc ≠ ∂E/∂ρ_ij (pawxcm: radial derivative       8.5e-8    5e-7 (5.9×)
+# fe_pbe        of v, dv/dn by scaling; with spin also ∂v↑/∂n↓ := ∂v↓/∂n↑)     8.5e-7    3e-6 (3.5×)
+# symmetry    one SCF on two k sets: rounding only                           3.9e-13   1e-10 (the rotation bound's floor)
+# moment      fe, fe-lda and feo each ≥ 2 μB; within a triple |m± − m| ~ 2 μB/Bohr × 1e-4 Bohr     1.4e-4    1e-3
+#
+# Each bound lies ≥ 40× below every force term but two core terms: Fe's is 0 and FeO's 1.0e-7 (O's small ñ_c),
+# only 2× its bound. GaAs tests the core term: 1.3e-4 Ha/Bohr along the move.
+[tolerance]
+gaas_force_difference_ha_bohr_max = 5e-7
+fe_pbe_force_difference_ha_bohr_max = 3e-6
+fe_lda_force_difference_ha_bohr_max = 5e-8
+feo_force_difference_ha_bohr_max = 5e-8
+symmetry_force_difference_ha_bohr_max = 1e-10
+moment_spread_bohr_magneton_max = 1e-3

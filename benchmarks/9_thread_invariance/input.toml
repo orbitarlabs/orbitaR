@@ -1,0 +1,23 @@
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 3.8172467884289993, 3.8172467884289993],
+             [3.8172467884289993, 0.0, 3.8172467884289993],
+             [3.8172467884289993, 3.8172467884289993, 0.0]]
+species = ["Al"]
+positions_fractional = [[0.0, 0.0, 0.0]]
+
+[basis]
+cutoff_ha = 12.0
+density_cutoff_ha = 24.0
+
+[kpoints]
+mesh = [4, 4, 4]
+symmetry = false
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.00225
+
+[parallel]
+threads = 1

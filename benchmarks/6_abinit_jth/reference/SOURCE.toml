@@ -1,0 +1,5 @@
+kind = "same-dataset"
+citation = "Gonze et al., Comput. Phys. Commun. 248, 107042 (2020): ABINIT 10.0.3 (edbeb66; conda-forge build h2b8cb88_2 with libxc 4.3.4, FFTW 3.3.10, MPICH 4.3.2; one rank, OMP_NUM_THREADS 1), PAW with the JTH v2.0 PBE files that datasets/jth-2.0.toml pins"
+locator = "doi:10.1016/j.cpc.2019.107042"
+convention = "run.sh: <name>.abi with kptopt 3, nsym 1, tolvrs 1e-24, tolwfr 1e-22, nline 8; reference.py: the GSR terms in Ha (e_entropy is -kTS; etotal is the double-counting free energy), eigenvalues [spin][k][band] at reduced k-points, and with nsppol 2 the moment Σ_k w Σ_band (f↑ − f↓); input.json and fine.json are Si, fe.json and afm.json bcc Fe"
+license = "ABINIT is GPL-3.0; the printed numbers carry no license"

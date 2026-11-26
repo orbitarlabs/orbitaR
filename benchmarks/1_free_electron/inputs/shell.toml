@@ -1,0 +1,15 @@
+# Simple cubic, a = 2π Bohr, turned 0.3 rad about z: 6 plane waves sit on the 2 Ha sphere,
+# and the turn keeps their energies inexact, so a missing shell margin loses some of them.
+schema = 1
+
+[structure]
+cell_bohr = [[6.002556191886538, 1.8568082204692036, 0.0], [-1.8568082204692036, 6.002556191886538, 0.0], [0.0, 0.0, 6.283185307179586]]
+
+[basis]
+cutoff_ha = 2.0
+
+[kpoints]
+list = [[0.0, 0.0, 0.0]]
+
+[bands]
+count = 33

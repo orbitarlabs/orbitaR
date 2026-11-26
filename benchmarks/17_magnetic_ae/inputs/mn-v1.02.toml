@@ -1,0 +1,31 @@
+schema = 1
+
+[structure]
+cell_bohr = [[4.836288564974579, 0.0, 0.0],
+             [0.0, 4.836288564974579, 0.0],
+             [0.0, 0.0, 6.839544521765452]]
+species = ["Mn", "Mn"]
+positions_fractional = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
+
+[basis]
+cutoff_ha = 30.0
+
+[kpoints]
+mesh = [28, 28, 20]
+
+[xc]
+functional = "pbe"
+
+[datasets]
+family = "jth-2.0"
+
+[spin]
+moments = [3.0, -3.0]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.002
+
+[scf]
+energy_tolerance_ha = 1e-9
+max_iterations = 200

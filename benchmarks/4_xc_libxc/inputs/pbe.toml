@@ -1,0 +1,22 @@
+# The table's ten points with pbe; the last two leave one spin empty (ζ = ±1), which both codes floor at 1e-14.
+# The eighth has a reduced gradient s = |∇ρ| / (2 k_F ρ) ≈ 3.5, where the PBE enhancement nears its bound.
+schema = 1
+
+[structure]
+cell_bohr = [[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 10.0]]
+
+[basis]
+cutoff_ha = 1.0
+
+[kpoints]
+list = [[0.0, 0.0, 0.0]]
+
+[xc]
+functional = "pbe"
+
+[probe]
+term = "xc"
+points = [[0.5, 0.5, 0.0, 0.0, 0.0], [0.01, 0.01, 1e-4, 1e-4, 1e-4], [0.3, 0.1, 0.02, 0.01, 0.005],
+          [2.0, 1.5, 0.7, -0.2, 0.4], [0.05, 1e-4, 1e-3, 1e-5, 1e-6], [1e-3, 4e-3, 2e-6, 1e-6, 3e-6],
+          [10.0, 10.0, 50.0, 50.0, 50.0], [0.05, 0.02, 0.2, 0.05, 0.1],
+          [0.1, 0.0, 0.01, 0.0, 0.0], [0.0, 0.2, 0.0, 0.0, 0.03]]

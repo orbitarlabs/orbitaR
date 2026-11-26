@@ -1,0 +1,28 @@
+# The ACWF tuning and exam parts, by structure type. xtask/src/harness/acwf.rs reads
+# this file; the harness block of benchmarks/LOCK hashes it, so a change needs a harness review.
+
+# The exam crystals that case 10 ran before the split: they count in the verdict; the verdict without them is a
+# readout.
+flagged = [
+  "Ag-X/Diamond",
+  "Ag-X2O3",
+  "Al-X2O3",
+  "Cu-X2O",
+  "Na-X2O",
+  "Si-X/Diamond",
+  "Si-XO2",
+  "W-X/SC",
+  "W-XO2",
+]
+
+[part]
+"X/FCC" = "tune"
+"X/BCC" = "tune"
+"XO" = "tune"
+"XO3" = "tune"
+"X2O5" = "tune"
+"X/SC" = "exam"
+"X/Diamond" = "exam"
+"X2O" = "exam"
+"X2O3" = "exam"
+"XO2" = "exam"

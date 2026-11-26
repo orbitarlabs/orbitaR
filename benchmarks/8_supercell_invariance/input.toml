@@ -1,0 +1,18 @@
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 5.168594801950595, 5.168594801950595],
+             [5.168594801950595, 0.0, 5.168594801950595],
+             [5.168594801950595, 5.168594801950595, 0.0]]
+species = ["Si", "Si"]
+positions_fractional = [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]]
+
+[basis]
+cutoff_ha = 6.0
+
+[kpoints]
+mesh = [4, 4, 4]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.005

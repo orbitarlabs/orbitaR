@@ -1,0 +1,8 @@
+[case]
+tier = "push"
+status = "active"
+claims = ["correctness"]
+reference = "literature"
+
+[tolerance]
+madelung_error_max = 1e-12

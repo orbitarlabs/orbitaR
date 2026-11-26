@@ -1,0 +1,18 @@
+[case]
+tier = "pr"
+status = "active"
+claims = ["correctness"]
+reference = "oracle"
+
+# The engine at 1 thread against itself at 4: fcc Al (one spin, 64 k) and case 6's antiferromagnetic bcc Fe pair (two
+# spins, 27 k). Every output field must be bitwise equal; Crystal::bands states the rule that makes it so.
+[tolerance]
+term_difference_ha_max = 0.0
+fermi_level_difference_ha_max = 0.0
+magnetization_difference_bohr_magneton_max = 0.0
+eigenvalue_difference_ha_max = 0.0
+occupation_difference_max = 0.0
+kpoint_difference_max = 0.0
+weight_difference_max = 0.0
+basis_size_difference_max = 0.0
+scf_step_difference_max = 0.0

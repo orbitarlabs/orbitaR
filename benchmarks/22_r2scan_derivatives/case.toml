@@ -1,0 +1,43 @@
+[case]
+tier = "nightly"
+status = "active"
+claims = ["correctness"]
+reference = "analytic"
+
+# reference   cases 13 and 15 at r2SCAN, their measures (tests/benchmarks/22_r2scan_derivatives/case.rs): −dF/dτ and
+#             (1/Ω) ∂F/∂ε of the engine's own free energy, on case 13's rattled GaAs and ferromagnetic Fe pair; Fe's
+#             forces are case 20's (its hcp row against ABINIT 10.0.3), left out here for the tier's time
+# steps       case 13's ±1e-4 Bohr and case 15's h = 1e-5 along its directions: GaAs traceless with every shear set,
+#             GaAs 1/√3 (E(V)), Fe K = (1, 2, −3; 2, 0, 2; −3, 2, 0)/√35; every run prints outputs.discretization and
+#             each triple shares its record (operations, grids, plane waves, no retained Nyquist coefficient)
+# SCF stop    1e-10, as cases 13 and 15
+# gaps        D is ABINIT's recipe, not ∂E/∂ρ_ij, and Libxc's floors and caps leave out
+#             their chain rule: F's slope leaves the analytic one by each, which ks::Diagnosis predicts from energies
+#             and the recipe alone (tests/ks/crystal.rs `Slopes`; spheres and grid apart). No grid point of these
+#             rows binds a floor, threshold, or cap at the three states, so the grid's predicted gap is 0 here; its
+#             bound over every point (a branch between the states included) holds the difference's own O(h²)
+#
+# metric          FD − analytic   spheres    left       stop 1e-12 left   half step left   bound
+# gaas forces     −7.24e-9        1.51e-9    −8.75e-9   −6.14e-9          −1.56e-9         5e-8 (6.9×)
+# gaas stress     −2.23e-10       −7.5e-11   −1.47e-10  −2.56e-10         −2.93e-10        2e-9 (9.0×)
+# gaas_volume     5.99e-10        7.31e-10   −1.32e-10  −1.52e-10         7.61e-10         5e-9 (8.3×)
+# fe stress       −2.90e-10       −8.1e-12   −2.82e-10  −1.81e-10         −3.29e-10        2e-9 (6.9×)
+# moment          the Fe pair ≥ 2 μB (6.8); within a triple |m± − m|: 1.9e-5 (4.9e-5 with Fe's moves)  1e-3
+# What is left falls with the step on gaas forces (the difference's truncation; case 13: F(τ) is only once
+# differentiable) and holds near F's rounding (1e-12 Ha over 2h Ω: 3.3e-10, 6.5e-10) elsewhere; a stop 100 times
+# tighter moves each end's F by at most 5e-13 Ha. Rerun: tests/ks/crystal.rs, ignored, case_22_rows_meet_their_bounds….
+#
+# Each bound lies ≥ 40× below every r2SCAN term along its move but the upright frame's: GaAs's pseudo core τ force
+# 2.1e-4 Ha/Bohr; on gaas τ bands 3.7e-6 and core τ slope 1.6e-6 Ha/Bohr³ (its τ volume terms are 0 at trace 0); on
+# gaas_volume and fe ≥ 2.9e-5. Fe's grid has no τ̃_c (JTH Fe's pseudo core counts as none), so its core τ terms are 0.
+# The frame term on gaas is −5.6e-9, 2.8× its bound, 38× what is left; on fe 2.1e-11, on gaas_volume 0.
+#
+# time        10 inputs, each rotated once more: 268 s here (15 threads); at 2 threads 180 s, so 1,200 to 2,200 s on
+#             the hosted runner (× 3.4 to 6, twice). The nightly tier's 18,000 s also holds pr (2,590 s or less) and
+#             case 21, whose full meshes take 1,046 s at 2 threads here (7,100 to 12,600 s there): 17,300 s at most
+[tolerance]
+gaas_force_difference_ha_bohr_max = 5e-8
+gaas_stress_difference_ha_bohr3_max = 2e-9
+gaas_volume_stress_difference_ha_bohr3_max = 5e-9
+fe_stress_difference_ha_bohr3_max = 2e-9
+moment_spread_bohr_magneton_max = 1e-3

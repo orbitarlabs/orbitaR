@@ -1,0 +1,23 @@
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 5.34, 5.34],
+             [5.34, 0.0, 5.34],
+             [5.34, 5.34, 0.0]]
+species = ["Ga", "As"]
+positions_fractional = [[0.01199411075934426, -0.008990184598907098, 0.00599607383956284],
+                        [0.24301079694120217, 0.2590009815401093, 0.2619911661390164]]
+
+[basis]
+cutoff_ha = 8.0
+
+[kpoints]
+mesh = [2, 2, 2]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.005
+
+[scf]
+energy_tolerance_ha = 1e-10
+max_iterations = 200

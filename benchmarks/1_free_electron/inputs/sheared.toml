@@ -1,0 +1,15 @@
+# A sheared cell whose rows and columns have unlike lengths, and a k-point with entries beyond 0.5:
+# an engine that bounds the Miller box by the columns, or too tightly, misses plane waves here.
+schema = 1
+
+[structure]
+cell_bohr = [[4.0, 0.0, 0.0], [3.0, 3.0, 0.0], [3.0, 3.0, 3.0]]
+
+[basis]
+cutoff_ha = 20.0
+
+[kpoints]
+list = [[0.0, 0.0, 0.0], [0.75, -0.9, 0.95]]
+
+[bands]
+count = 10

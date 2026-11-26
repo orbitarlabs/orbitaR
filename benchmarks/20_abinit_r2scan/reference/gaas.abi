@@ -1,0 +1,25 @@
+# r2-gaas.abi with 4 more bands than its 15 (nbdbuf 4: tolwfr holds on the first 15, the ones compared).
+# The engine's upright frame (Cell::upright: a1 on +x, a2 in the xy plane): ABINIT's 12 x 13 on-site mesh is not
+# rotation-invariant, so ABINIT and the engine evaluate it in one frame. r2-gaas-original-frame.abi is the same
+# crystal in the conventional frame (5.65 Angstrom fcc); xred is unchanged (DESIGN-X2.md M0.1).
+acell 3*1.0 Angstrom
+rprim 3.995153313703994 0.000000000000000 0.000000000000000  1.997576656851997 3.459904261681239 0.000000000000000  1.997576656851997 1.153301420560413 3.262029020921386
+natom 2
+ntypat 2
+znucl 31 33
+typat 1 2
+xred 0.0 0.0 0.0  0.26 0.24 0.255
+pseudos "Ga/Ga.GGA_PBE-JTH.xml, As/As.GGA_PBE-JTH.xml"
+ecut 12.0
+pawecutdg 24.0
+ngkpt 2 2 2
+nshiftk 1
+shiftk 0 0 0
+occopt 1
+nband 19
+nbdbuf 4
+istwfk 8*1
+iscf 17
+ixc -497498
+usekden 1
+pawxcdev 0

@@ -1,0 +1,29 @@
+schema = 1
+
+[structure]
+cell_bohr = [[5.3479323020062495, 2.2037819637616343e-05, -2.2037819637616343e-05],
+             [2.2037819637616343e-05, 5.347910264186612, 1.4691879758410897e-05],
+             [-2.2037819637616343e-05, 1.4691879758410897e-05, 5.347939647946129]]
+species = ["Fe", "Fe"]
+positions_fractional = [[0.013, -0.008, 0.011],
+                        [0.492, 0.509, 0.488]]
+
+[basis]
+cutoff_ha = 8.0
+
+[kpoints]
+mesh = [2, 2, 2]
+
+[spin]
+moments = [2.5, 2.5]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.01
+
+[scf]
+energy_tolerance_ha = 1e-10
+max_iterations = 200
+
+[xc]
+functional = "lda"

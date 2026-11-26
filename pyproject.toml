@@ -1,0 +1,19 @@
+[build-system]
+requires = ["maturin==1.9.6"]
+build-backend = "maturin"
+
+[project]
+name = "orbitar"
+dynamic = ["version"]
+description = "Quantum simulation at native speed, powered by Rust."
+authors = [{ name = "The orbitaR developers" }]
+requires-python = ">=3.12"
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE", "THIRD-PARTY-NOTICES"]
+dependencies = ["ase==3.29.0", "numpy==2.5.4", "scipy==1.18.1", "orbitar-jth==2.0.0"]
+
+[tool.maturin]
+bindings = "bin"
+python-source = "python"
+manifest-path = "Cargo.toml"
+locked = true

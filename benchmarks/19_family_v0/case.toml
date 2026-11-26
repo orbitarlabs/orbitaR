@@ -1,0 +1,26 @@
+[case]
+tier = "push"
+status = "active"
+claims = ["correctness"]
+reference = "oracle"
+
+# orbitaR-PBE-v0: Pipeline proof for the pinned ATOMPAW rebuild of JTH v2.0's O input.
+# ACWF, held-out checks and cutoff convergence are unrecorded.
+# The engine reads the family orbitaR-PBE-v0 by its name: rocksalt MgO (a = 7.956 bohr) once with jth-2.0
+# (input.toml) and once with orbitaR-PBE-v0 (inputs/v0.toml), equal but for [datasets] family. v0's own row gives O,
+# its base jth-2.0 gives Mg: both kinds of row. The name itself is the harness's `agree()` on each input: the v0
+# outcome must name orbitaR-PBE-v0/O.xml with the sha256 of the bytes that the harness placed. Energies cannot tell the
+# file: an outcome that names JTH's O fails in agree() before any energy is measured, and other bytes at
+# orbitaR-PBE-v0/O.xml fail the engine's sha256 check (xtask/tests/harness/datasets.rs
+# an_input_of_ours_whose_outcome_names_the_base_file_of_an_own_row_fails_before_its_measure; tests/io/run.rs
+# a_family_file_off_its_pin_fails_by_key_path_both_hashes_and_the_fix).
+# v0's O is JTH v2.0's O input rebuilt by the pinned ATOMPAW (datasets/orbitaR-PBE-v0/NOTICE); its numbers depart
+# from JTH's published O by up to 8e-8 of the largest magnitude in each XML element (xtask/src/atompaw.rs REBUILD_REL).
+# Records on an arm64 Mac (2026-11-24; the review saw the same at 1, 4, and 15 threads): ΔF 1.03e-10 Ha, the largest
+# term 4.53e-9 Ha (one-center), ΔE_F 9.7e-13 Ha. Each bound is about five times its record, the margin that case 6
+# keeps. The first Linux x86-64 record comes from CI; a record above a bound there is a finding to study, not a bound
+# to raise.
+[tolerance]
+free_energy_difference_ha_max = 5e-10
+term_difference_ha_max = 2e-8
+fermi_level_difference_ha_max = 5e-12

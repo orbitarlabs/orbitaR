@@ -1,0 +1,8 @@
+# cargo-nextest for the CI mutants job (NEXTEST_PROFILE=mutants): a mutant is caught at its first failing test.
+[profile.mutants]
+fail-fast = { max-fail = 1, terminate = "immediate" }
+
+# The SCF tests take most of a pass, so they run last.
+[[profile.mutants.overrides]]
+filter = "test(/^(ks|io|main)::/)"
+priority = -10

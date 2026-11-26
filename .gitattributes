@@ -1,0 +1,4 @@
+# git archive leaves the agent setup out of the bench image (container/Dockerfile) and of the public tree: no lever,
+# test, or doc needs it.
+.agents/ export-ignore
+.claude/ export-ignore

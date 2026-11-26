@@ -1,0 +1,5766 @@
+{
+"BM_fit_data": {
+"Ac-X/BCC": {
+"bulk_deriv": 3.4177321521837998,
+"bulk_modulus_ev_ang3": 0.1541945276316932,
+"min_volume": 45.93557783051534
+},
+"Ac-X/Diamond": {
+"bulk_deriv": 3.209958643498073,
+"bulk_modulus_ev_ang3": 0.07898976135361022,
+"min_volume": 129.70425743354633
+},
+"Ac-X/FCC": {
+"bulk_deriv": 2.720641654330882,
+"bulk_modulus_ev_ang3": 0.14968959460902076,
+"min_volume": 45.556626950062515
+},
+"Ac-X/SC": {
+"bulk_deriv": 3.521591927113093,
+"bulk_modulus_ev_ang3": 0.1151964899571489,
+"min_volume": 49.85501200169514
+},
+"Ac-X2O": {
+"bulk_deriv": 4.608493219328219,
+"bulk_modulus_ev_ang3": 0.32175656481943105,
+"min_volume": 80.33593470120812
+},
+"Ac-X2O3": {
+"bulk_deriv": 4.212835478960778,
+"bulk_modulus_ev_ang3": 0.6196977394995231,
+"min_volume": 203.0327842358279
+},
+"Ac-X2O5": {
+"bulk_deriv": 4.172039687309659,
+"bulk_modulus_ev_ang3": 0.6873295592494538,
+"min_volume": 207.43187679211627
+},
+"Ac-XO": {
+"bulk_deriv": 4.817456764865748,
+"bulk_modulus_ev_ang3": 0.6253112065429852,
+"min_volume": 38.93811988153014
+},
+"Ac-XO2": {
+"bulk_deriv": 4.174194443548416,
+"bulk_modulus_ev_ang3": 0.6276516441151448,
+"min_volume": 52.8827900421071
+},
+"Ac-XO3": {
+"bulk_deriv": 5.526212672179851,
+"bulk_modulus_ev_ang3": 0.20423776770932425,
+"min_volume": 91.63032594073563
+},
+"Ag-X/BCC": {
+"bulk_deriv": 5.7362882279314436,
+"bulk_modulus_ev_ang3": 0.553309510460452,
+"min_volume": 17.95090615163338
+},
+"Ag-X/Diamond": {
+"bulk_deriv": 5.694989862468592,
+"bulk_modulus_ev_ang3": 0.18774256024886976,
+"min_volume": 60.122096522062066
+},
+"Ag-X/FCC": {
+"bulk_deriv": 5.8681887405489235,
+"bulk_modulus_ev_ang3": 0.569471794262181,
+"min_volume": 17.80741701309709
+},
+"Ag-X/SC": {
+"bulk_deriv": 5.817663387413133,
+"bulk_modulus_ev_ang3": 0.4177970870681277,
+"min_volume": 20.793501664851913
+},
+"Ag-X2O": {
+"bulk_deriv": 5.251281820998838,
+"bulk_modulus_ev_ang3": 0.5229776813914429,
+"min_volume": 48.304490181587774
+},
+"Ag-X2O3": {
+"bulk_deriv": 5.182672075436094,
+"bulk_modulus_ev_ang3": 0.7915206655717093,
+"min_volume": 131.5800376541261
+},
+"Ag-X2O5": {
+"bulk_deriv": 5.127278895072641,
+"bulk_modulus_ev_ang3": 0.8060219543672648,
+"min_volume": 150.15033227702833
+},
+"Ag-XO": {
+"bulk_deriv": 5.227420777102887,
+"bulk_modulus_ev_ang3": 0.8030939633980032,
+"min_volume": 25.50284455792727
+},
+"Ag-XO2": {
+"bulk_deriv": 5.267675753899731,
+"bulk_modulus_ev_ang3": 0.8998462354846686,
+"min_volume": 34.466733799301
+},
+"Ag-XO3": {
+"bulk_deriv": 4.976792180741032,
+"bulk_modulus_ev_ang3": 0.4933194911301984,
+"min_volume": 65.60992002082335
+},
+"Al-X/BCC": {
+"bulk_deriv": 4.460915093539603,
+"bulk_modulus_ev_ang3": 0.4310732774089403,
+"min_volume": 16.911556234014743
+},
+"Al-X/Diamond": {
+"bulk_deriv": 4.186638516030496,
+"bulk_modulus_ev_ang3": 0.23382495078070098,
+"min_volume": 55.28047428593985
+},
+"Al-X/FCC": {
+"bulk_deriv": 4.653308000030871,
+"bulk_modulus_ev_ang3": 0.48711711337343694,
+"min_volume": 16.481297784591035
+},
+"Al-X/SC": {
+"bulk_deriv": 4.434733939044952,
+"bulk_modulus_ev_ang3": 0.35644122639503745,
+"min_volume": 20.152591073014996
+},
+"Al-X2O": {
+"bulk_deriv": 5.227711272006097,
+"bulk_modulus_ev_ang3": 0.3552119394992809,
+"min_volume": 46.17717163434268
+},
+"Al-X2O3": {
+"bulk_deriv": 4.128135773691437,
+"bulk_modulus_ev_ang3": 1.170757941649674,
+"min_volume": 98.55713899511575
+},
+"Al-X2O5": {
+"bulk_deriv": 4.276105352032837,
+"bulk_modulus_ev_ang3": 1.0757116729482614,
+"min_volume": 125.99702835100055
+},
+"Al-XO": {
+"bulk_deriv": 4.044067947639008,
+"bulk_modulus_ev_ang3": 0.8356160233420571,
+"min_volume": 22.438696984924132
+},
+"Al-XO2": {
+"bulk_deriv": 4.160461337477933,
+"bulk_modulus_ev_ang3": 1.3044196338349954,
+"min_volume": 26.304614790599203
+},
+"Al-XO3": {
+"bulk_deriv": 4.157227812235342,
+"bulk_modulus_ev_ang3": 0.7645169717087852,
+"min_volume": 49.89574261107925
+},
+"Am-X/BCC": {
+"bulk_deriv": 6.366173588199928,
+"bulk_modulus_ev_ang3": 1.18800361256681,
+"min_volume": 16.070638466014742
+},
+"Am-X/Diamond": {
+"bulk_deriv": 5.335136950854267,
+"bulk_modulus_ev_ang3": 1.43329672579428,
+"min_volume": 38.418246822649515
+},
+"Am-X/FCC": {
+"bulk_deriv": 4.92494837315572,
+"bulk_modulus_ev_ang3": 0.9071323722163988,
+"min_volume": 17.287926488737998
+},
+"Am-X/SC": {
+"bulk_deriv": 6.430614444979267,
+"bulk_modulus_ev_ang3": 1.2920151191831668,
+"min_volume": 15.926377214754014
+},
+"Am-X2O": {
+"bulk_deriv": 5.225813926108435,
+"bulk_modulus_ev_ang3": 0.9392793030932037,
+"min_volume": 45.241059948572875
+},
+"Am-X2O3": {
+"bulk_deriv": 4.437694583587939,
+"bulk_modulus_ev_ang3": 0.9525488951197058,
+"min_volume": 144.18607309065945
+},
+"Am-X2O5": {
+"bulk_deriv": 4.603773915004847,
+"bulk_modulus_ev_ang3": 1.2553859630525,
+"min_volume": 148.39248514357163
+},
+"Am-XO": {
+"bulk_deriv": 4.9920620774333475,
+"bulk_modulus_ev_ang3": 1.194141747679059,
+"min_volume": 26.585748454047458
+},
+"Am-XO2": {
+"bulk_deriv": 4.384884022604942,
+"bulk_modulus_ev_ang3": 1.2207277388955982,
+"min_volume": 36.85367497539995
+},
+"Am-XO3": {
+"bulk_deriv": 4.281414944627079,
+"bulk_modulus_ev_ang3": 0.8085718284391028,
+"min_volume": 67.5955874573632
+},
+"Ar-X/BCC": {
+"bulk_deriv": 7.369335985679662,
+"bulk_modulus_ev_ang3": 0.004435161491135842,
+"min_volume": 53.33899548942847
+},
+"Ar-X/Diamond": {
+"bulk_deriv": 7.474744718269875,
+"bulk_modulus_ev_ang3": 0.0013341421486813023,
+"min_volume": 197.10393706969583
+},
+"Ar-X/FCC": {
+"bulk_deriv": 7.360342492314722,
+"bulk_modulus_ev_ang3": 0.004699603947667752,
+"min_volume": 52.284971462418056
+},
+"Ar-X/SC": {
+"bulk_deriv": 7.515921809613278,
+"bulk_modulus_ev_ang3": 0.0030169810440736594,
+"min_volume": 65.23342769874523
+},
+"Ar-X2O": {
+"bulk_deriv": 7.111874875431411,
+"bulk_modulus_ev_ang3": 0.01040980605150511,
+"min_volume": 113.10099832695632
+},
+"Ar-X2O3": {
+"bulk_deriv": 6.132289246629345,
+"bulk_modulus_ev_ang3": 0.09407905267276505,
+"min_volume": 206.56289130162563
+},
+"Ar-X2O5": {
+"bulk_deriv": 5.301729371045164,
+"bulk_modulus_ev_ang3": 0.2995387098362789,
+"min_volume": 185.3332923279658
+},
+"Ar-XO": {
+"bulk_deriv": 7.153487683450308,
+"bulk_modulus_ev_ang3": 0.08336946597469817,
+"min_volume": 39.42962698800389
+},
+"Ar-XO2": {
+"bulk_deriv": 5.945148399147118,
+"bulk_modulus_ev_ang3": 0.12173498947653072,
+"min_volume": 51.406552184414
+},
+"Ar-XO3": {
+"bulk_deriv": 5.511189379489271,
+"bulk_modulus_ev_ang3": 0.17675031697121069,
+"min_volume": 68.54585595241585
+},
+"As-X/BCC": {
+"bulk_deriv": 4.270414888945665,
+"bulk_modulus_ev_ang3": 0.5070794485407399,
+"min_volume": 19.062851844840267
+},
+"As-X/Diamond": {
+"bulk_deriv": 3.741214649861103,
+"bulk_modulus_ev_ang3": 0.2891889786070369,
+"min_volume": 57.059778200319066
+},
+"As-X/FCC": {
+"bulk_deriv": 4.331983637100429,
+"bulk_modulus_ev_ang3": 0.49287877695282106,
+"min_volume": 19.327083961462503
+},
+"As-X/SC": {
+"bulk_deriv": 4.319747792758974,
+"bulk_modulus_ev_ang3": 0.4866767500418573,
+"min_volume": 20.382399235222213
+},
+"As-X2O": {
+"bulk_deriv": 4.311668228904312,
+"bulk_modulus_ev_ang3": 0.5672237999794758,
+"min_volume": 47.841171782132456
+},
+"As-X2O3": {
+"bulk_deriv": 4.123997878038622,
+"bulk_modulus_ev_ang3": 0.783089098806932,
+"min_volume": 130.73376115342174
+},
+"As-X2O5": {
+"bulk_deriv": 4.0433496651294645,
+"bulk_modulus_ev_ang3": 0.8620321434480663,
+"min_volume": 144.12648179671456
+},
+"As-XO": {
+"bulk_deriv": 4.338949976875544,
+"bulk_modulus_ev_ang3": 0.8179550139786319,
+"min_volume": 27.20565580574212
+},
+"As-XO2": {
+"bulk_deriv": 4.426989143498054,
+"bulk_modulus_ev_ang3": 1.0351666164539481,
+"min_volume": 31.551926275183288
+},
+"As-XO3": {
+"bulk_deriv": 5.612784511432931,
+"bulk_modulus_ev_ang3": 0.8933622837816784,
+"min_volume": 47.614962138348986
+},
+"At-X/BCC": {
+"bulk_deriv": 5.681907939741382,
+"bulk_modulus_ev_ang3": 0.14453259569927482,
+"min_volume": 40.092571866373085
+},
+"At-X/Diamond": {
+"bulk_deriv": 5.235419562308705,
+"bulk_modulus_ev_ang3": 0.06837769185999368,
+"min_volume": 134.0204985636856
+},
+"At-X/FCC": {
+"bulk_deriv": 5.736347528598779,
+"bulk_modulus_ev_ang3": 0.14843259213451465,
+"min_volume": 39.14331903271867
+},
+"At-X/SC": {
+"bulk_deriv": 5.756341585876991,
+"bulk_modulus_ev_ang3": 0.13827967994619283,
+"min_volume": 46.180821305671095
+},
+"At-X2O": {
+"bulk_deriv": 5.360510851716644,
+"bulk_modulus_ev_ang3": 0.2729093720006935,
+"min_volume": 78.22006471848155
+},
+"At-X2O3": {
+"bulk_deriv": 4.687735342697187,
+"bulk_modulus_ev_ang3": 0.5876241112265397,
+"min_volume": 178.90976447861408
+},
+"At-X2O5": {
+"bulk_deriv": 4.998025279374278,
+"bulk_modulus_ev_ang3": 0.8905358260908436,
+"min_volume": 170.64977895142147
+},
+"At-XO": {
+"bulk_deriv": 5.052888661986081,
+"bulk_modulus_ev_ang3": 0.46477075088612035,
+"min_volume": 40.8769892336427
+},
+"At-XO2": {
+"bulk_deriv": 4.757568233374154,
+"bulk_modulus_ev_ang3": 0.8043161224615595,
+"min_volume": 44.20254128210969
+},
+"At-XO3": {
+"bulk_deriv": 3.8034501475839138,
+"bulk_modulus_ev_ang3": 0.5055489601746046,
+"min_volume": 73.53573020236935
+},
+"Au-X/BCC": {
+"bulk_deriv": 5.981627116260519,
+"bulk_modulus_ev_ang3": 0.8688293561271034,
+"min_volume": 17.93654378345317
+},
+"Au-X/Diamond": {
+"bulk_deriv": 5.880950338909498,
+"bulk_modulus_ev_ang3": 0.33568688789555273,
+"min_volume": 58.17271545688367
+},
+"Au-X/FCC": {
+"bulk_deriv": 5.9423817696462375,
+"bulk_modulus_ev_ang3": 0.8856845224607657,
+"min_volume": 17.875897492299128
+},
+"Au-X/SC": {
+"bulk_deriv": 5.591042120998163,
+"bulk_modulus_ev_ang3": 0.67058863160215,
+"min_volume": 20.65528920584512
+},
+"Au-X2O": {
+"bulk_deriv": 5.417526023785766,
+"bulk_modulus_ev_ang3": 0.6612952622787415,
+"min_volume": 49.22468747692971
+},
+"Au-X2O3": {
+"bulk_deriv": 5.075470077316545,
+"bulk_modulus_ev_ang3": 0.9553641889843466,
+"min_volume": 133.96107215487922
+},
+"Au-X2O5": {
+"bulk_deriv": 5.087072729440032,
+"bulk_modulus_ev_ang3": 0.958358265074291,
+"min_volume": 149.99591148098887
+},
+"Au-XO": {
+"bulk_deriv": 5.1679212001016115,
+"bulk_modulus_ev_ang3": 0.9088320832335947,
+"min_volume": 26.79823757263715
+},
+"Au-XO2": {
+"bulk_deriv": 5.121030346106781,
+"bulk_modulus_ev_ang3": 1.1037560247982328,
+"min_volume": 34.930921577665195
+},
+"Au-XO3": {
+"bulk_deriv": 4.96987775068003,
+"bulk_modulus_ev_ang3": 0.6115404327181622,
+"min_volume": 63.78730182376702
+},
+"B-X/BCC": {
+"bulk_deriv": 5.065351041819661,
+"bulk_modulus_ev_ang3": 1.438125561302675,
+"min_volume": 6.136941173092311
+},
+"B-X/Diamond": {
+"bulk_deriv": 3.499022091774579,
+"bulk_modulus_ev_ang3": 1.0974363887658662,
+"min_volume": 16.63497285668166
+},
+"B-X/FCC": {
+"bulk_deriv": 3.7472412953369973,
+"bulk_modulus_ev_ang3": 1.689522079158215,
+"min_volume": 5.889917013161777
+},
+"B-X/SC": {
+"bulk_deriv": 3.8922971110725664,
+"bulk_modulus_ev_ang3": 1.4599911607133522,
+"min_volume": 6.701604130616816
+},
+"B-X2O": {
+"bulk_deriv": 1.9588074690279758,
+"bulk_modulus_ev_ang3": 0.4327347966916441,
+"min_volume": 29.995829176049206
+},
+"B-X2O3": {
+"bulk_deriv": 4.1647133907256215,
+"bulk_modulus_ev_ang3": 1.4604755692085858,
+"min_volume": 71.95113831576938
+},
+"B-X2O5": {
+"bulk_deriv": 4.434811770189102,
+"bulk_modulus_ev_ang3": 1.0206414087712758,
+"min_volume": 108.56922344628792
+},
+"B-XO": {
+"bulk_deriv": 3.508178756569455,
+"bulk_modulus_ev_ang3": 1.1461476187569242,
+"min_volume": 14.7093576049713
+},
+"B-XO2": {
+"bulk_deriv": 4.187517526667752,
+"bulk_modulus_ev_ang3": 1.6113667889506182,
+"min_volume": 20.369141545511408
+},
+"B-XO3": {
+"bulk_deriv": 4.111980570504137,
+"bulk_modulus_ev_ang3": 1.197647086715219,
+"min_volume": 33.62159195961722
+},
+"Ba-X/BCC": {
+"bulk_deriv": 2.9921663615187346,
+"bulk_modulus_ev_ang3": 0.05449445665996248,
+"min_volume": 63.2729085083204
+},
+"Ba-X/Diamond": {
+"bulk_deriv": 7.70734434844794,
+"bulk_modulus_ev_ang3": 0.05061309643415719,
+"min_volume": 113.57999211859992
+},
+"Ba-X/FCC": {
+"bulk_deriv": 2.561840431238941,
+"bulk_modulus_ev_ang3": 0.050619615747645744,
+"min_volume": 64.09319997429435
+},
+"Ba-X/SC": {
+"bulk_deriv": 3.8101880671801194,
+"bulk_modulus_ev_ang3": 0.045670510207119125,
+"min_volume": 61.62082959909507
+},
+"Ba-X2O": {
+"bulk_deriv": 4.84247286974822,
+"bulk_modulus_ev_ang3": 0.22006337639355208,
+"min_volume": 79.7521692769161
+},
+"Ba-X2O3": {
+"bulk_deriv": 4.016848889847101,
+"bulk_modulus_ev_ang3": 0.300499315026619,
+"min_volume": 233.64594444164715
+},
+"Ba-X2O5": {
+"bulk_deriv": 4.324325096519415,
+"bulk_modulus_ev_ang3": 0.3850949789984022,
+"min_volume": 226.81721839259845
+},
+"Ba-XO": {
+"bulk_deriv": 4.58183292850012,
+"bulk_modulus_ev_ang3": 0.4315389173000499,
+"min_volume": 43.246929716034124
+},
+"Ba-XO2": {
+"bulk_deriv": 3.844055129835189,
+"bulk_modulus_ev_ang3": 0.2821546565786261,
+"min_volume": 60.29799119096966
+},
+"Ba-XO3": {
+"bulk_deriv": 5.881073949930013,
+"bulk_modulus_ev_ang3": 0.11496845918132745,
+"min_volume": 91.30542502813351
+},
+"Be-X/BCC": {
+"bulk_deriv": 3.2657983631522134,
+"bulk_modulus_ev_ang3": 0.7737872204512704,
+"min_volume": 7.844459508636743
+},
+"Be-X/Diamond": {
+"bulk_deriv": 3.320348187917527,
+"bulk_modulus_ev_ang3": 0.27445005774114334,
+"min_volume": 29.454967202393
+},
+"Be-X/FCC": {
+"bulk_deriv": 3.6573202412657047,
+"bulk_modulus_ev_ang3": 0.7522007388543981,
+"min_volume": 7.89111052449471
+},
+"Be-X/SC": {
+"bulk_deriv": 3.3708869059851985,
+"bulk_modulus_ev_ang3": 0.47196254880271593,
+"min_volume": 10.30117068545262
+},
+"Be-X2O": {
+"bulk_deriv": 3.22830007025732,
+"bulk_modulus_ev_ang3": 0.6751709381355271,
+"min_volume": 26.826347953351952
+},
+"Be-X2O3": {
+"bulk_deriv": 3.8869363523364155,
+"bulk_modulus_ev_ang3": 1.095066314449818,
+"min_volume": 77.47438693817122
+},
+"Be-X2O5": {
+"bulk_deriv": 4.116042087090268,
+"bulk_modulus_ev_ang3": 0.9446089223443639,
+"min_volume": 114.4257278581439
+},
+"Be-XO": {
+"bulk_deriv": 3.778650056733513,
+"bulk_modulus_ev_ang3": 1.5098069865542378,
+"min_volume": 12.107617164843205
+},
+"Be-XO2": {
+"bulk_deriv": 4.055734615771974,
+"bulk_modulus_ev_ang3": 1.1358631404089574,
+"min_volume": 22.159470204622497
+},
+"Be-XO3": {
+"bulk_deriv": 4.131957663049025,
+"bulk_modulus_ev_ang3": 0.7051020855401698,
+"min_volume": 38.94860426215218
+},
+"Bi-X/BCC": {
+"bulk_deriv": 4.624170298693187,
+"bulk_modulus_ev_ang3": 0.3262528381655684,
+"min_volume": 31.552248072373633
+},
+"Bi-X/Diamond": {
+"bulk_deriv": 4.383750540228102,
+"bulk_modulus_ev_ang3": 0.17981905727859895,
+"min_volume": 96.59514152507602
+},
+"Bi-X/FCC": {
+"bulk_deriv": 4.650317383399508,
+"bulk_modulus_ev_ang3": 0.3226673989942463,
+"min_volume": 31.727983147643197
+},
+"Bi-X/SC": {
+"bulk_deriv": 4.702792582802718,
+"bulk_modulus_ev_ang3": 0.2891761542130188,
+"min_volume": 35.10102333386749
+},
+"Bi-X2O": {
+"bulk_deriv": 4.674749486103277,
+"bulk_modulus_ev_ang3": 0.42271784905819226,
+"min_volume": 69.10751420324279
+},
+"Bi-X2O3": {
+"bulk_deriv": 4.368535665344499,
+"bulk_modulus_ev_ang3": 0.654230750980812,
+"min_volume": 174.69378028885745
+},
+"Bi-X2O5": {
+"bulk_deriv": 4.100412357318881,
+"bulk_modulus_ev_ang3": 0.734522723728247,
+"min_volume": 177.79181399865627
+},
+"Bi-XO": {
+"bulk_deriv": 4.508726964199541,
+"bulk_modulus_ev_ang3": 0.6553669846445612,
+"min_volume": 35.96769014678115
+},
+"Bi-XO2": {
+"bulk_deriv": 4.73579368055295,
+"bulk_modulus_ev_ang3": 0.8353266241113372,
+"min_volume": 42.04302331098058
+},
+"Bi-XO3": {
+"bulk_deriv": 5.290583743374756,
+"bulk_modulus_ev_ang3": 0.5085029759154183,
+"min_volume": 74.08469204120887
+},
+"Br-X/BCC": {
+"bulk_deriv": 5.5491091117207265,
+"bulk_modulus_ev_ang3": 0.1744579111928874,
+"min_volume": 26.788716781040623
+},
+"Br-X/Diamond": {
+"bulk_deriv": 5.205220418139176,
+"bulk_modulus_ev_ang3": 0.09374179300643015,
+"min_volume": 86.20277552225774
+},
+"Br-X/FCC": {
+"bulk_deriv": 5.571586171441078,
+"bulk_modulus_ev_ang3": 0.17276583622958333,
+"min_volume": 26.426455498968288
+},
+"Br-X/SC": {
+"bulk_deriv": 5.524632328345272,
+"bulk_modulus_ev_ang3": 0.18207768509199554,
+"min_volume": 29.831021157928674
+},
+"Br-X2O": {
+"bulk_deriv": 4.895025767193709,
+"bulk_modulus_ev_ang3": 0.24864945169225916,
+"min_volume": 61.68822448956566
+},
+"Br-X2O3": {
+"bulk_deriv": 4.685586199874239,
+"bulk_modulus_ev_ang3": 0.5580348775678511,
+"min_volume": 147.74142181057056
+},
+"Br-X2O5": {
+"bulk_deriv": 4.810140736352941,
+"bulk_modulus_ev_ang3": 0.6787092946207441,
+"min_volume": 156.17539609661992
+},
+"Br-XO": {
+"bulk_deriv": 5.113761346190797,
+"bulk_modulus_ev_ang3": 0.5215558081142849,
+"min_volume": 31.130984998371442
+},
+"Br-XO2": {
+"bulk_deriv": 4.701552931978565,
+"bulk_modulus_ev_ang3": 0.6871004369599911,
+"min_volume": 37.143323499245945
+},
+"Br-XO3": {
+"bulk_deriv": 3.9101826924437253,
+"bulk_modulus_ev_ang3": 0.5083823454828592,
+"min_volume": 58.984077736802554
+},
+"C-X/BCC": {
+"bulk_deriv": 4.490407303580247,
+"bulk_modulus_ev_ang3": 1.129730275640098,
+"min_volume": 6.697011864425865
+},
+"C-X/Diamond": {
+"bulk_deriv": 3.7461828798514576,
+"bulk_modulus_ev_ang3": 2.7074826166697505,
+"min_volume": 11.402380765433996
+},
+"C-X/FCC": {
+"bulk_deriv": 3.546641510813024,
+"bulk_modulus_ev_ang3": 0.9353604185886225,
+"min_volume": 7.335652916568943
+},
+"C-X/SC": {
+"bulk_deriv": 4.426786532641317,
+"bulk_modulus_ev_ang3": 2.0611765184988387,
+"min_volume": 5.590265051615403
+},
+"C-X2O": {
+"bulk_deriv": 3.6165539946859413,
+"bulk_modulus_ev_ang3": 0.6936522204682918,
+"min_volume": 28.562422986482446
+},
+"C-X2O3": {
+"bulk_deriv": 4.230521632387144,
+"bulk_modulus_ev_ang3": 0.9336756448458319,
+"min_volume": 84.57630283764406
+},
+"C-X2O5": {
+"bulk_deriv": 4.13083403425082,
+"bulk_modulus_ev_ang3": 0.8473670039484351,
+"min_volume": 117.13880476167407
+},
+"C-XO": {
+"bulk_deriv": 3.843201174384986,
+"bulk_modulus_ev_ang3": 1.0657898267441108,
+"min_volume": 15.7078964813971
+},
+"C-XO2": {
+"bulk_deriv": 4.65083728103468,
+"bulk_modulus_ev_ang3": 1.0446895526689903,
+"min_volume": 22.768092676124507
+},
+"C-XO3": {
+"bulk_deriv": 4.603647329481846,
+"bulk_modulus_ev_ang3": 1.0082910393175344,
+"min_volume": 32.950282251011906
+},
+"Ca-X/BCC": {
+"bulk_deriv": 2.754683637050642,
+"bulk_modulus_ev_ang3": 0.10361442263394081,
+"min_volume": 42.13305481840252
+},
+"Ca-X/Diamond": {
+"bulk_deriv": 2.7403442580297863,
+"bulk_modulus_ev_ang3": 0.025848446674467757,
+"min_volume": 159.9306675366846
+},
+"Ca-X/FCC": {
+"bulk_deriv": 3.2776819656825635,
+"bulk_modulus_ev_ang3": 0.1085246139617522,
+"min_volume": 42.180426074150176
+},
+"Ca-X/SC": {
+"bulk_deriv": 3.2697061300307952,
+"bulk_modulus_ev_ang3": 0.06717741124991058,
+"min_volume": 43.58020528406858
+},
+"Ca-X2O": {
+"bulk_deriv": 4.142781964649062,
+"bulk_modulus_ev_ang3": 0.293821353723173,
+"min_volume": 56.04972401091188
+},
+"Ca-X2O3": {
+"bulk_deriv": 4.2755756801911335,
+"bulk_modulus_ev_ang3": 0.4827274179587219,
+"min_volume": 159.80404624614104
+},
+"Ca-X2O5": {
+"bulk_deriv": 4.40994213016357,
+"bulk_modulus_ev_ang3": 0.5817902377567111,
+"min_volume": 168.63864787754125
+},
+"Ca-XO": {
+"bulk_deriv": 4.356307563036651,
+"bulk_modulus_ev_ang3": 0.657581729787264,
+"min_volume": 28.181628268602577
+},
+"Ca-XO2": {
+"bulk_deriv": 4.337067509807437,
+"bulk_modulus_ev_ang3": 0.49639060440507976,
+"min_volume": 42.28695848040337
+},
+"Ca-XO3": {
+"bulk_deriv": 3.7054715551966924,
+"bulk_modulus_ev_ang3": 0.19202356490793504,
+"min_volume": 94.26480827201615
+},
+"Cd-X/BCC": {
+"bulk_deriv": 6.803149580165364,
+"bulk_modulus_ev_ang3": 0.22390406130576732,
+"min_volume": 23.384331859188485
+},
+"Cd-X/Diamond": {
+"bulk_deriv": 6.4551823590341435,
+"bulk_modulus_ev_ang3": 0.08933099059705409,
+"min_volume": 74.85934786143838
+},
+"Cd-X/FCC": {
+"bulk_deriv": 5.725092364848278,
+"bulk_modulus_ev_ang3": 0.2619499532023712,
+"min_volume": 22.820252714507227
+},
+"Cd-X/SC": {
+"bulk_deriv": 5.360582083501908,
+"bulk_modulus_ev_ang3": 0.18667029396542462,
+"min_volume": 26.907058995196397
+},
+"Cd-X2O": {
+"bulk_deriv": 4.958205914002104,
+"bulk_modulus_ev_ang3": 0.4621746928938083,
+"min_volume": 53.08573524069089
+},
+"Cd-X2O3": {
+"bulk_deriv": 4.532239712006727,
+"bulk_modulus_ev_ang3": 0.6139312457908837,
+"min_volume": 146.70818950330832
+},
+"Cd-X2O5": {
+"bulk_deriv": 4.784375293715261,
+"bulk_modulus_ev_ang3": 0.7102776836779446,
+"min_volume": 161.3631169761824
+},
+"Cd-XO": {
+"bulk_deriv": 4.792677880961958,
+"bulk_modulus_ev_ang3": 0.7856343378231565,
+"min_volume": 27.114520305544733
+},
+"Cd-XO2": {
+"bulk_deriv": 4.718978678037471,
+"bulk_modulus_ev_ang3": 0.658977550073174,
+"min_volume": 38.58684792431399
+},
+"Cd-XO3": {
+"bulk_deriv": 5.042179786264448,
+"bulk_modulus_ev_ang3": 0.336875244543804,
+"min_volume": 73.36478959300631
+},
+"Ce-X/BCC": {
+"bulk_deriv": 4.073426992632489,
+"bulk_modulus_ev_ang3": 0.18414949962878377,
+"min_volume": 27.625270711208724
+},
+"Ce-X/Diamond": {
+"bulk_deriv": 5.53923736038736,
+"bulk_modulus_ev_ang3": 0.4585960255881331,
+"min_volume": 60.794721029518904
+},
+"Ce-X/FCC": {
+"bulk_deriv": 4.300536877786123,
+"bulk_modulus_ev_ang3": 0.23602188950966388,
+"min_volume": 26.76390939036549
+},
+"Ce-X/SC": {
+"bulk_deriv": 4.621498965528969,
+"bulk_modulus_ev_ang3": 0.32178755807173837,
+"min_volume": 25.21359299228916
+},
+"Ce-X2O": {
+"bulk_deriv": 4.804222335496873,
+"bulk_modulus_ev_ang3": 0.5802648145040308,
+"min_volume": 56.366639254812775
+},
+"Ce-X2O3": {
+"bulk_deriv": 4.378667219072327,
+"bulk_modulus_ev_ang3": 0.8120151831743924,
+"min_volume": 164.8591175131797
+},
+"Ce-X2O5": {
+"bulk_deriv": 4.452328264692541,
+"bulk_modulus_ev_ang3": 1.0143669204158514,
+"min_volume": 168.66908447255474
+},
+"Ce-XO": {
+"bulk_deriv": 4.655893652991538,
+"bulk_modulus_ev_ang3": 0.9032541554914428,
+"min_volume": 31.122552304064325
+},
+"Ce-XO2": {
+"bulk_deriv": 4.469992332432105,
+"bulk_modulus_ev_ang3": 1.0817771941294727,
+"min_volume": 40.943825347433574
+},
+"Ce-XO3": {
+"bulk_deriv": 3.8101085414899103,
+"bulk_modulus_ev_ang3": 0.3091448731239217,
+"min_volume": 82.45167226524246
+},
+"Cl-X/BCC": {
+"bulk_deriv": 5.429356145857777,
+"bulk_modulus_ev_ang3": 0.19422648007117316,
+"min_volume": 21.450190988822293
+},
+"Cl-X/Diamond": {
+"bulk_deriv": 5.057736630312419,
+"bulk_modulus_ev_ang3": 0.11127535454173242,
+"min_volume": 67.49517313720288
+},
+"Cl-X/FCC": {
+"bulk_deriv": 5.4439882220316225,
+"bulk_modulus_ev_ang3": 0.18948801592447667,
+"min_volume": 21.283478935527334
+},
+"Cl-X/SC": {
+"bulk_deriv": 5.39472327592065,
+"bulk_modulus_ev_ang3": 0.21032615471172778,
+"min_volume": 23.458564739746866
+},
+"Cl-X2O": {
+"bulk_deriv": 4.815313545915157,
+"bulk_modulus_ev_ang3": 0.2593215702769585,
+"min_volume": 54.55922396713561
+},
+"Cl-X2O3": {
+"bulk_deriv": 4.620636578226074,
+"bulk_modulus_ev_ang3": 0.5153365515792621,
+"min_volume": 135.33063317322953
+},
+"Cl-X2O5": {
+"bulk_deriv": 4.753394432725455,
+"bulk_modulus_ev_ang3": 0.6094713391624033,
+"min_volume": 150.23182218363075
+},
+"Cl-XO": {
+"bulk_deriv": 5.04601727016825,
+"bulk_modulus_ev_ang3": 0.5435473791641506,
+"min_volume": 26.967408824614594
+},
+"Cl-XO2": {
+"bulk_deriv": 4.675576321135284,
+"bulk_modulus_ev_ang3": 0.6006035504783445,
+"min_volume": 34.72473913901514
+},
+"Cl-XO3": {
+"bulk_deriv": 4.263998388400461,
+"bulk_modulus_ev_ang3": 0.47664679048177305,
+"min_volume": 52.14442497490704
+},
+"Cm-X/BCC": {
+"bulk_deriv": 6.588881367710673,
+"bulk_modulus_ev_ang3": 0.954966378368535,
+"min_volume": 16.365703381947874
+},
+"Cm-X/Diamond": {
+"bulk_deriv": 5.7367885288912674,
+"bulk_modulus_ev_ang3": 1.328245599107727,
+"min_volume": 38.17076698492778
+},
+"Cm-X/FCC": {
+"bulk_deriv": 5.577436528338809,
+"bulk_modulus_ev_ang3": 0.800233601480799,
+"min_volume": 17.36645119551681
+},
+"Cm-X/SC": {
+"bulk_deriv": 5.992452729991717,
+"bulk_modulus_ev_ang3": 1.087428377662892,
+"min_volume": 16.21806202947372
+},
+"Cm-X2O": {
+"bulk_deriv": 5.279372781347931,
+"bulk_modulus_ev_ang3": 0.8583641086977724,
+"min_volume": 45.52988696343868
+},
+"Cm-X2O3": {
+"bulk_deriv": 4.454848358903959,
+"bulk_modulus_ev_ang3": 0.9175563578305567,
+"min_volume": 143.79243650022525
+},
+"Cm-X2O5": {
+"bulk_deriv": 4.550121378739422,
+"bulk_modulus_ev_ang3": 1.201361961527601,
+"min_volume": 148.6697573938086
+},
+"Cm-XO": {
+"bulk_deriv": 5.060772251727278,
+"bulk_modulus_ev_ang3": 1.0974905764110134,
+"min_volume": 26.613010932335207
+},
+"Cm-XO2": {
+"bulk_deriv": 4.446696028430307,
+"bulk_modulus_ev_ang3": 1.2015009902533957,
+"min_volume": 36.49484422384365
+},
+"Cm-XO3": {
+"bulk_deriv": 4.326628526648367,
+"bulk_modulus_ev_ang3": 0.7697454682900791,
+"min_volume": 66.96815502327429
+},
+"Co-X/BCC": {
+"bulk_deriv": 4.7445214946481205,
+"bulk_modulus_ev_ang3": 1.4995571219014787,
+"min_volume": 10.52942889304781
+},
+"Co-X/Diamond": {
+"bulk_deriv": 4.701177663313822,
+"bulk_modulus_ev_ang3": 0.8275287618176118,
+"min_volume": 29.74657437030964
+},
+"Co-X/FCC": {
+"bulk_deriv": 4.777431886975549,
+"bulk_modulus_ev_ang3": 1.5992426401367077,
+"min_volume": 10.291400980058333
+},
+"Co-X/SC": {
+"bulk_deriv": 4.651173873807875,
+"bulk_modulus_ev_ang3": 1.1520306134752099,
+"min_volume": 11.88034607719149
+},
+"Co-X2O": {
+"bulk_deriv": 4.647885775580977,
+"bulk_modulus_ev_ang3": 1.1709937265305619,
+"min_volume": 29.81498522119959
+},
+"Co-X2O3": {
+"bulk_deriv": 4.618722175612269,
+"bulk_modulus_ev_ang3": 1.4332408109663002,
+"min_volume": 90.49529008771465
+},
+"Co-X2O5": {
+"bulk_deriv": 4.632088772313543,
+"bulk_modulus_ev_ang3": 1.2376406714344637,
+"min_volume": 117.84396093250041
+},
+"Co-XO": {
+"bulk_deriv": 4.587092403071247,
+"bulk_modulus_ev_ang3": 1.39400100197038,
+"min_volume": 17.26279611076415
+},
+"Co-XO2": {
+"bulk_deriv": 4.638480828416467,
+"bulk_modulus_ev_ang3": 1.5843027163431793,
+"min_volume": 25.01831453972331
+},
+"Co-XO3": {
+"bulk_deriv": 4.759284080032851,
+"bulk_modulus_ev_ang3": 0.9268798409206295,
+"min_volume": 47.07681177466711
+},
+"Cr-X/BCC": {
+"bulk_deriv": 4.254551698941137,
+"bulk_modulus_ev_ang3": 1.6103718098314876,
+"min_volume": 11.547681417174907
+},
+"Cr-X/Diamond": {
+"bulk_deriv": 3.7321658510216125,
+"bulk_modulus_ev_ang3": 0.6371654925771182,
+"min_volume": 33.087037530713275
+},
+"Cr-X/FCC": {
+"bulk_deriv": 4.126291457499477,
+"bulk_modulus_ev_ang3": 1.4785782005613672,
+"min_volume": 11.885558894113348
+},
+"Cr-X/SC": {
+"bulk_deriv": 4.084302260722343,
+"bulk_modulus_ev_ang3": 1.1812723099488713,
+"min_volume": 12.808168116101132
+},
+"Cr-X2O": {
+"bulk_deriv": 4.490011643459189,
+"bulk_modulus_ev_ang3": 1.2696313458233757,
+"min_volume": 30.440336526775408
+},
+"Cr-X2O3": {
+"bulk_deriv": 4.430350636824232,
+"bulk_modulus_ev_ang3": 1.4486687808106293,
+"min_volume": 96.54512243969151
+},
+"Cr-X2O5": {
+"bulk_deriv": 4.485394335459399,
+"bulk_modulus_ev_ang3": 1.447932510869811,
+"min_volume": 116.25201574115417
+},
+"Cr-XO": {
+"bulk_deriv": 4.529636605135852,
+"bulk_modulus_ev_ang3": 1.5364594546358687,
+"min_volume": 17.662325332487214
+},
+"Cr-XO2": {
+"bulk_deriv": 4.37554173566835,
+"bulk_modulus_ev_ang3": 1.6967195181198154,
+"min_volume": 25.42259556606639
+},
+"Cr-XO3": {
+"bulk_deriv": 4.576467267527609,
+"bulk_modulus_ev_ang3": 1.2192761283026656,
+"min_volume": 46.88449268929906
+},
+"Cs-X/BCC": {
+"bulk_deriv": 3.476077119672368,
+"bulk_modulus_ev_ang3": 0.012195755519130647,
+"min_volume": 116.7570803092783
+},
+"Cs-X/Diamond": {
+"bulk_deriv": 3.139215912936743,
+"bulk_modulus_ev_ang3": 0.004250343992392678,
+"min_volume": 377.1377358878607
+},
+"Cs-X/FCC": {
+"bulk_deriv": 3.515592750556899,
+"bulk_modulus_ev_ang3": 0.012171541977618877,
+"min_volume": 117.27276986644232
+},
+"Cs-X/SC": {
+"bulk_deriv": 3.700009564548931,
+"bulk_modulus_ev_ang3": 0.00961387567720922,
+"min_volume": 128.24014667770234
+},
+"Cs-X2O": {
+"bulk_deriv": 4.93845224462468,
+"bulk_modulus_ev_ang3": 0.12878146319057246,
+"min_volume": 96.35421737528826
+},
+"Cs-X2O3": {
+"bulk_deriv": 4.695877863712415,
+"bulk_modulus_ev_ang3": 0.06757391542431823,
+"min_volume": 283.093121558911
+},
+"Cs-X2O5": {
+"bulk_deriv": 5.200095534105036,
+"bulk_modulus_ev_ang3": 0.175473889555025,
+"min_volume": 243.66561569141314
+},
+"Cs-XO": {
+"bulk_deriv": 5.725116194252276,
+"bulk_modulus_ev_ang3": 0.11787656017762892,
+"min_volume": 53.228174952474674
+},
+"Cs-XO2": {
+"bulk_deriv": 7.053680271516642,
+"bulk_modulus_ev_ang3": 0.10433336233076732,
+"min_volume": 63.54889948790916
+},
+"Cs-XO3": {
+"bulk_deriv": 6.983561032153754,
+"bulk_modulus_ev_ang3": 0.30462108702953333,
+"min_volume": 75.66279428585896
+},
+"Cu-X/BCC": {
+"bulk_deriv": 5.08030902321718,
+"bulk_modulus_ev_ang3": 0.8672161901835751,
+"min_volume": 12.012963692571683
+},
+"Cu-X/Diamond": {
+"bulk_deriv": 5.013012064013726,
+"bulk_modulus_ev_ang3": 0.3406162538265538,
+"min_volume": 38.42264720502581
+},
+"Cu-X/FCC": {
+"bulk_deriv": 5.0539328895362345,
+"bulk_modulus_ev_ang3": 0.8807720621241822,
+"min_volume": 11.960132519560647
+},
+"Cu-X/SC": {
+"bulk_deriv": 5.014544137536062,
+"bulk_modulus_ev_ang3": 0.6424202156533658,
+"min_volume": 13.948591032922517
+},
+"Cu-X2O": {
+"bulk_deriv": 4.7348643276043525,
+"bulk_modulus_ev_ang3": 0.7463320660422057,
+"min_volume": 34.54308010882514
+},
+"Cu-X2O3": {
+"bulk_deriv": 4.769302831010517,
+"bulk_modulus_ev_ang3": 1.0044064728673134,
+"min_volume": 103.93886261751129
+},
+"Cu-X2O5": {
+"bulk_deriv": 4.759919050576503,
+"bulk_modulus_ev_ang3": 0.9447978799997543,
+"min_volume": 128.52813742466643
+},
+"Cu-XO": {
+"bulk_deriv": 4.723104933901251,
+"bulk_modulus_ev_ang3": 1.1068563232835338,
+"min_volume": 19.1207768768113
+},
+"Cu-XO2": {
+"bulk_deriv": 4.806178400262869,
+"bulk_modulus_ev_ang3": 1.0712698735757462,
+"min_volume": 28.27663268358546
+},
+"Cu-XO3": {
+"bulk_deriv": 4.822560727513237,
+"bulk_modulus_ev_ang3": 0.6561139321561061,
+"min_volume": 52.231919729063755
+},
+"Dy-X/BCC": {
+"bulk_deriv": 3.2572089248228746,
+"bulk_modulus_ev_ang3": 0.12892413030863759,
+"min_volume": 31.14101686868977
+},
+"Dy-X/Diamond": {
+"bulk_deriv": 6.75507570927082,
+"bulk_modulus_ev_ang3": 0.331264975696001,
+"min_volume": 47.477485923715555
+},
+"Dy-X/FCC": {
+"bulk_deriv": 3.173785694929096,
+"bulk_modulus_ev_ang3": 0.11433366009856043,
+"min_volume": 31.121173356995627
+},
+"Dy-X/SC": {
+"bulk_deriv": 3.0719938419749457,
+"bulk_modulus_ev_ang3": 0.08873786590545561,
+"min_volume": 30.432793956398935
+},
+"Dy-X2O": {
+"bulk_deriv": 5.3208908896676945,
+"bulk_modulus_ev_ang3": 0.4371015608527898,
+"min_volume": 51.65509557209297
+},
+"Dy-X2O3": {
+"bulk_deriv": 4.4189716916925885,
+"bulk_modulus_ev_ang3": 0.7493454631707773,
+"min_volume": 149.54284250343784
+},
+"Dy-X2O5": {
+"bulk_deriv": 4.575362441712694,
+"bulk_modulus_ev_ang3": 0.9252019267632762,
+"min_volume": 156.28626045666894
+},
+"Dy-XO": {
+"bulk_deriv": 4.791352397364321,
+"bulk_modulus_ev_ang3": 0.7835573039708849,
+"min_volume": 28.14396647531171
+},
+"Dy-XO2": {
+"bulk_deriv": 4.570445003762425,
+"bulk_modulus_ev_ang3": 0.9653998011645004,
+"min_volume": 37.33146300204137
+},
+"Dy-XO3": {
+"bulk_deriv": 4.098804151677235,
+"bulk_modulus_ev_ang3": 0.47235868367770995,
+"min_volume": 73.43691797815288
+},
+"Er-X/BCC": {
+"bulk_deriv": 3.640130761882946,
+"bulk_modulus_ev_ang3": 0.1344045364066116,
+"min_volume": 32.685608815186065
+},
+"Er-X/Diamond": {
+"bulk_deriv": -0.7147298416835128,
+"bulk_modulus_ev_ang3": 0.01276985370609791,
+"min_volume": 145.36137201871762
+},
+"Er-X/FCC": {
+"bulk_deriv": 3.001872212410917,
+"bulk_modulus_ev_ang3": 0.11711982757543005,
+"min_volume": 33.29543660742914
+},
+"Er-X/SC": {
+"bulk_deriv": 3.879975522037527,
+"bulk_modulus_ev_ang3": 0.09132780843277107,
+"min_volume": 34.37285636230218
+},
+"Er-X2O": {
+"bulk_deriv": 5.13333086079131,
+"bulk_modulus_ev_ang3": 0.36364371233681775,
+"min_volume": 53.43056148788787
+},
+"Er-X2O3": {
+"bulk_deriv": 4.440243625010395,
+"bulk_modulus_ev_ang3": 0.7475574633023423,
+"min_volume": 148.27495000721615
+},
+"Er-X2O5": {
+"bulk_deriv": 4.593013157522814,
+"bulk_modulus_ev_ang3": 0.8963090770628663,
+"min_volume": 156.79852883542827
+},
+"Er-XO": {
+"bulk_deriv": 5.145360637787864,
+"bulk_modulus_ev_ang3": 0.7515320709801767,
+"min_volume": 27.96533373676741
+},
+"Er-XO2": {
+"bulk_deriv": 4.637487264392008,
+"bulk_modulus_ev_ang3": 0.9403038660501623,
+"min_volume": 37.260438985093764
+},
+"Er-XO3": {
+"bulk_deriv": 4.146578645637147,
+"bulk_modulus_ev_ang3": 0.4519530806273422,
+"min_volume": 74.64034444877817
+},
+"Eu-X/BCC": {
+"bulk_deriv": 1.8428975358765287,
+"bulk_modulus_ev_ang3": 0.1127889232647185,
+"min_volume": 26.53423515748933
+},
+"Eu-X/Diamond": {
+"bulk_deriv": 5.724846498277002,
+"bulk_modulus_ev_ang3": 0.6270424133053615,
+"min_volume": 44.707147611666194
+},
+"Eu-X/FCC": {
+"bulk_deriv": 3.933640566577046,
+"bulk_modulus_ev_ang3": 0.12707055668799863,
+"min_volume": 25.65192712353552
+},
+"Eu-X/SC": {
+"bulk_deriv": 9.546031932106276,
+"bulk_modulus_ev_ang3": 0.25311705283605834,
+"min_volume": 19.847929337214673
+},
+"Eu-X2O": {
+"bulk_deriv": 5.139527751671247,
+"bulk_modulus_ev_ang3": 0.5369894915030913,
+"min_volume": 50.92779613741301
+},
+"Eu-X2O3": {
+"bulk_deriv": 4.735214482889735,
+"bulk_modulus_ev_ang3": 0.733817961233561,
+"min_volume": 154.9472204000529
+},
+"Eu-X2O5": {
+"bulk_deriv": 4.5636200390442205,
+"bulk_modulus_ev_ang3": 0.9654439806538039,
+"min_volume": 159.17013560712138
+},
+"Eu-XO": {
+"bulk_deriv": 4.82127944932952,
+"bulk_modulus_ev_ang3": 0.8362121684687633,
+"min_volume": 28.81340471930474
+},
+"Eu-XO2": {
+"bulk_deriv": 4.525063546033215,
+"bulk_modulus_ev_ang3": 0.9970788401472963,
+"min_volume": 38.479872808323485
+},
+"Eu-XO3": {
+"bulk_deriv": 4.21243308226439,
+"bulk_modulus_ev_ang3": 0.5087320833187324,
+"min_volume": 74.02671533380332
+},
+"F-X/BCC": {
+"bulk_deriv": 5.596250507870693,
+"bulk_modulus_ev_ang3": 0.3325672040841028,
+"min_volume": 10.059333307474057
+},
+"F-X/Diamond": {
+"bulk_deriv": 5.333877518516638,
+"bulk_modulus_ev_ang3": 0.24093883978010744,
+"min_volume": 28.96229450630376
+},
+"F-X/FCC": {
+"bulk_deriv": 5.648470175735008,
+"bulk_modulus_ev_ang3": 0.31700720374925756,
+"min_volume": 10.119506813185058
+},
+"F-X/SC": {
+"bulk_deriv": 5.442642143905768,
+"bulk_modulus_ev_ang3": 0.3867349615789911,
+"min_volume": 10.503189573028317
+},
+"F-X2O": {
+"bulk_deriv": 5.062108300391102,
+"bulk_modulus_ev_ang3": 0.5027820191545878,
+"min_volume": 30.924572272901628
+},
+"F-X2O3": {
+"bulk_deriv": 4.961032254671989,
+"bulk_modulus_ev_ang3": 0.48442217363331636,
+"min_volume": 112.61020043535402
+},
+"F-X2O5": {
+"bulk_deriv": 4.826149997068465,
+"bulk_modulus_ev_ang3": 0.7570917212787207,
+"min_volume": 121.44603134580595
+},
+"F-XO": {
+"bulk_deriv": 5.028808605973545,
+"bulk_modulus_ev_ang3": 0.6175332191448384,
+"min_volume": 18.848743093010313
+},
+"F-XO2": {
+"bulk_deriv": 5.0167119216588425,
+"bulk_modulus_ev_ang3": 0.511950698477512,
+"min_volume": 30.8217402577436
+},
+"F-XO3": {
+"bulk_deriv": 4.726451365984123,
+"bulk_modulus_ev_ang3": 0.34325771671429967,
+"min_volume": 53.31427739406375
+},
+"Fe-X/BCC": {
+"bulk_deriv": 4.640716965113794,
+"bulk_modulus_ev_ang3": 1.670859401596918,
+"min_volume": 10.549166956368552
+},
+"Fe-X/Diamond": {
+"bulk_deriv": 4.5012986300656195,
+"bulk_modulus_ev_ang3": 0.9695094819807537,
+"min_volume": 29.1596290772989
+},
+"Fe-X/FCC": {
+"bulk_deriv": 4.625533873225647,
+"bulk_modulus_ev_ang3": 1.7807063591495715,
+"min_volume": 10.30569831688068
+},
+"Fe-X/SC": {
+"bulk_deriv": 4.517426500660199,
+"bulk_modulus_ev_ang3": 1.2999030862403214,
+"min_volume": 11.7176361697941
+},
+"Fe-X2O": {
+"bulk_deriv": 4.405481497697117,
+"bulk_modulus_ev_ang3": 1.262254164015705,
+"min_volume": 29.543494402122114
+},
+"Fe-X2O3": {
+"bulk_deriv": 4.572091152571241,
+"bulk_modulus_ev_ang3": 1.4977341922837584,
+"min_volume": 91.44142072982919
+},
+"Fe-X2O5": {
+"bulk_deriv": 4.565532481533876,
+"bulk_modulus_ev_ang3": 1.3249750332181318,
+"min_volume": 116.38332833810537
+},
+"Fe-XO": {
+"bulk_deriv": 4.684733842932495,
+"bulk_modulus_ev_ang3": 1.4724540847822727,
+"min_volume": 17.23411005033565
+},
+"Fe-XO2": {
+"bulk_deriv": 4.605743827792484,
+"bulk_modulus_ev_ang3": 1.7158934986028087,
+"min_volume": 24.332723816867034
+},
+"Fe-XO3": {
+"bulk_deriv": 4.657459023094459,
+"bulk_modulus_ev_ang3": 1.0634448817698998,
+"min_volume": 46.40409358104227
+},
+"Fr-X/BCC": {
+"bulk_deriv": 3.5718628213998027,
+"bulk_modulus_ev_ang3": 0.011864466515532093,
+"min_volume": 116.36416820393642
+},
+"Fr-X/Diamond": {
+"bulk_deriv": 4.889301589253222,
+"bulk_modulus_ev_ang3": 0.004795457817928381,
+"min_volume": 385.00037202070905
+},
+"Fr-X/FCC": {
+"bulk_deriv": 3.6975944426508924,
+"bulk_modulus_ev_ang3": 0.012010893150207064,
+"min_volume": 117.00986041314458
+},
+"Fr-X/SC": {
+"bulk_deriv": 4.147485344689349,
+"bulk_modulus_ev_ang3": 0.009873642755316686,
+"min_volume": 131.96823336958622
+},
+"Fr-X2O": {
+"bulk_deriv": 5.1788590026923265,
+"bulk_modulus_ev_ang3": 0.11839105359384629,
+"min_volume": 107.61412165332811
+},
+"Fr-X2O3": {
+"bulk_deriv": 6.610510453497962,
+"bulk_modulus_ev_ang3": 0.11044326687470958,
+"min_volume": 268.7334112055081
+},
+"Fr-X2O5": {
+"bulk_deriv": 5.6390953083941975,
+"bulk_modulus_ev_ang3": 0.2136660219284984,
+"min_volume": 235.1943570832414
+},
+"Fr-XO": {
+"bulk_deriv": 6.059537686029576,
+"bulk_modulus_ev_ang3": 0.1325521057987415,
+"min_volume": 55.95856167811996
+},
+"Fr-XO2": {
+"bulk_deriv": 6.678100089733264,
+"bulk_modulus_ev_ang3": 0.2016734902341632,
+"min_volume": 60.52592276110707
+},
+"Fr-XO3": {
+"bulk_deriv": 6.741724828533032,
+"bulk_modulus_ev_ang3": 0.35937382625325476,
+"min_volume": 83.81699608887853
+},
+"Ga-X/BCC": {
+"bulk_deriv": 5.083918876965716,
+"bulk_modulus_ev_ang3": 0.2976042843934744,
+"min_volume": 19.19924875102113
+},
+"Ga-X/Diamond": {
+"bulk_deriv": 5.076257931626216,
+"bulk_modulus_ev_ang3": 0.22277441956848146,
+"min_volume": 50.84005933819246
+},
+"Ga-X/FCC": {
+"bulk_deriv": 4.804794912746297,
+"bulk_modulus_ev_ang3": 0.3033080451368703,
+"min_volume": 18.937634686770778
+},
+"Ga-X/SC": {
+"bulk_deriv": 4.898178997493695,
+"bulk_modulus_ev_ang3": 0.28829091367945686,
+"min_volume": 20.11580552750389
+},
+"Ga-X2O": {
+"bulk_deriv": 4.626437963986085,
+"bulk_modulus_ev_ang3": 0.30871091614910867,
+"min_volume": 53.047001364552
+},
+"Ga-X2O3": {
+"bulk_deriv": 4.602903261841364,
+"bulk_modulus_ev_ang3": 0.9900400726493219,
+"min_volume": 111.18259154557275
+},
+"Ga-X2O5": {
+"bulk_deriv": 4.681879800822821,
+"bulk_modulus_ev_ang3": 0.9263984091411469,
+"min_volume": 135.77365156249073
+},
+"Ga-XO": {
+"bulk_deriv": 4.591961415461116,
+"bulk_modulus_ev_ang3": 0.7711050559327255,
+"min_volume": 24.368737201933758
+},
+"Ga-XO2": {
+"bulk_deriv": 4.564924063791554,
+"bulk_modulus_ev_ang3": 1.1484576068716588,
+"min_volume": 29.307227863222558
+},
+"Ga-XO3": {
+"bulk_deriv": 3.827681668798675,
+"bulk_modulus_ev_ang3": 0.6142358805145366,
+"min_volume": 57.61454857816369
+},
+"Gd-X/BCC": {
+"bulk_deriv": 2.4519509918423954,
+"bulk_modulus_ev_ang3": 0.11944406921940684,
+"min_volume": 28.40898860142727
+},
+"Gd-X/Diamond": {
+"bulk_deriv": 5.793189261921753,
+"bulk_modulus_ev_ang3": 0.5656299469181405,
+"min_volume": 43.81710829341638
+},
+"Gd-X/FCC": {
+"bulk_deriv": 3.1306182950175137,
+"bulk_modulus_ev_ang3": 0.11549304278199529,
+"min_volume": 27.59560381836846
+},
+"Gd-X/SC": {
+"bulk_deriv": 6.214341488029541,
+"bulk_modulus_ev_ang3": 0.10262599497285935,
+"min_volume": 22.41794038995263
+},
+"Gd-X2O": {
+"bulk_deriv": 5.150746230073934,
+"bulk_modulus_ev_ang3": 0.5059808574613553,
+"min_volume": 50.72075826640346
+},
+"Gd-X2O3": {
+"bulk_deriv": 4.5246965229968295,
+"bulk_modulus_ev_ang3": 0.7391173512649957,
+"min_volume": 152.2493581148769
+},
+"Gd-X2O5": {
+"bulk_deriv": 4.54965045602528,
+"bulk_modulus_ev_ang3": 0.9507220291670576,
+"min_volume": 157.3763566704101
+},
+"Gd-XO": {
+"bulk_deriv": 4.790597220435337,
+"bulk_modulus_ev_ang3": 0.8159531536296052,
+"min_volume": 28.437039971032515
+},
+"Gd-XO2": {
+"bulk_deriv": 4.526936889609093,
+"bulk_modulus_ev_ang3": 0.9851855738898851,
+"min_volume": 37.79994211147741
+},
+"Gd-XO3": {
+"bulk_deriv": 4.180118074140834,
+"bulk_modulus_ev_ang3": 0.4979281764960278,
+"min_volume": 72.89814291483744
+},
+"Ge-X/BCC": {
+"bulk_deriv": 4.568135450429269,
+"bulk_modulus_ev_ang3": 0.3991299971870027,
+"min_volume": 19.23723111414265
+},
+"Ge-X/Diamond": {
+"bulk_deriv": 4.863027169390268,
+"bulk_modulus_ev_ang3": 0.36854828901198133,
+"min_volume": 47.760388181164444
+},
+"Ge-X/FCC": {
+"bulk_deriv": 4.33912623844489,
+"bulk_modulus_ev_ang3": 0.3938492018097554,
+"min_volume": 19.541221804997
+},
+"Ge-X/SC": {
+"bulk_deriv": 4.668035849406369,
+"bulk_modulus_ev_ang3": 0.4212057634853908,
+"min_volume": 19.912432621012343
+},
+"Ge-X2O": {
+"bulk_deriv": 4.331456269767584,
+"bulk_modulus_ev_ang3": 0.4604775655015673,
+"min_volume": 49.61318031175343
+},
+"Ge-X2O3": {
+"bulk_deriv": 4.22287249844886,
+"bulk_modulus_ev_ang3": 0.7304345936855756,
+"min_volume": 121.1697953900957
+},
+"Ge-X2O5": {
+"bulk_deriv": 4.858343794104515,
+"bulk_modulus_ev_ang3": 0.7775154855441184,
+"min_volume": 139.36602662022668
+},
+"Ge-XO": {
+"bulk_deriv": 4.275587762326357,
+"bulk_modulus_ev_ang3": 0.7051083676575859,
+"min_volume": 27.10090300841638
+},
+"Ge-XO2": {
+"bulk_deriv": 4.818613316058387,
+"bulk_modulus_ev_ang3": 1.2384624725800544,
+"min_volume": 28.184565494995404
+},
+"Ge-XO3": {
+"bulk_deriv": 4.8603857857215145,
+"bulk_modulus_ev_ang3": 0.9296276194219045,
+"min_volume": 51.09450243407344
+},
+"H-X/BCC": {
+"bulk_deriv": 3.3295071273710493,
+"bulk_modulus_ev_ang3": 0.6744732519611385,
+"min_volume": 2.9676133626864933
+},
+"H-X/Diamond": {
+"bulk_deriv": 3.1276524573843068,
+"bulk_modulus_ev_ang3": 0.5702918402203146,
+"min_volume": 6.830962800824169
+},
+"H-X/FCC": {
+"bulk_deriv": 3.255659764920826,
+"bulk_modulus_ev_ang3": 0.674504828554604,
+"min_volume": 2.965784166990979
+},
+"H-X/SC": {
+"bulk_deriv": 3.2382812310361597,
+"bulk_modulus_ev_ang3": 0.6368606668767723,
+"min_volume": 3.0863611673120324
+},
+"H-X2O": {
+"bulk_deriv": 3.861954407059957,
+"bulk_modulus_ev_ang3": 1.2124129365364746,
+"min_volume": 11.963524799597277
+},
+"H-X2O3": {
+"bulk_deriv": 4.170339074851179,
+"bulk_modulus_ev_ang3": 0.9743718739672806,
+"min_volume": 61.835936946552074
+},
+"H-X2O5": {
+"bulk_deriv": 4.3445529839102965,
+"bulk_modulus_ev_ang3": 0.8177285400940626,
+"min_volume": 103.24468818137687
+},
+"H-XO": {
+"bulk_deriv": 4.149104477090509,
+"bulk_modulus_ev_ang3": 1.0202828100553536,
+"min_volume": 10.02383222881001
+},
+"H-XO2": {
+"bulk_deriv": 4.39738253857476,
+"bulk_modulus_ev_ang3": 0.9877671114100018,
+"min_volume": 19.10360880678592
+},
+"H-XO3": {
+"bulk_deriv": 4.448665693134452,
+"bulk_modulus_ev_ang3": 0.7639005525008764,
+"min_volume": 31.081641993861016
+},
+"He-X/BCC": {
+"bulk_deriv": 6.187082860418534,
+"bulk_modulus_ev_ang3": 0.00526285004275436,
+"min_volume": 17.99285050741411
+},
+"He-X/Diamond": {
+"bulk_deriv": 10.360296537836819,
+"bulk_modulus_ev_ang3": 0.0017025358333290404,
+"min_volume": 63.9923481208604
+},
+"He-X/FCC": {
+"bulk_deriv": 6.785142166904221,
+"bulk_modulus_ev_ang3": 0.005474576835822435,
+"min_volume": 17.72714046893548
+},
+"He-X/SC": {
+"bulk_deriv": 6.681018303868972,
+"bulk_modulus_ev_ang3": 0.0037436546102237187,
+"min_volume": 21.454483439934574
+},
+"He-X2O": {
+"bulk_deriv": 6.261629828614983,
+"bulk_modulus_ev_ang3": 0.0030840808395888215,
+"min_volume": 91.97768247946608
+},
+"He-X2O3": {
+"bulk_deriv": 5.181354435480406,
+"bulk_modulus_ev_ang3": 0.25681107907746065,
+"min_volume": 95.26989328560413
+},
+"He-X2O5": {
+"bulk_deriv": 4.7800147251351195,
+"bulk_modulus_ev_ang3": 0.6352221264805419,
+"min_volume": 112.86267067058884
+},
+"He-XO": {
+"bulk_deriv": 6.523159276393769,
+"bulk_modulus_ev_ang3": 0.02417686147153445,
+"min_volume": 31.717248522528582
+},
+"He-XO2": {
+"bulk_deriv": 4.974254575047135,
+"bulk_modulus_ev_ang3": 0.4145518284116316,
+"min_volume": 24.920003444736416
+},
+"He-XO3": {
+"bulk_deriv": 5.618762727585638,
+"bulk_modulus_ev_ang3": 0.240291472360026,
+"min_volume": 43.75233899728348
+},
+"Hf-X/BCC": {
+"bulk_deriv": 3.296690121837364,
+"bulk_modulus_ev_ang3": 0.6307155693464284,
+"min_volume": 22.335186777675325
+},
+"Hf-X/Diamond": {
+"bulk_deriv": 1.3194969053248595,
+"bulk_modulus_ev_ang3": 0.18933057921778207,
+"min_volume": 70.41761726849117
+},
+"Hf-X/FCC": {
+"bulk_deriv": 3.3439567671621573,
+"bulk_modulus_ev_ang3": 0.6428586402869143,
+"min_volume": 22.577339804728563
+},
+"Hf-X/SC": {
+"bulk_deriv": 3.454371031509143,
+"bulk_modulus_ev_ang3": 0.45895849046823645,
+"min_volume": 24.840280343289624
+},
+"Hf-X2O": {
+"bulk_deriv": 4.379440003643241,
+"bulk_modulus_ev_ang3": 0.7237542080208578,
+"min_volume": 48.64990016734457
+},
+"Hf-X2O3": {
+"bulk_deriv": 4.266552112538817,
+"bulk_modulus_ev_ang3": 1.2983347001095016,
+"min_volume": 127.53926285458904
+},
+"Hf-X2O5": {
+"bulk_deriv": 4.2417029479712465,
+"bulk_modulus_ev_ang3": 1.3938812434862276,
+"min_volume": 142.07862445390649
+},
+"Hf-XO": {
+"bulk_deriv": 4.443408311886384,
+"bulk_modulus_ev_ang3": 1.1940264109761167,
+"min_volume": 24.124888242123454
+},
+"Hf-XO2": {
+"bulk_deriv": 4.234732126954008,
+"bulk_modulus_ev_ang3": 1.5413165200908978,
+"min_volume": 32.896204592446075
+},
+"Hf-XO3": {
+"bulk_deriv": 4.017085124812143,
+"bulk_modulus_ev_ang3": 0.7837239299863868,
+"min_volume": 70.4313362636973
+},
+"Hg-X/BCC": {
+"bulk_deriv": 11.12376672141626,
+"bulk_modulus_ev_ang3": 0.05745516937292494,
+"min_volume": 29.3302271025587
+},
+"Hg-X/Diamond": {
+"bulk_deriv": 2.422842464786963,
+"bulk_modulus_ev_ang3": 0.011155098691546928,
+"min_volume": 112.3387353277
+},
+"Hg-X/FCC": {
+"bulk_deriv": 0.836715277357589,
+"bulk_modulus_ev_ang3": 0.03643746075812839,
+"min_volume": 32.38302221912724
+},
+"Hg-X/SC": {
+"bulk_deriv": 11.411300815888184,
+"bulk_modulus_ev_ang3": 0.08321438653192476,
+"min_volume": 29.92280101954798
+},
+"Hg-X2O": {
+"bulk_deriv": 6.1441832678211545,
+"bulk_modulus_ev_ang3": 0.41444247732038075,
+"min_volume": 56.28478781443421
+},
+"Hg-X2O3": {
+"bulk_deriv": 5.255392347261708,
+"bulk_modulus_ev_ang3": 0.6270946211817449,
+"min_volume": 153.18414496186745
+},
+"Hg-X2O5": {
+"bulk_deriv": 5.055483197127317,
+"bulk_modulus_ev_ang3": 0.7017649102736476,
+"min_volume": 166.79468246079009
+},
+"Hg-XO": {
+"bulk_deriv": 5.212058110928609,
+"bulk_modulus_ev_ang3": 0.6987919723797617,
+"min_volume": 29.95060957633216
+},
+"Hg-XO2": {
+"bulk_deriv": 5.3832029276828886,
+"bulk_modulus_ev_ang3": 0.7086197519041677,
+"min_volume": 39.40942425131004
+},
+"Hg-XO3": {
+"bulk_deriv": 5.038281078107017,
+"bulk_modulus_ev_ang3": 0.3985641197453647,
+"min_volume": 72.78485468768848
+},
+"Ho-X/BCC": {
+"bulk_deriv": 3.438020522432425,
+"bulk_modulus_ev_ang3": 0.13078465678374587,
+"min_volume": 32.12639176859755
+},
+"Ho-X/Diamond": {
+"bulk_deriv": 8.355667469922365,
+"bulk_modulus_ev_ang3": 0.17631270653621026,
+"min_volume": 51.697824979451475
+},
+"Ho-X/FCC": {
+"bulk_deriv": 3.1284113155831044,
+"bulk_modulus_ev_ang3": 0.11352711806909395,
+"min_volume": 32.468802204665614
+},
+"Ho-X/SC": {
+"bulk_deriv": 3.2796020956853935,
+"bulk_modulus_ev_ang3": 0.08937383594540833,
+"min_volume": 32.843410861540924
+},
+"Ho-X2O": {
+"bulk_deriv": 5.26099913026147,
+"bulk_modulus_ev_ang3": 0.3961729540523575,
+"min_volume": 52.43244827432452
+},
+"Ho-X2O3": {
+"bulk_deriv": 4.412326765964466,
+"bulk_modulus_ev_ang3": 0.747461716244728,
+"min_volume": 148.49276431064112
+},
+"Ho-X2O5": {
+"bulk_deriv": 4.574710700671383,
+"bulk_modulus_ev_ang3": 0.9098139866789217,
+"min_volume": 156.18170036472785
+},
+"Ho-XO": {
+"bulk_deriv": 4.868917562441378,
+"bulk_modulus_ev_ang3": 0.7669772113371375,
+"min_volume": 28.02966682691441
+},
+"Ho-XO2": {
+"bulk_deriv": 4.607668120095876,
+"bulk_modulus_ev_ang3": 0.9533857315561808,
+"min_volume": 37.189425829245224
+},
+"Ho-XO3": {
+"bulk_deriv": 4.13214765937268,
+"bulk_modulus_ev_ang3": 0.4619141751759259,
+"min_volume": 73.71235011430731
+},
+"I-X/BCC": {
+"bulk_deriv": 5.625658430640366,
+"bulk_modulus_ev_ang3": 0.14338242717749708,
+"min_volume": 36.04185608351491
+},
+"I-X/Diamond": {
+"bulk_deriv": 5.2454386915773785,
+"bulk_modulus_ev_ang3": 0.06817339679879593,
+"min_volume": 121.3075557086475
+},
+"I-X/FCC": {
+"bulk_deriv": 5.673767678763584,
+"bulk_modulus_ev_ang3": 0.14493650434009706,
+"min_volume": 35.18995851977495
+},
+"I-X/SC": {
+"bulk_deriv": 5.65523962620909,
+"bulk_modulus_ev_ang3": 0.13988599970179094,
+"min_volume": 41.597485661455835
+},
+"I-X2O": {
+"bulk_deriv": 5.143933457495348,
+"bulk_modulus_ev_ang3": 0.24662267957562567,
+"min_volume": 72.56174643296193
+},
+"I-X2O3": {
+"bulk_deriv": 4.5641787990525655,
+"bulk_modulus_ev_ang3": 0.5710555457518731,
+"min_volume": 168.8732824513762
+},
+"I-X2O5": {
+"bulk_deriv": 4.8934773746331555,
+"bulk_modulus_ev_ang3": 0.8143132667982572,
+"min_volume": 164.33719600724172
+},
+"I-XO": {
+"bulk_deriv": 5.105507625681613,
+"bulk_modulus_ev_ang3": 0.47141030357608077,
+"min_volume": 38.09368372547196
+},
+"I-XO2": {
+"bulk_deriv": 4.7253944163267185,
+"bulk_modulus_ev_ang3": 0.766929950300311,
+"min_volume": 41.79380153221124
+},
+"I-XO3": {
+"bulk_deriv": 11.260340654678375,
+"bulk_modulus_ev_ang3": 0.5999111106665789,
+"min_volume": 62.282944299125084
+},
+"In-X/BCC": {
+"bulk_deriv": 5.290201969424956,
+"bulk_modulus_ev_ang3": 0.21384988101504257,
+"min_volume": 27.777279243209968
+},
+"In-X/Diamond": {
+"bulk_deriv": 5.418386428003429,
+"bulk_modulus_ev_ang3": 0.13304178468658978,
+"min_volume": 76.41578796846582
+},
+"In-X/FCC": {
+"bulk_deriv": 5.127207804485523,
+"bulk_modulus_ev_ang3": 0.2222202450529105,
+"min_volume": 27.50078539129347
+},
+"In-X/SC": {
+"bulk_deriv": 5.4006727183903145,
+"bulk_modulus_ev_ang3": 0.19224521608270115,
+"min_volume": 29.54502815019572
+},
+"In-X2O": {
+"bulk_deriv": 4.994513959580595,
+"bulk_modulus_ev_ang3": 0.26998727418821716,
+"min_volume": 65.98740212422713
+},
+"In-X2O3": {
+"bulk_deriv": 4.742939455780865,
+"bulk_modulus_ev_ang3": 0.8211057371418966,
+"min_volume": 140.77009401113392
+},
+"In-X2O5": {
+"bulk_deriv": 4.772226271545004,
+"bulk_modulus_ev_ang3": 0.8716406368114729,
+"min_volume": 157.09026160105213
+},
+"In-XO": {
+"bulk_deriv": 4.6628852766835545,
+"bulk_modulus_ev_ang3": 0.6394993913265139,
+"min_volume": 30.522480621792482
+},
+"In-XO2": {
+"bulk_deriv": 4.672545183651266,
+"bulk_modulus_ev_ang3": 0.9448160846532498,
+"min_volume": 36.573838512990406
+},
+"In-XO3": {
+"bulk_deriv": 4.385530708582506,
+"bulk_modulus_ev_ang3": 0.40456555594709726,
+"min_volume": 75.19145103841664
+},
+"Ir-X/BCC": {
+"bulk_deriv": 5.090583040877093,
+"bulk_modulus_ev_ang3": 1.9155848171052292,
+"min_volume": 15.048303780248775
+},
+"Ir-X/Diamond": {
+"bulk_deriv": 5.02373028968211,
+"bulk_modulus_ev_ang3": 1.1441469560949675,
+"min_volume": 43.23579573417615
+},
+"Ir-X/FCC": {
+"bulk_deriv": 5.138714535628199,
+"bulk_modulus_ev_ang3": 2.1671934564699336,
+"min_volume": 14.504206345936618
+},
+"Ir-X/SC": {
+"bulk_deriv": 5.030017242325867,
+"bulk_modulus_ev_ang3": 1.5305228665932924,
+"min_volume": 16.994033757584038
+},
+"Ir-X2O": {
+"bulk_deriv": 4.93306356992288,
+"bulk_modulus_ev_ang3": 1.4187942080772444,
+"min_volume": 40.31456493656233
+},
+"Ir-X2O3": {
+"bulk_deriv": 4.97522969005114,
+"bulk_modulus_ev_ang3": 1.594797688910929,
+"min_volume": 111.13935518672909
+},
+"Ir-X2O5": {
+"bulk_deriv": 4.769430537442761,
+"bulk_modulus_ev_ang3": 1.5102385000116056,
+"min_volume": 130.98312945603678
+},
+"Ir-XO": {
+"bulk_deriv": 4.587272305683712,
+"bulk_modulus_ev_ang3": 1.2789639159873472,
+"min_volume": 23.38016427186844
+},
+"Ir-XO2": {
+"bulk_deriv": 4.782693426764901,
+"bulk_modulus_ev_ang3": 1.7412890827608862,
+"min_volume": 30.432006979158963
+},
+"Ir-XO3": {
+"bulk_deriv": 5.09440583082748,
+"bulk_modulus_ev_ang3": 1.1887331812584754,
+"min_volume": 54.109932989624234
+},
+"K-X/BCC": {
+"bulk_deriv": 3.773841296320957,
+"bulk_modulus_ev_ang3": 0.022307619718244912,
+"min_volume": 73.77413828750757
+},
+"K-X/Diamond": {
+"bulk_deriv": 3.2655179925305617,
+"bulk_modulus_ev_ang3": 0.007482446362145085,
+"min_volume": 223.771835928554
+},
+"K-X/FCC": {
+"bulk_deriv": 3.7798091332200734,
+"bulk_modulus_ev_ang3": 0.022164107115577657,
+"min_volume": 73.99810860801891
+},
+"K-X/SC": {
+"bulk_deriv": 3.76504591003732,
+"bulk_modulus_ev_ang3": 0.01728689026494966,
+"min_volume": 79.34277079044959
+},
+"K-X2O": {
+"bulk_deriv": 4.442314195536182,
+"bulk_modulus_ev_ang3": 0.16828526694901422,
+"min_volume": 67.97980599525948
+},
+"K-X2O3": {
+"bulk_deriv": 4.731571000087147,
+"bulk_modulus_ev_ang3": 0.13238610571396967,
+"min_volume": 227.48224292402708
+},
+"K-X2O5": {
+"bulk_deriv": 4.955852616669356,
+"bulk_modulus_ev_ang3": 0.2912024107917176,
+"min_volume": 198.58067087373868
+},
+"K-XO": {
+"bulk_deriv": 4.433985475608729,
+"bulk_modulus_ev_ang3": 0.14628837958414004,
+"min_volume": 42.72852497796358
+},
+"K-XO2": {
+"bulk_deriv": 4.794720720068946,
+"bulk_modulus_ev_ang3": 0.15015450374730807,
+"min_volume": 58.34233474844299
+},
+"K-XO3": {
+"bulk_deriv": 3.7769878810398447,
+"bulk_modulus_ev_ang3": 0.03428567934049924,
+"min_volume": 136.44080643575077
+},
+"Kr-X/BCC": {
+"bulk_deriv": 7.289929898325568,
+"bulk_modulus_ev_ang3": 0.0038191660197988697,
+"min_volume": 67.38333467977365
+},
+"Kr-X/Diamond": {
+"bulk_deriv": 7.572231057977669,
+"bulk_modulus_ev_ang3": 0.0011591905364813104,
+"min_volume": 249.33152897728593
+},
+"Kr-X/FCC": {
+"bulk_deriv": 7.288789373782512,
+"bulk_modulus_ev_ang3": 0.004039592214727319,
+"min_volume": 65.98091031357957
+},
+"Kr-X/SC": {
+"bulk_deriv": 7.493586903003184,
+"bulk_modulus_ev_ang3": 0.002612437065394211,
+"min_volume": 82.58588493185158
+},
+"Kr-X2O": {
+"bulk_deriv": 7.076144820818085,
+"bulk_modulus_ev_ang3": 0.017592157784349142,
+"min_volume": 118.76511484371875
+},
+"Kr-X2O3": {
+"bulk_deriv": 5.954872693547358,
+"bulk_modulus_ev_ang3": 0.18982801668870986,
+"min_volume": 194.6711745442097
+},
+"Kr-X2O5": {
+"bulk_deriv": 5.2872570244751955,
+"bulk_modulus_ev_ang3": 0.3189942194185435,
+"min_volume": 192.35722735468528
+},
+"Kr-XO": {
+"bulk_deriv": 6.516730991919665,
+"bulk_modulus_ev_ang3": 0.15870010642255236,
+"min_volume": 40.09574083631351
+},
+"Kr-XO2": {
+"bulk_deriv": 5.679569511582588,
+"bulk_modulus_ev_ang3": 0.257169573110694,
+"min_volume": 47.65081747861031
+},
+"Kr-XO3": {
+"bulk_deriv": 5.1944393203842205,
+"bulk_modulus_ev_ang3": 0.2880904398761394,
+"min_volume": 68.47146790967302
+},
+"La-X/BCC": {
+"bulk_deriv": 2.9721744251498547,
+"bulk_modulus_ev_ang3": 0.1647446344176171,
+"min_volume": 37.929730948621874
+},
+"La-X/Diamond": {
+"bulk_deriv": 6.182584885084767,
+"bulk_modulus_ev_ang3": 0.2672451271220307,
+"min_volume": 75.28858994102237
+},
+"La-X/FCC": {
+"bulk_deriv": 2.585723941024197,
+"bulk_modulus_ev_ang3": 0.1552265700291488,
+"min_volume": 37.12315279030556
+},
+"La-X/SC": {
+"bulk_deriv": 3.5788836078768664,
+"bulk_modulus_ev_ang3": 0.14993017399795244,
+"min_volume": 37.03933025806492
+},
+"La-X2O": {
+"bulk_deriv": 4.748942578824021,
+"bulk_modulus_ev_ang3": 0.4502762881298291,
+"min_volume": 65.52437065557893
+},
+"La-X2O3": {
+"bulk_deriv": 4.222205900392803,
+"bulk_modulus_ev_ang3": 0.6937094344810867,
+"min_volume": 183.36118020252988
+},
+"La-X2O5": {
+"bulk_deriv": 4.282359946446847,
+"bulk_modulus_ev_ang3": 0.766765995083964,
+"min_volume": 190.64328051745088
+},
+"La-XO": {
+"bulk_deriv": 4.544637871658727,
+"bulk_modulus_ev_ang3": 0.778436294871045,
+"min_volume": 34.55127766053785
+},
+"La-XO2": {
+"bulk_deriv": 4.187095196009961,
+"bulk_modulus_ev_ang3": 0.7010005040724613,
+"min_volume": 48.1114927949082
+},
+"La-XO3": {
+"bulk_deriv": 3.651745977146671,
+"bulk_modulus_ev_ang3": 0.180945959253853,
+"min_volume": 92.50246495250778
+},
+"Li-X/BCC": {
+"bulk_deriv": 3.3424405692083967,
+"bulk_modulus_ev_ang3": 0.08672348345163931,
+"min_volume": 20.270842291798726
+},
+"Li-X/Diamond": {
+"bulk_deriv": 2.9463845899897176,
+"bulk_modulus_ev_ang3": 0.03365761312232817,
+"min_volume": 51.3800213197327
+},
+"Li-X/FCC": {
+"bulk_deriv": 3.32593695047819,
+"bulk_modulus_ev_ang3": 0.08623372704262336,
+"min_volume": 20.228159364077484
+},
+"Li-X/SC": {
+"bulk_deriv": 3.3057415200112574,
+"bulk_modulus_ev_ang3": 0.07651782977828923,
+"min_volume": 20.41254023765377
+},
+"Li-X2O": {
+"bulk_deriv": 3.8907407012791086,
+"bulk_modulus_ev_ang3": 0.4954420609176765,
+"min_volume": 24.736273115517932
+},
+"Li-X2O3": {
+"bulk_deriv": 4.293436277863443,
+"bulk_modulus_ev_ang3": 0.5076978080290867,
+"min_volume": 89.4969833957362
+},
+"Li-X2O5": {
+"bulk_deriv": 4.483164869904018,
+"bulk_modulus_ev_ang3": 0.6083200220617165,
+"min_volume": 123.60326725180649
+},
+"Li-XO": {
+"bulk_deriv": 4.1665970804243635,
+"bulk_modulus_ev_ang3": 0.44785004757648605,
+"min_volume": 16.832968567435728
+},
+"Li-XO2": {
+"bulk_deriv": 4.534526793309713,
+"bulk_modulus_ev_ang3": 0.5842143573106022,
+"min_volume": 24.925357336035752
+},
+"Li-XO3": {
+"bulk_deriv": 4.743148166416637,
+"bulk_modulus_ev_ang3": 0.32497953482409275,
+"min_volume": 46.11002115435046
+},
+"Lu-X/BCC": {
+"bulk_deriv": 3.2802005497540696,
+"bulk_modulus_ev_ang3": 0.2700184192503303,
+"min_volume": 29.680993204138456
+},
+"Lu-X/Diamond": {
+"bulk_deriv": 1.405633749192908,
+"bulk_modulus_ev_ang3": 0.07635928810043134,
+"min_volume": 101.56463624336725
+},
+"Lu-X/FCC": {
+"bulk_deriv": 3.53760332057577,
+"bulk_modulus_ev_ang3": 0.26465369124338184,
+"min_volume": 29.03011938861485
+},
+"Lu-X/SC": {
+"bulk_deriv": 3.051913882397983,
+"bulk_modulus_ev_ang3": 0.18338349071179574,
+"min_volume": 33.023131486250115
+},
+"Lu-X2O": {
+"bulk_deriv": 4.679635977045156,
+"bulk_modulus_ev_ang3": 0.42088378162420514,
+"min_volume": 54.35580412371743
+},
+"Lu-X2O3": {
+"bulk_deriv": 4.180253303387023,
+"bulk_modulus_ev_ang3": 0.8790080915255304,
+"min_volume": 145.04832810143046
+},
+"Lu-X2O5": {
+"bulk_deriv": 4.302037784717587,
+"bulk_modulus_ev_ang3": 0.9405392424595079,
+"min_volume": 158.30461319629322
+},
+"Lu-XO": {
+"bulk_deriv": 4.630007339933168,
+"bulk_modulus_ev_ang3": 0.8472515710558505,
+"min_volume": 26.71067036875959
+},
+"Lu-XO2": {
+"bulk_deriv": 4.373919303832032,
+"bulk_modulus_ev_ang3": 0.9451483703878248,
+"min_volume": 37.441321782430464
+},
+"Lu-XO3": {
+"bulk_deriv": 3.78312303893433,
+"bulk_modulus_ev_ang3": 0.395522990733515,
+"min_volume": 78.81957982333711
+},
+"Mg-X/BCC": {
+"bulk_deriv": 4.069513043267395,
+"bulk_modulus_ev_ang3": 0.21929038291423036,
+"min_volume": 22.909770068785644
+},
+"Mg-X/Diamond": {
+"bulk_deriv": 4.245523388416595,
+"bulk_modulus_ev_ang3": 0.06706733589006492,
+"min_volume": 80.84407802689418
+},
+"Mg-X/FCC": {
+"bulk_deriv": 3.9966012940494524,
+"bulk_modulus_ev_ang3": 0.21975566829595275,
+"min_volume": 23.12058519942502
+},
+"Mg-X/SC": {
+"bulk_deriv": 3.980233584320912,
+"bulk_modulus_ev_ang3": 0.1415995630792779,
+"min_volume": 27.57519530065213
+},
+"Mg-X2O": {
+"bulk_deriv": 3.5835396609803416,
+"bulk_modulus_ev_ang3": 0.3635990134014903,
+"min_volume": 44.84628344007774
+},
+"Mg-X2O3": {
+"bulk_deriv": 4.130360399101622,
+"bulk_modulus_ev_ang3": 0.7005451051363474,
+"min_volume": 113.53308787127098
+},
+"Mg-X2O5": {
+"bulk_deriv": 4.286523025725534,
+"bulk_modulus_ev_ang3": 0.7456043880881545,
+"min_volume": 138.82830074834447
+},
+"Mg-XO": {
+"bulk_deriv": 4.0956653122888085,
+"bulk_modulus_ev_ang3": 0.9298390526163743,
+"min_volume": 19.249982053611475
+},
+"Mg-XO2": {
+"bulk_deriv": 4.218331428545621,
+"bulk_modulus_ev_ang3": 0.7416534186943975,
+"min_volume": 30.586566388173555
+},
+"Mg-XO3": {
+"bulk_deriv": 4.333046887434963,
+"bulk_modulus_ev_ang3": 0.36100414222445454,
+"min_volume": 62.15446131952436
+},
+"Mn-X/BCC": {
+"bulk_deriv": 4.4539036343835985,
+"bulk_modulus_ev_ang3": 1.7319725158512453,
+"min_volume": 10.780459400908583
+},
+"Mn-X/Diamond": {
+"bulk_deriv": 4.218961213647072,
+"bulk_modulus_ev_ang3": 0.9059763477237286,
+"min_volume": 30.35553460008887
+},
+"Mn-X/FCC": {
+"bulk_deriv": 4.420105706458273,
+"bulk_modulus_ev_ang3": 1.7455071004838405,
+"min_volume": 10.748376963542732
+},
+"Mn-X/SC": {
+"bulk_deriv": 4.332344869257568,
+"bulk_modulus_ev_ang3": 1.3204159223495429,
+"min_volume": 11.903714459427391
+},
+"Mn-X2O": {
+"bulk_deriv": 4.608051305363193,
+"bulk_modulus_ev_ang3": 1.279764934292613,
+"min_volume": 29.576669238660642
+},
+"Mn-X2O3": {
+"bulk_deriv": 4.519825148879572,
+"bulk_modulus_ev_ang3": 1.4943212149325589,
+"min_volume": 92.93424186964157
+},
+"Mn-X2O5": {
+"bulk_deriv": 4.512910284116226,
+"bulk_modulus_ev_ang3": 1.3930141714676378,
+"min_volume": 115.33308252994878
+},
+"Mn-XO": {
+"bulk_deriv": 4.59030671248622,
+"bulk_modulus_ev_ang3": 1.5222293887643374,
+"min_volume": 17.29568993705859
+},
+"Mn-XO2": {
+"bulk_deriv": 4.493874177629839,
+"bulk_modulus_ev_ang3": 1.7247896057013328,
+"min_volume": 24.65312475702824
+},
+"Mn-XO3": {
+"bulk_deriv": 4.60658903970833,
+"bulk_modulus_ev_ang3": 1.1897110735761944,
+"min_volume": 45.63346186054367
+},
+"Mo-X/BCC": {
+"bulk_deriv": 4.189009893654522,
+"bulk_modulus_ev_ang3": 1.6188299817173566,
+"min_volume": 15.787641452629707
+},
+"Mo-X/Diamond": {
+"bulk_deriv": 4.081004969316838,
+"bulk_modulus_ev_ang3": 0.6651704811354153,
+"min_volume": 45.90790447728689
+},
+"Mo-X/FCC": {
+"bulk_deriv": 4.047410623226849,
+"bulk_modulus_ev_ang3": 1.4847128542976216,
+"min_volume": 16.02600825016316
+},
+"Mo-X/SC": {
+"bulk_deriv": 4.166214299741807,
+"bulk_modulus_ev_ang3": 1.1803263484885618,
+"min_volume": 17.578135713340473
+},
+"Mo-X2O": {
+"bulk_deriv": 4.47316153236382,
+"bulk_modulus_ev_ang3": 1.2503121960475592,
+"min_volume": 39.665297359347306
+},
+"Mo-X2O3": {
+"bulk_deriv": 4.510223253385067,
+"bulk_modulus_ev_ang3": 1.5083333394255185,
+"min_volume": 113.61754456656571
+},
+"Mo-X2O5": {
+"bulk_deriv": 4.546692331598264,
+"bulk_modulus_ev_ang3": 1.7135530986458105,
+"min_volume": 125.93901104677029
+},
+"Mo-XO": {
+"bulk_deriv": 4.707297313280565,
+"bulk_modulus_ev_ang3": 1.5096401110076278,
+"min_volume": 21.51201468619066
+},
+"Mo-XO2": {
+"bulk_deriv": 4.450533482263608,
+"bulk_modulus_ev_ang3": 1.7346454643146396,
+"min_volume": 29.75921145532802
+},
+"Mo-XO3": {
+"bulk_deriv": 4.576468882065198,
+"bulk_modulus_ev_ang3": 1.306937799012116,
+"min_volume": 55.799162222143245
+},
+"N-X/BCC": {
+"bulk_deriv": 4.010654851720343,
+"bulk_modulus_ev_ang3": 1.1670318641132258,
+"min_volume": 7.264417221654655
+},
+"N-X/Diamond": {
+"bulk_deriv": 3.4115136245434226,
+"bulk_modulus_ev_ang3": 0.9802030796442971,
+"min_volume": 18.43826994599566
+},
+"N-X/FCC": {
+"bulk_deriv": 4.14645704823303,
+"bulk_modulus_ev_ang3": 1.1178827105635254,
+"min_volume": 7.629352270019361
+},
+"N-X/SC": {
+"bulk_deriv": 3.506190165244914,
+"bulk_modulus_ev_ang3": 1.2906928732394007,
+"min_volume": 6.528645375848054
+},
+"N-X2O": {
+"bulk_deriv": 4.209113405349341,
+"bulk_modulus_ev_ang3": 0.8840468820750688,
+"min_volume": 26.709997484555718
+},
+"N-X2O3": {
+"bulk_deriv": 4.1391472473867585,
+"bulk_modulus_ev_ang3": 0.9196187177963464,
+"min_volume": 91.5490831901482
+},
+"N-X2O5": {
+"bulk_deriv": 4.466208588121324,
+"bulk_modulus_ev_ang3": 0.9673355917961559,
+"min_volume": 114.47836434674038
+},
+"N-XO": {
+"bulk_deriv": 4.124168898708905,
+"bulk_modulus_ev_ang3": 1.148733290237769,
+"min_volume": 15.370308914604093
+},
+"N-XO2": {
+"bulk_deriv": 4.206459897728908,
+"bulk_modulus_ev_ang3": 0.9999335466171321,
+"min_volume": 25.558657643571603
+},
+"N-XO3": {
+"bulk_deriv": 4.124564674170759,
+"bulk_modulus_ev_ang3": 0.6896384767995768,
+"min_volume": 39.89653823251555
+},
+"Na-X/BCC": {
+"bulk_deriv": 3.7363033255919182,
+"bulk_modulus_ev_ang3": 0.04836760925640885,
+"min_volume": 37.01756805376591
+},
+"Na-X/Diamond": {
+"bulk_deriv": 3.3644540283065334,
+"bulk_modulus_ev_ang3": 0.017988067594687834,
+"min_volume": 109.1504911607563
+},
+"Na-X/FCC": {
+"bulk_deriv": 3.7124214479134583,
+"bulk_modulus_ev_ang3": 0.04810397441804216,
+"min_volume": 37.102921212113564
+},
+"Na-X/SC": {
+"bulk_deriv": 3.6998172266635967,
+"bulk_modulus_ev_ang3": 0.038480213593475934,
+"min_volume": 39.75417188517832
+},
+"Na-X2O": {
+"bulk_deriv": 4.345183045198069,
+"bulk_modulus_ev_ang3": 0.28275032162850394,
+"min_volume": 43.74876314050645
+},
+"Na-X2O3": {
+"bulk_deriv": 4.760532078177317,
+"bulk_modulus_ev_ang3": 0.27542377514130234,
+"min_volume": 141.79839442644538
+},
+"Na-X2O5": {
+"bulk_deriv": 4.786764802203825,
+"bulk_modulus_ev_ang3": 0.4773547423497542,
+"min_volume": 148.66403240182714
+},
+"Na-XO": {
+"bulk_deriv": 4.49006242023598,
+"bulk_modulus_ev_ang3": 0.2616607217267661,
+"min_volume": 27.78116146812517
+},
+"Na-XO2": {
+"bulk_deriv": 4.840255681540384,
+"bulk_modulus_ev_ang3": 0.33132173477217924,
+"min_volume": 36.696359359343965
+},
+"Na-XO3": {
+"bulk_deriv": 4.964272445876323,
+"bulk_modulus_ev_ang3": 0.11905819640484452,
+"min_volume": 82.25634633691503
+},
+"Nb-X/BCC": {
+"bulk_deriv": 3.69379548695826,
+"bulk_modulus_ev_ang3": 1.0594346143266438,
+"min_volume": 18.160425574356942
+},
+"Nb-X/Diamond": {
+"bulk_deriv": 4.287433104430279,
+"bulk_modulus_ev_ang3": 0.4168934415813411,
+"min_volume": 51.70321684821557
+},
+"Nb-X/FCC": {
+"bulk_deriv": 3.6514719274626612,
+"bulk_modulus_ev_ang3": 1.0218550016472316,
+"min_volume": 18.788493390482703
+},
+"Nb-X/SC": {
+"bulk_deriv": 3.894876149821931,
+"bulk_modulus_ev_ang3": 0.8095363047180115,
+"min_volume": 20.13932902359222
+},
+"Nb-X2O": {
+"bulk_deriv": 4.175594449073304,
+"bulk_modulus_ev_ang3": 1.0260072613990157,
+"min_volume": 43.34265119811736
+},
+"Nb-X2O3": {
+"bulk_deriv": 4.385388645089695,
+"bulk_modulus_ev_ang3": 1.4012050060611358,
+"min_volume": 120.40947384073122
+},
+"Nb-X2O5": {
+"bulk_deriv": 4.42701908113837,
+"bulk_modulus_ev_ang3": 1.6441227782518717,
+"min_volume": 131.78600760627236
+},
+"Nb-XO": {
+"bulk_deriv": 4.633511793095123,
+"bulk_modulus_ev_ang3": 1.4340134194611243,
+"min_volume": 22.423669917617296
+},
+"Nb-XO2": {
+"bulk_deriv": 4.339980752999402,
+"bulk_modulus_ev_ang3": 1.6281692466261368,
+"min_volume": 31.30968079787018
+},
+"Nb-XO3": {
+"bulk_deriv": 4.450639131732119,
+"bulk_modulus_ev_ang3": 1.091125477927578,
+"min_volume": 61.783016929535776
+},
+"Nd-X/BCC": {
+"bulk_deriv": 7.056323601739567,
+"bulk_modulus_ev_ang3": 0.17607383831974635,
+"min_volume": 22.16705449096726
+},
+"Nd-X/Diamond": {
+"bulk_deriv": 5.230505193920806,
+"bulk_modulus_ev_ang3": 0.6859286277166743,
+"min_volume": 48.637055872639266
+},
+"Nd-X/FCC": {
+"bulk_deriv": 5.002168358002277,
+"bulk_modulus_ev_ang3": 0.23031571659664593,
+"min_volume": 23.444920856035623
+},
+"Nd-X/SC": {
+"bulk_deriv": 6.745630438693937,
+"bulk_modulus_ev_ang3": 0.6471103357171483,
+"min_volume": 18.881478581859774
+},
+"Nd-X2O": {
+"bulk_deriv": 4.995304488912676,
+"bulk_modulus_ev_ang3": 0.6235371209908264,
+"min_volume": 51.245666171236756
+},
+"Nd-X2O3": {
+"bulk_deriv": 4.317166078749004,
+"bulk_modulus_ev_ang3": 0.7804245710274755,
+"min_volume": 158.76967092201033
+},
+"Nd-X2O5": {
+"bulk_deriv": 4.535208397513461,
+"bulk_modulus_ev_ang3": 1.0258963392842428,
+"min_volume": 160.9942817501849
+},
+"Nd-XO": {
+"bulk_deriv": 4.7242807546794845,
+"bulk_modulus_ev_ang3": 0.8920765945036104,
+"min_volume": 29.661977095765156
+},
+"Nd-XO2": {
+"bulk_deriv": 4.44657329014357,
+"bulk_modulus_ev_ang3": 1.0390987078894067,
+"min_volume": 39.53040794628623
+},
+"Nd-XO3": {
+"bulk_deriv": 4.223248505057856,
+"bulk_modulus_ev_ang3": 0.5473191608635255,
+"min_volume": 74.38247093837803
+},
+"Ne-X/BCC": {
+"bulk_deriv": 7.99951211241366,
+"bulk_modulus_ev_ang3": 0.007394779460578043,
+"min_volume": 24.67065528580724
+},
+"Ne-X/Diamond": {
+"bulk_deriv": 7.738445553767466,
+"bulk_modulus_ev_ang3": 0.0024549107969954647,
+"min_volume": 88.98147012489943
+},
+"Ne-X/FCC": {
+"bulk_deriv": 5.643530616426896,
+"bulk_modulus_ev_ang3": 0.007897450739626662,
+"min_volume": 24.31801985586683
+},
+"Ne-X/SC": {
+"bulk_deriv": 6.483737949707761,
+"bulk_modulus_ev_ang3": 0.005284151768855558,
+"min_volume": 29.729885031900253
+},
+"Ne-X2O": {
+"bulk_deriv": 6.279033251225051,
+"bulk_modulus_ev_ang3": 0.004893954684944751,
+"min_volume": 95.54406297464577
+},
+"Ne-X2O3": {
+"bulk_deriv": 6.009556992863549,
+"bulk_modulus_ev_ang3": 0.10659113546138971,
+"min_volume": 163.8566008333881
+},
+"Ne-X2O5": {
+"bulk_deriv": 5.109495864224787,
+"bulk_modulus_ev_ang3": 0.4883929545651066,
+"min_volume": 138.96947333151604
+},
+"Ne-XO": {
+"bulk_deriv": 7.349241295755727,
+"bulk_modulus_ev_ang3": 0.013966469937559537,
+"min_volume": 46.96871043961391
+},
+"Ne-XO2": {
+"bulk_deriv": 5.565128887337547,
+"bulk_modulus_ev_ang3": 0.20499781164720574,
+"min_volume": 38.92006295535677
+},
+"Ne-XO3": {
+"bulk_deriv": 6.268951768899099,
+"bulk_modulus_ev_ang3": 0.06977258177178632,
+"min_volume": 80.80085606639834
+},
+"Ni-X/BCC": {
+"bulk_deriv": 4.88890415735398,
+"bulk_modulus_ev_ang3": 1.2405308897063905,
+"min_volume": 10.89400645441797
+},
+"Ni-X/Diamond": {
+"bulk_deriv": 4.828112592447709,
+"bulk_modulus_ev_ang3": 0.5727319879300337,
+"min_volume": 33.040791007610984
+},
+"Ni-X/FCC": {
+"bulk_deriv": 4.88871793233131,
+"bulk_modulus_ev_ang3": 1.2627277532390415,
+"min_volume": 10.834089776198397
+},
+"Ni-X/SC": {
+"bulk_deriv": 4.870935018662698,
+"bulk_modulus_ev_ang3": 0.9207513999801354,
+"min_volume": 12.553755187709841
+},
+"Ni-X2O": {
+"bulk_deriv": 4.69524720291,
+"bulk_modulus_ev_ang3": 0.9575357030924732,
+"min_volume": 31.6430482497657
+},
+"Ni-X2O3": {
+"bulk_deriv": 4.631721744422555,
+"bulk_modulus_ev_ang3": 1.256782405713512,
+"min_volume": 96.09018011070594
+},
+"Ni-X2O5": {
+"bulk_deriv": 4.683446328247085,
+"bulk_modulus_ev_ang3": 1.1170727323305933,
+"min_volume": 121.47273460033816
+},
+"Ni-XO": {
+"bulk_deriv": 4.615480511458116,
+"bulk_modulus_ev_ang3": 1.2824869883981453,
+"min_volume": 18.008221212573783
+},
+"Ni-XO2": {
+"bulk_deriv": 4.646775110997102,
+"bulk_modulus_ev_ang3": 1.368913647724193,
+"min_volume": 26.225975327846967
+},
+"Ni-XO3": {
+"bulk_deriv": 4.612206134067338,
+"bulk_modulus_ev_ang3": 0.7898177266349647,
+"min_volume": 49.27996313423531
+},
+"Np-X/BCC": {
+"bulk_deriv": 5.277921572937608,
+"bulk_modulus_ev_ang3": 1.0437952440837024,
+"min_volume": 17.740234982624784
+},
+"Np-X/Diamond": {
+"bulk_deriv": 5.5229179319256145,
+"bulk_modulus_ev_ang3": 1.377178536954797,
+"min_volume": 42.61289654193797
+},
+"Np-X/FCC": {
+"bulk_deriv": 4.73559752772552,
+"bulk_modulus_ev_ang3": 0.8520176619400369,
+"min_volume": 19.2270249465247
+},
+"Np-X/SC": {
+"bulk_deriv": 7.258658424555788,
+"bulk_modulus_ev_ang3": 1.299207109000477,
+"min_volume": 17.1352588863806
+},
+"Np-X2O": {
+"bulk_deriv": 4.955215540318836,
+"bulk_modulus_ev_ang3": 1.011873802524475,
+"min_volume": 47.1007061943542
+},
+"Np-X2O3": {
+"bulk_deriv": 4.4425341788872155,
+"bulk_modulus_ev_ang3": 1.0454546686792616,
+"min_volume": 146.89186623797832
+},
+"Np-X2O5": {
+"bulk_deriv": 4.641134769125876,
+"bulk_modulus_ev_ang3": 1.4280513218332385,
+"min_volume": 149.41480673341857
+},
+"Np-XO": {
+"bulk_deriv": 5.002958215988436,
+"bulk_modulus_ev_ang3": 1.310335487189285,
+"min_volume": 27.248546510444967
+},
+"Np-XO2": {
+"bulk_deriv": 4.388581360617243,
+"bulk_modulus_ev_ang3": 1.266054975794802,
+"min_volume": 37.97664922479461
+},
+"Np-XO3": {
+"bulk_deriv": 4.23257885326429,
+"bulk_modulus_ev_ang3": 0.891650237128583,
+"min_volume": 70.07797544871524
+},
+"O-X/BCC": {
+"bulk_deriv": 4.677224978460116,
+"bulk_modulus_ev_ang3": 0.943839493698066,
+"min_volume": 7.787164945280104
+},
+"O-X/Diamond": {
+"bulk_deriv": 4.4230232598046335,
+"bulk_modulus_ev_ang3": 0.7405725300115891,
+"min_volume": 21.362611490364976
+},
+"O-X/FCC": {
+"bulk_deriv": 4.6694409606666145,
+"bulk_modulus_ev_ang3": 0.8752853031516548,
+"min_volume": 8.002403319884278
+},
+"O-X/SC": {
+"bulk_deriv": 4.629800213847531,
+"bulk_modulus_ev_ang3": 1.0731777285244255,
+"min_volume": 7.952821538196427
+},
+"O-X2O": {
+"bulk_deriv": 4.6969315571240635,
+"bulk_modulus_ev_ang3": 0.8130433850852014,
+"min_volume": 27.10734049332892
+},
+"O-X2O3": {
+"bulk_deriv": 4.543369446316733,
+"bulk_modulus_ev_ang3": 0.8287550555474511,
+"min_volume": 95.74239733267912
+},
+"O-X2O5": {
+"bulk_deriv": 4.685821091092401,
+"bulk_modulus_ev_ang3": 0.8984101784505485,
+"min_volume": 57.92884091025484
+},
+"O-XO": {
+"bulk_deriv": 4.631884857979601,
+"bulk_modulus_ev_ang3": 1.0731773763010386,
+"min_volume": 7.9528157211912855
+},
+"O-XO2": {
+"bulk_deriv": 4.695697806569729,
+"bulk_modulus_ev_ang3": 0.8130373767924253,
+"min_volume": 27.10736062385445
+},
+"O-XO3": {
+"bulk_deriv": 4.577634518145993,
+"bulk_modulus_ev_ang3": 0.548632005466578,
+"min_volume": 44.781305416469806
+},
+"Os-X/BCC": {
+"bulk_deriv": 4.806763021649551,
+"bulk_modulus_ev_ang3": 2.199419882765023,
+"min_volume": 14.764268263402364
+},
+"Os-X/Diamond": {
+"bulk_deriv": 4.6414735116579555,
+"bulk_modulus_ev_ang3": 1.2830321195092595,
+"min_volume": 42.87712606698747
+},
+"Os-X/FCC": {
+"bulk_deriv": 4.786586894476277,
+"bulk_modulus_ev_ang3": 2.4375649317316457,
+"min_volume": 14.3245345350334
+},
+"Os-X/SC": {
+"bulk_deriv": 4.688083210825506,
+"bulk_modulus_ev_ang3": 1.695617791220668,
+"min_volume": 16.717863120311208
+},
+"Os-X2O": {
+"bulk_deriv": 4.6450151069394074,
+"bulk_modulus_ev_ang3": 1.5675171847337552,
+"min_volume": 39.523435683328444
+},
+"Os-X2O3": {
+"bulk_deriv": 4.749054109790255,
+"bulk_modulus_ev_ang3": 1.7237844380788598,
+"min_volume": 109.37765095108331
+},
+"Os-X2O5": {
+"bulk_deriv": 4.686472047566749,
+"bulk_modulus_ev_ang3": 1.7056344487348853,
+"min_volume": 126.32995771957776
+},
+"Os-XO": {
+"bulk_deriv": 4.6641759592801435,
+"bulk_modulus_ev_ang3": 1.383203226260873,
+"min_volume": 22.529437751739408
+},
+"Os-XO2": {
+"bulk_deriv": 4.708049800913651,
+"bulk_modulus_ev_ang3": 1.9795485919219025,
+"min_volume": 28.785851878147177
+},
+"Os-XO3": {
+"bulk_deriv": 4.7753761219871445,
+"bulk_modulus_ev_ang3": 1.4526615063177406,
+"min_volume": 53.09213080568532
+},
+"P-X/BCC": {
+"bulk_deriv": 3.8875112660579356,
+"bulk_modulus_ev_ang3": 0.6059469226166273,
+"min_volume": 14.241044655922062
+},
+"P-X/Diamond": {
+"bulk_deriv": 2.595761366746788,
+"bulk_modulus_ev_ang3": 0.27028669526231136,
+"min_volume": 41.36440835072451
+},
+"P-X/FCC": {
+"bulk_deriv": 3.948419979411205,
+"bulk_modulus_ev_ang3": 0.5780037406336002,
+"min_volume": 14.569394164109628
+},
+"P-X/SC": {
+"bulk_deriv": 4.961681974755409,
+"bulk_modulus_ev_ang3": 0.6821680065217625,
+"min_volume": 14.671464049174832
+},
+"P-X2O": {
+"bulk_deriv": 4.0285860005503915,
+"bulk_modulus_ev_ang3": 0.6226821998618005,
+"min_volume": 40.035238443407934
+},
+"P-X2O3": {
+"bulk_deriv": 3.7811512905151545,
+"bulk_modulus_ev_ang3": 0.8310767231400631,
+"min_volume": 112.91134336757817
+},
+"P-X2O5": {
+"bulk_deriv": 3.9459171512501685,
+"bulk_modulus_ev_ang3": 0.8916627786736455,
+"min_volume": 130.47878054049215
+},
+"P-XO": {
+"bulk_deriv": 4.225019629666631,
+"bulk_modulus_ev_ang3": 0.8826297793324286,
+"min_volume": 24.300554965354635
+},
+"P-XO2": {
+"bulk_deriv": 3.965336666553715,
+"bulk_modulus_ev_ang3": 1.1444252311234089,
+"min_volume": 27.21661090314776
+},
+"P-XO3": {
+"bulk_deriv": 4.768119213388621,
+"bulk_modulus_ev_ang3": 1.5937291983088129,
+"min_volume": 37.13253301784293
+},
+"Pa-X/BCC": {
+"bulk_deriv": 3.673785976046762,
+"bulk_modulus_ev_ang3": 0.5633574427613384,
+"min_volume": 24.788107880817982
+},
+"Pa-X/Diamond": {
+"bulk_deriv": 8.27274666821967,
+"bulk_modulus_ev_ang3": 0.45461613001001333,
+"min_volume": 60.97157801479003
+},
+"Pa-X/FCC": {
+"bulk_deriv": 3.984113163636178,
+"bulk_modulus_ev_ang3": 0.5887548091390213,
+"min_volume": 25.28576510499455
+},
+"Pa-X/SC": {
+"bulk_deriv": 4.318650795066242,
+"bulk_modulus_ev_ang3": 0.5038476849750668,
+"min_volume": 24.067215129757454
+},
+"Pa-X2O": {
+"bulk_deriv": 4.467716650016036,
+"bulk_modulus_ev_ang3": 0.7333800231431196,
+"min_volume": 56.23814523377269
+},
+"Pa-X2O3": {
+"bulk_deriv": 4.436022915965831,
+"bulk_modulus_ev_ang3": 1.0789899670139216,
+"min_volume": 157.33566754308316
+},
+"Pa-X2O5": {
+"bulk_deriv": 4.445577863483741,
+"bulk_modulus_ev_ang3": 1.4845203063527244,
+"min_volume": 159.43643087284937
+},
+"Pa-XO": {
+"bulk_deriv": 4.754923573291281,
+"bulk_modulus_ev_ang3": 1.191612556717203,
+"min_volume": 30.03019187208043
+},
+"Pa-XO2": {
+"bulk_deriv": 4.4547207931439585,
+"bulk_modulus_ev_ang3": 1.2608694959482842,
+"min_volume": 40.58482441029092
+},
+"Pa-XO3": {
+"bulk_deriv": 5.328028849628862,
+"bulk_modulus_ev_ang3": 0.5716495843342024,
+"min_volume": 77.70721672562385
+},
+"Pb-X/BCC": {
+"bulk_deriv": 4.801072208186982,
+"bulk_modulus_ev_ang3": 0.24333485200606889,
+"min_volume": 31.97025933855603
+},
+"Pb-X/Diamond": {
+"bulk_deriv": 4.7626908591249135,
+"bulk_modulus_ev_ang3": 0.15856005505113002,
+"min_volume": 87.97465847712536
+},
+"Pb-X/FCC": {
+"bulk_deriv": 4.773815530459871,
+"bulk_modulus_ev_ang3": 0.24775273137677412,
+"min_volume": 32.02678533962903
+},
+"Pb-X/SC": {
+"bulk_deriv": 4.88516343948522,
+"bulk_modulus_ev_ang3": 0.22097342006990428,
+"min_volume": 34.46079576593657
+},
+"Pb-X2O": {
+"bulk_deriv": 4.7609511260606245,
+"bulk_modulus_ev_ang3": 0.3436488020354774,
+"min_volume": 70.40912810179255
+},
+"Pb-X2O3": {
+"bulk_deriv": 4.75769534078431,
+"bulk_modulus_ev_ang3": 0.5098706092754008,
+"min_volume": 173.4228887500365
+},
+"Pb-X2O5": {
+"bulk_deriv": 5.3518637435855485,
+"bulk_modulus_ev_ang3": 0.5998788724742267,
+"min_volume": 177.26571214488908
+},
+"Pb-XO": {
+"bulk_deriv": 4.559732339084347,
+"bulk_modulus_ev_ang3": 0.5410722462843236,
+"min_volume": 36.55009714297402
+},
+"Pb-XO2": {
+"bulk_deriv": 5.126365493025155,
+"bulk_modulus_ev_ang3": 0.8157666189111537,
+"min_volume": 39.86380031051007
+},
+"Pb-XO3": {
+"bulk_deriv": 3.8881390346791393,
+"bulk_modulus_ev_ang3": 0.38253404253947554,
+"min_volume": 80.26698202011727
+},
+"Pd-X/BCC": {
+"bulk_deriv": 5.544581778414572,
+"bulk_modulus_ev_ang3": 1.0260797346870751,
+"min_volume": 15.445827251534762
+},
+"Pd-X/Diamond": {
+"bulk_deriv": 5.373565518960592,
+"bulk_modulus_ev_ang3": 0.41236776873437997,
+"min_volume": 49.089639090122674
+},
+"Pd-X/FCC": {
+"bulk_deriv": 5.565714025008825,
+"bulk_modulus_ev_ang3": 1.0497430980393196,
+"min_volume": 15.328078718213197
+},
+"Pd-X/SC": {
+"bulk_deriv": 5.465430835531861,
+"bulk_modulus_ev_ang3": 0.7574453250818205,
+"min_volume": 17.872188920208043
+},
+"Pd-X2O": {
+"bulk_deriv": 5.238966705802835,
+"bulk_modulus_ev_ang3": 0.8160766063455602,
+"min_volume": 42.22494573277744
+},
+"Pd-X2O3": {
+"bulk_deriv": 4.954834210584118,
+"bulk_modulus_ev_ang3": 1.131931612163657,
+"min_volume": 118.31769642911043
+},
+"Pd-X2O5": {
+"bulk_deriv": 4.959277748194211,
+"bulk_modulus_ev_ang3": 1.087428278997768,
+"min_volume": 138.13950249700443
+},
+"Pd-XO": {
+"bulk_deriv": 5.000603783012389,
+"bulk_modulus_ev_ang3": 1.0719618352195133,
+"min_volume": 23.318522763481276
+},
+"Pd-XO2": {
+"bulk_deriv": 4.954676444278268,
+"bulk_modulus_ev_ang3": 1.2826106781333584,
+"min_volume": 31.467473665930985
+},
+"Pd-XO3": {
+"bulk_deriv": 4.882911580903478,
+"bulk_modulus_ev_ang3": 0.6744363847946864,
+"min_volume": 58.94946547457695
+},
+"Pm-X/BCC": {
+"bulk_deriv": 8.24234906001535,
+"bulk_modulus_ev_ang3": 0.1383233624299126,
+"min_volume": 21.68820378177189
+},
+"Pm-X/Diamond": {
+"bulk_deriv": 5.228408365803589,
+"bulk_modulus_ev_ang3": 0.76114821159818,
+"min_volume": 45.06933646163406
+},
+"Pm-X/FCC": {
+"bulk_deriv": 5.144323166859888,
+"bulk_modulus_ev_ang3": 0.1986492932315063,
+"min_volume": 22.988489780871074
+},
+"Pm-X/SC": {
+"bulk_deriv": 6.916802600570471,
+"bulk_modulus_ev_ang3": 0.6363752639059149,
+"min_volume": 18.158317492936394
+},
+"Pm-X2O": {
+"bulk_deriv": 5.080202607604674,
+"bulk_modulus_ev_ang3": 0.6031034868762131,
+"min_volume": 50.46782136465707
+},
+"Pm-X2O3": {
+"bulk_deriv": 4.352426876368749,
+"bulk_modulus_ev_ang3": 0.7722874277341853,
+"min_volume": 156.6542943185695
+},
+"Pm-X2O5": {
+"bulk_deriv": 4.543569623215162,
+"bulk_modulus_ev_ang3": 1.0015253894963354,
+"min_volume": 159.80494672116896
+},
+"Pm-XO": {
+"bulk_deriv": 4.760123925872622,
+"bulk_modulus_ev_ang3": 0.876068032792826,
+"min_volume": 29.200343727098694
+},
+"Pm-XO2": {
+"bulk_deriv": 4.465834408474379,
+"bulk_modulus_ev_ang3": 1.0245191047747437,
+"min_volume": 38.98635668761717
+},
+"Pm-XO3": {
+"bulk_deriv": 4.258311654014879,
+"bulk_modulus_ev_ang3": 0.5450507504138159,
+"min_volume": 73.4680585809128
+},
+"Po-X/BCC": {
+"bulk_deriv": 4.986350978546173,
+"bulk_modulus_ev_ang3": 0.31274762605838063,
+"min_volume": 32.898598574792764
+},
+"Po-X/Diamond": {
+"bulk_deriv": 4.620257985871374,
+"bulk_modulus_ev_ang3": 0.15946943736744043,
+"min_volume": 105.01715805909643
+},
+"Po-X/FCC": {
+"bulk_deriv": 4.97111613477509,
+"bulk_modulus_ev_ang3": 0.3102696687531244,
+"min_volume": 32.62660981599442
+},
+"Po-X/SC": {
+"bulk_deriv": 4.886442940494749,
+"bulk_modulus_ev_ang3": 0.2842056667490292,
+"min_volume": 37.60273489440292
+},
+"Po-X2O": {
+"bulk_deriv": 4.731188093433243,
+"bulk_modulus_ev_ang3": 0.43507251177939354,
+"min_volume": 70.53374515356985
+},
+"Po-X2O3": {
+"bulk_deriv": 4.6238221991838255,
+"bulk_modulus_ev_ang3": 0.7334630270175245,
+"min_volume": 170.08586063295897
+},
+"Po-X2O5": {
+"bulk_deriv": 4.569318755462248,
+"bulk_modulus_ev_ang3": 0.9518017407978038,
+"min_volume": 171.52789361565092
+},
+"Po-XO": {
+"bulk_deriv": 4.6424558272012915,
+"bulk_modulus_ev_ang3": 0.6206826354897147,
+"min_volume": 37.41636852034742
+},
+"Po-XO2": {
+"bulk_deriv": 4.638832573317293,
+"bulk_modulus_ev_ang3": 1.005072664150931,
+"min_volume": 41.99282189874314
+},
+"Po-XO3": {
+"bulk_deriv": 5.091433305198328,
+"bulk_modulus_ev_ang3": 0.5129355221434504,
+"min_volume": 72.16392159018416
+},
+"Pr-X/BCC": {
+"bulk_deriv": 5.8851610390854034,
+"bulk_modulus_ev_ang3": 0.18621052889559683,
+"min_volume": 23.990451133980546
+},
+"Pr-X/Diamond": {
+"bulk_deriv": 5.341341078263158,
+"bulk_modulus_ev_ang3": 0.5829255635003928,
+"min_volume": 53.70278832959646
+},
+"Pr-X/FCC": {
+"bulk_deriv": 4.620812671337321,
+"bulk_modulus_ev_ang3": 0.24838576244085575,
+"min_volume": 24.671544382781878
+},
+"Pr-X/SC": {
+"bulk_deriv": 6.857126608458776,
+"bulk_modulus_ev_ang3": 0.5037358862008419,
+"min_volume": 20.912260710714968
+},
+"Pr-X2O": {
+"bulk_deriv": 4.907752033773837,
+"bulk_modulus_ev_ang3": 0.6218366081557407,
+"min_volume": 52.987608162855544
+},
+"Pr-X2O3": {
+"bulk_deriv": 4.309144415960947,
+"bulk_modulus_ev_ang3": 0.7906500830024227,
+"min_volume": 161.47916181520534
+},
+"Pr-X2O5": {
+"bulk_deriv": 4.55091708747315,
+"bulk_modulus_ev_ang3": 1.0490566328681867,
+"min_volume": 162.71659824782165
+},
+"Pr-XO": {
+"bulk_deriv": 4.743294668307298,
+"bulk_modulus_ev_ang3": 0.903450946146272,
+"min_volume": 30.28838616438081
+},
+"Pr-XO2": {
+"bulk_deriv": 4.4403315906060055,
+"bulk_modulus_ev_ang3": 1.0558547027419123,
+"min_volume": 40.219293035135536
+},
+"Pr-XO3": {
+"bulk_deriv": 3.206099482280931,
+"bulk_modulus_ev_ang3": 0.43349395483102965,
+"min_volume": 78.37240584610475
+},
+"Pt-X/BCC": {
+"bulk_deriv": 5.396529938085857,
+"bulk_modulus_ev_ang3": 1.4856566803536382,
+"min_volume": 15.842025310283741
+},
+"Pt-X/Diamond": {
+"bulk_deriv": 5.454751672745411,
+"bulk_modulus_ev_ang3": 0.7151953158271961,
+"min_volume": 48.20976283975721
+},
+"Pt-X/FCC": {
+"bulk_deriv": 5.5007126628051415,
+"bulk_modulus_ev_ang3": 1.5440336768547371,
+"min_volume": 15.650920735422975
+},
+"Pt-X/SC": {
+"bulk_deriv": 5.436452771664853,
+"bulk_modulus_ev_ang3": 1.1585556114815205,
+"min_volume": 18.081340134436353
+},
+"Pt-X2O": {
+"bulk_deriv": 5.21920883366641,
+"bulk_modulus_ev_ang3": 1.0803759475159889,
+"min_volume": 43.21312006639758
+},
+"Pt-X2O3": {
+"bulk_deriv": 4.911418289776668,
+"bulk_modulus_ev_ang3": 1.2988882007298606,
+"min_volume": 121.30339032141639
+},
+"Pt-X2O5": {
+"bulk_deriv": 4.911992974000797,
+"bulk_modulus_ev_ang3": 1.2630990005924314,
+"min_volume": 138.57392670491038
+},
+"Pt-XO": {
+"bulk_deriv": 4.925872219513539,
+"bulk_modulus_ev_ang3": 1.1660180535216647,
+"min_volume": 24.658831666348153
+},
+"Pt-XO2": {
+"bulk_deriv": 4.886292618330827,
+"bulk_modulus_ev_ang3": 1.457840644060775,
+"min_volume": 32.30485883301431
+},
+"Pt-XO3": {
+"bulk_deriv": 5.464744183795158,
+"bulk_modulus_ev_ang3": 0.8639326767805968,
+"min_volume": 57.404861354091416
+},
+"Pu-X/BCC": {
+"bulk_deriv": 5.8547383948558105,
+"bulk_modulus_ev_ang3": 1.1850138699575288,
+"min_volume": 16.511095097516126
+},
+"Pu-X/Diamond": {
+"bulk_deriv": 5.090533152131159,
+"bulk_modulus_ev_ang3": 1.3766060882388615,
+"min_volume": 40.0874625909123
+},
+"Pu-X/FCC": {
+"bulk_deriv": 5.090303843139958,
+"bulk_modulus_ev_ang3": 0.9412314988101268,
+"min_volume": 17.78301441766837
+},
+"Pu-X/SC": {
+"bulk_deriv": 6.968990404629754,
+"bulk_modulus_ev_ang3": 1.3832004847368706,
+"min_volume": 16.250527885524367
+},
+"Pu-X2O": {
+"bulk_deriv": 5.04705929158071,
+"bulk_modulus_ev_ang3": 1.005041371069466,
+"min_volume": 45.76836540972773
+},
+"Pu-X2O3": {
+"bulk_deriv": 4.438277062949214,
+"bulk_modulus_ev_ang3": 0.9972119631722298,
+"min_volume": 145.13901516454365
+},
+"Pu-X2O5": {
+"bulk_deriv": 4.659212912071489,
+"bulk_modulus_ev_ang3": 1.3344600187726974,
+"min_volume": 148.45358424057156
+},
+"Pu-XO": {
+"bulk_deriv": 4.949755188056896,
+"bulk_modulus_ev_ang3": 1.2714204292884663,
+"min_volume": 26.79577320498526
+},
+"Pu-XO2": {
+"bulk_deriv": 4.375780145219717,
+"bulk_modulus_ev_ang3": 1.2433473717795074,
+"min_volume": 37.33528368427616
+},
+"Pu-XO3": {
+"bulk_deriv": 4.252114168467132,
+"bulk_modulus_ev_ang3": 0.850055976619002,
+"min_volume": 68.68001502664208
+},
+"Ra-X/BCC": {
+"bulk_deriv": 3.3296895206006756,
+"bulk_modulus_ev_ang3": 0.047804765135009114,
+"min_volume": 71.21688131754385
+},
+"Ra-X/Diamond": {
+"bulk_deriv": 2.291824380206788,
+"bulk_modulus_ev_ang3": 0.007406220477462908,
+"min_volume": 343.5223142197468
+},
+"Ra-X/FCC": {
+"bulk_deriv": 3.128349864372262,
+"bulk_modulus_ev_ang3": 0.04540121367060071,
+"min_volume": 71.9145067982833
+},
+"Ra-X/SC": {
+"bulk_deriv": 4.447207202195867,
+"bulk_modulus_ev_ang3": 0.032310642927044844,
+"min_volume": 75.89274601318213
+},
+"Ra-X2O": {
+"bulk_deriv": 4.757363637443424,
+"bulk_modulus_ev_ang3": 0.1725044714778936,
+"min_volume": 96.2805564765384
+},
+"Ra-X2O3": {
+"bulk_deriv": 3.844789910205879,
+"bulk_modulus_ev_ang3": 0.25844295497682207,
+"min_volume": 257.75413402579926
+},
+"Ra-X2O5": {
+"bulk_deriv": 4.210605711962119,
+"bulk_modulus_ev_ang3": 0.33214947616227486,
+"min_volume": 246.38962327124517
+},
+"Ra-XO": {
+"bulk_deriv": 4.6261834417335805,
+"bulk_modulus_ev_ang3": 0.3802003941804265,
+"min_volume": 48.38947898273308
+},
+"Ra-XO2": {
+"bulk_deriv": 4.121590579474666,
+"bulk_modulus_ev_ang3": 0.24559150307434283,
+"min_volume": 65.15331567326025
+},
+"Ra-XO3": {
+"bulk_deriv": 7.9215941589169745,
+"bulk_modulus_ev_ang3": 0.15425585782239343,
+"min_volume": 96.11955051419281
+},
+"Rb-X/BCC": {
+"bulk_deriv": 3.8039029519677863,
+"bulk_modulus_ev_ang3": 0.017309405698220273,
+"min_volume": 91.09033705955984
+},
+"Rb-X/Diamond": {
+"bulk_deriv": 3.3531819280824005,
+"bulk_modulus_ev_ang3": 0.00598961324332128,
+"min_volume": 282.56675875663245
+},
+"Rb-X/FCC": {
+"bulk_deriv": 3.7761678580634213,
+"bulk_modulus_ev_ang3": 0.01721464409889519,
+"min_volume": 91.37901961537969
+},
+"Rb-X/SC": {
+"bulk_deriv": 3.6619576113041434,
+"bulk_modulus_ev_ang3": 0.013350638335822907,
+"min_volume": 98.93597467407922
+},
+"Rb-X2O": {
+"bulk_deriv": 4.6285951571484825,
+"bulk_modulus_ev_ang3": 0.14131549566336238,
+"min_volume": 81.23828605989183
+},
+"Rb-X2O3": {
+"bulk_deriv": 4.619052163932692,
+"bulk_modulus_ev_ang3": 0.09934572933498856,
+"min_volume": 269.5401636425736
+},
+"Rb-X2O5": {
+"bulk_deriv": 4.920832895736384,
+"bulk_modulus_ev_ang3": 0.22219264841946226,
+"min_volume": 229.04892917686027
+},
+"Rb-XO": {
+"bulk_deriv": 4.184922899995775,
+"bulk_modulus_ev_ang3": 0.11423944257734878,
+"min_volume": 48.88435090620765
+},
+"Rb-XO2": {
+"bulk_deriv": 4.361732895226126,
+"bulk_modulus_ev_ang3": 0.10355499377627268,
+"min_volume": 69.19094662854275
+},
+"Rb-XO3": {
+"bulk_deriv": 6.439639125536601,
+"bulk_modulus_ev_ang3": 0.023858438151919962,
+"min_volume": 112.97099620545424
+},
+"Re-X/BCC": {
+"bulk_deriv": 4.546058907945324,
+"bulk_modulus_ev_ang3": 2.2196658120100197,
+"min_volume": 15.095664457350447
+},
+"Re-X/Diamond": {
+"bulk_deriv": 4.232963355111269,
+"bulk_modulus_ev_ang3": 1.1138263379509492,
+"min_volume": 45.19465195007471
+},
+"Re-X/FCC": {
+"bulk_deriv": 4.511568806268197,
+"bulk_modulus_ev_ang3": 2.271046168860904,
+"min_volume": 15.006712296176342
+},
+"Re-X/SC": {
+"bulk_deriv": 4.367660314682726,
+"bulk_modulus_ev_ang3": 1.6245369091343849,
+"min_volume": 17.16656950805318
+},
+"Re-X2O": {
+"bulk_deriv": 4.326266781843705,
+"bulk_modulus_ev_ang3": 1.5135568121232783,
+"min_volume": 40.17935521074747
+},
+"Re-X2O3": {
+"bulk_deriv": 4.66192139206386,
+"bulk_modulus_ev_ang3": 1.7311260960870334,
+"min_volume": 110.7263969807568
+},
+"Re-X2O5": {
+"bulk_deriv": 4.633579238720325,
+"bulk_modulus_ev_ang3": 1.8501777069229288,
+"min_volume": 124.44560711352341
+},
+"Re-XO": {
+"bulk_deriv": 4.734489009128513,
+"bulk_modulus_ev_ang3": 1.532626302952429,
+"min_volume": 22.11374244569969
+},
+"Re-XO2": {
+"bulk_deriv": 4.595746303763337,
+"bulk_modulus_ev_ang3": 1.9431620195370911,
+"min_volume": 29.3101066645734
+},
+"Re-XO3": {
+"bulk_deriv": 4.6477062849054365,
+"bulk_modulus_ev_ang3": 1.5125765375632414,
+"min_volume": 53.85465773792145
+},
+"Rh-X/BCC": {
+"bulk_deriv": 5.144270628940891,
+"bulk_modulus_ev_ang3": 1.4483037490269515,
+"min_volume": 14.47614570458611
+},
+"Rh-X/Diamond": {
+"bulk_deriv": 5.112445286663139,
+"bulk_modulus_ev_ang3": 0.7981462640552133,
+"min_volume": 41.91666323901033
+},
+"Rh-X/FCC": {
+"bulk_deriv": 5.155369963404061,
+"bulk_modulus_ev_ang3": 1.5950457996472867,
+"min_volume": 14.063399316578014
+},
+"Rh-X/SC": {
+"bulk_deriv": 5.086688530059612,
+"bulk_modulus_ev_ang3": 1.1396251121442018,
+"min_volume": 16.301492300911466
+},
+"Rh-X2O": {
+"bulk_deriv": 4.99013881761839,
+"bulk_modulus_ev_ang3": 1.14710386844581,
+"min_volume": 38.845743388965815
+},
+"Rh-X2O3": {
+"bulk_deriv": 4.895192579787391,
+"bulk_modulus_ev_ang3": 1.3702086256996924,
+"min_volume": 109.22129127912314
+},
+"Rh-X2O5": {
+"bulk_deriv": 4.798964716559544,
+"bulk_modulus_ev_ang3": 1.307404685233317,
+"min_volume": 131.08531081724556
+},
+"Rh-XO": {
+"bulk_deriv": 4.801127958807641,
+"bulk_modulus_ev_ang3": 1.2114046707217465,
+"min_volume": 22.00695823936619
+},
+"Rh-XO2": {
+"bulk_deriv": 4.7955896453981905,
+"bulk_modulus_ev_ang3": 1.564522578494312,
+"min_volume": 29.657549495871887
+},
+"Rh-XO3": {
+"bulk_deriv": 4.819865524744118,
+"bulk_modulus_ev_ang3": 0.9700281809134469,
+"min_volume": 54.562870085216375
+},
+"Rn-X/BCC": {
+"bulk_deriv": 7.185821341205843,
+"bulk_modulus_ev_ang3": 0.0032072705786891946,
+"min_volume": 95.49267042598238
+},
+"Rn-X/Diamond": {
+"bulk_deriv": 7.583106923307168,
+"bulk_modulus_ev_ang3": 0.0010367120277248543,
+"min_volume": 353.78939077671214
+},
+"Rn-X/FCC": {
+"bulk_deriv": 7.206490721842883,
+"bulk_modulus_ev_ang3": 0.003377966789516079,
+"min_volume": 93.17891448399023
+},
+"Rn-X/SC": {
+"bulk_deriv": 7.590533952295351,
+"bulk_modulus_ev_ang3": 0.0022885915090695187,
+"min_volume": 117.72192520001495
+},
+"Rn-X2O": {
+"bulk_deriv": 6.41183032180593,
+"bulk_modulus_ev_ang3": 0.0283546898263427,
+"min_volume": 137.15842328279874
+},
+"Rn-X2O3": {
+"bulk_deriv": 5.195529965924361,
+"bulk_modulus_ev_ang3": 0.3604746428299742,
+"min_volume": 205.59990029594152
+},
+"Rn-X2O5": {
+"bulk_deriv": 5.279259925101887,
+"bulk_modulus_ev_ang3": 0.6024747828076634,
+"min_volume": 184.99692745373977
+},
+"Rn-XO": {
+"bulk_deriv": 5.963943042385842,
+"bulk_modulus_ev_ang3": 0.2399874675474788,
+"min_volume": 47.75175518267172
+},
+"Rn-XO2": {
+"bulk_deriv": 5.245433898727982,
+"bulk_modulus_ev_ang3": 0.5189939398065525,
+"min_volume": 49.35304362893612
+},
+"Rn-XO3": {
+"bulk_deriv": 6.287203718622902,
+"bulk_modulus_ev_ang3": 0.5999246794385307,
+"min_volume": 74.11814020035561
+},
+"Ru-X/BCC": {
+"bulk_deriv": 4.860436808962686,
+"bulk_modulus_ev_ang3": 1.7427262544994855,
+"min_volume": 14.243293315457986
+},
+"Ru-X/Diamond": {
+"bulk_deriv": 4.707691680776796,
+"bulk_modulus_ev_ang3": 1.0161785059437847,
+"min_volume": 40.54361761486275
+},
+"Ru-X/FCC": {
+"bulk_deriv": 4.823256594775015,
+"bulk_modulus_ev_ang3": 1.9049395080604339,
+"min_volume": 13.846005779248783
+},
+"Ru-X/SC": {
+"bulk_deriv": 4.7333270618411545,
+"bulk_modulus_ev_ang3": 1.3735069687964034,
+"min_volume": 15.83102610278416
+},
+"Ru-X2O": {
+"bulk_deriv": 4.734377078296885,
+"bulk_modulus_ev_ang3": 1.3367751308930298,
+"min_volume": 37.86542550694288
+},
+"Ru-X2O3": {
+"bulk_deriv": 4.740028503773282,
+"bulk_modulus_ev_ang3": 1.5374992348414769,
+"min_volume": 107.51779521992093
+},
+"Ru-X2O5": {
+"bulk_deriv": 4.697434725877242,
+"bulk_modulus_ev_ang3": 1.4835605100405644,
+"min_volume": 126.82343754038581
+},
+"Ru-XO": {
+"bulk_deriv": 4.920078863655088,
+"bulk_modulus_ev_ang3": 1.3387643885079192,
+"min_volume": 21.41357813392532
+},
+"Ru-XO2": {
+"bulk_deriv": 4.726610854999714,
+"bulk_modulus_ev_ang3": 1.7833748167229317,
+"min_volume": 28.265321388448704
+},
+"Ru-XO3": {
+"bulk_deriv": 4.85751745627177,
+"bulk_modulus_ev_ang3": 1.2284932265856876,
+"min_volume": 52.78956096947869
+},
+"S-X/BCC": {
+"bulk_deriv": 4.293458462735583,
+"bulk_modulus_ev_ang3": 0.5183865885056931,
+"min_volume": 15.74692056698598
+},
+"S-X/Diamond": {
+"bulk_deriv": 3.5374183818323504,
+"bulk_modulus_ev_ang3": 0.2742706770235497,
+"min_volume": 48.52171409069046
+},
+"S-X/FCC": {
+"bulk_deriv": 4.321852629007793,
+"bulk_modulus_ev_ang3": 0.4930521196970309,
+"min_volume": 15.864237893179398
+},
+"S-X/SC": {
+"bulk_deriv": 4.261469376631944,
+"bulk_modulus_ev_ang3": 0.5233415861544894,
+"min_volume": 17.20563561209003
+},
+"S-X2O": {
+"bulk_deriv": 4.171043107672228,
+"bulk_modulus_ev_ang3": 0.5410498250138783,
+"min_volume": 42.66481694656111
+},
+"S-X2O3": {
+"bulk_deriv": 4.259312707439422,
+"bulk_modulus_ev_ang3": 0.824851381481285,
+"min_volume": 117.1945708514398
+},
+"S-X2O5": {
+"bulk_deriv": 4.4323105131130225,
+"bulk_modulus_ev_ang3": 0.8940858821389127,
+"min_volume": 134.00033387226983
+},
+"S-XO": {
+"bulk_deriv": 4.550515825065138,
+"bulk_modulus_ev_ang3": 0.8012840633822175,
+"min_volume": 24.67153810645269
+},
+"S-XO2": {
+"bulk_deriv": 4.375667728451242,
+"bulk_modulus_ev_ang3": 1.0072264956046626,
+"min_volume": 29.723555310703254
+},
+"S-XO3": {
+"bulk_deriv": 5.20818668885761,
+"bulk_modulus_ev_ang3": 0.7538518618224941,
+"min_volume": 39.03903845372341
+},
+"Sb-X/BCC": {
+"bulk_deriv": 4.621010199157557,
+"bulk_modulus_ev_ang3": 0.3738612236249781,
+"min_volume": 27.26565857521295
+},
+"Sb-X/Diamond": {
+"bulk_deriv": 4.060340480196694,
+"bulk_modulus_ev_ang3": 0.19439100676662596,
+"min_volume": 85.39587392157881
+},
+"Sb-X/FCC": {
+"bulk_deriv": 4.600184404254315,
+"bulk_modulus_ev_ang3": 0.3660204828328371,
+"min_volume": 27.53270604945492
+},
+"Sb-X/SC": {
+"bulk_deriv": 4.634159522399378,
+"bulk_modulus_ev_ang3": 0.3420767729410664,
+"min_volume": 30.08487127712939
+},
+"Sb-X2O": {
+"bulk_deriv": 4.571920000311878,
+"bulk_modulus_ev_ang3": 0.4687490738222832,
+"min_volume": 61.69548085485593
+},
+"Sb-X2O3": {
+"bulk_deriv": 4.208781713036676,
+"bulk_modulus_ev_ang3": 0.6827103285480265,
+"min_volume": 157.83300301292454
+},
+"Sb-X2O5": {
+"bulk_deriv": 4.533366160979258,
+"bulk_modulus_ev_ang3": 0.7838488971504555,
+"min_volume": 158.31075947576346
+},
+"Sb-XO": {
+"bulk_deriv": 4.440100692741623,
+"bulk_modulus_ev_ang3": 0.6864980258487388,
+"min_volume": 33.656541773184316
+},
+"Sb-XO2": {
+"bulk_deriv": 4.558734865527241,
+"bulk_modulus_ev_ang3": 0.9770337196680757,
+"min_volume": 37.68930909110073
+},
+"Sb-XO3": {
+"bulk_deriv": 6.337044333526903,
+"bulk_modulus_ev_ang3": 0.8577340702387328,
+"min_volume": 60.658357317502514
+},
+"Sc-X/BCC": {
+"bulk_deriv": 3.2472431158849773,
+"bulk_modulus_ev_ang3": 0.3308501547077854,
+"min_volume": 24.89934202160668
+},
+"Sc-X/Diamond": {
+"bulk_deriv": 5.520770825951906,
+"bulk_modulus_ev_ang3": 0.052552376006566606,
+"min_volume": 69.10119243897346
+},
+"Sc-X/FCC": {
+"bulk_deriv": 3.1723716615313764,
+"bulk_modulus_ev_ang3": 0.3188934772916853,
+"min_volume": 24.700474348560725
+},
+"Sc-X/SC": {
+"bulk_deriv": 3.073216010444111,
+"bulk_modulus_ev_ang3": 0.2212020904118104,
+"min_volume": 26.167561384429998
+},
+"Sc-X2O": {
+"bulk_deriv": 4.264525875372918,
+"bulk_modulus_ev_ang3": 0.5695960753390009,
+"min_volume": 43.23000220719399
+},
+"Sc-X2O3": {
+"bulk_deriv": 4.161671424536079,
+"bulk_modulus_ev_ang3": 0.986218030863623,
+"min_volume": 124.84141633553266
+},
+"Sc-X2O5": {
+"bulk_deriv": 4.232862369111101,
+"bulk_modulus_ev_ang3": 1.0092271014232321,
+"min_volume": 143.0132203164591
+},
+"Sc-XO": {
+"bulk_deriv": 4.433118275727361,
+"bulk_modulus_ev_ang3": 1.09143205266423,
+"min_volume": 22.39976722742868
+},
+"Sc-XO2": {
+"bulk_deriv": 4.213136052549925,
+"bulk_modulus_ev_ang3": 1.0550116447152402,
+"min_volume": 33.08350235650768
+},
+"Sc-XO3": {
+"bulk_deriv": 4.0058589310301445,
+"bulk_modulus_ev_ang3": 0.504894850166463,
+"min_volume": 70.74714317979564
+},
+"Se-X/BCC": {
+"bulk_deriv": 4.620528763230353,
+"bulk_modulus_ev_ang3": 0.4499900334197021,
+"min_volume": 20.331197051254723
+},
+"Se-X/Diamond": {
+"bulk_deriv": 4.087026678842776,
+"bulk_modulus_ev_ang3": 0.24215764789960711,
+"min_volume": 63.45379176643047
+},
+"Se-X/FCC": {
+"bulk_deriv": 4.675409967728059,
+"bulk_modulus_ev_ang3": 0.4360580907329454,
+"min_volume": 20.34556690209219
+},
+"Se-X/SC": {
+"bulk_deriv": 4.490130459286347,
+"bulk_modulus_ev_ang3": 0.43892805413437347,
+"min_volume": 22.66321046737476
+},
+"Se-X2O": {
+"bulk_deriv": 4.45209479005485,
+"bulk_modulus_ev_ang3": 0.5236339665995541,
+"min_volume": 49.81738710817776
+},
+"Se-X2O3": {
+"bulk_deriv": 4.420431640983682,
+"bulk_modulus_ev_ang3": 0.8071900826988679,
+"min_volume": 132.00147737929123
+},
+"Se-X2O5": {
+"bulk_deriv": 4.52431545408223,
+"bulk_modulus_ev_ang3": 0.9269505555667994,
+"min_volume": 143.5942661094477
+},
+"Se-XO": {
+"bulk_deriv": 4.624787554837008,
+"bulk_modulus_ev_ang3": 0.7384525544560152,
+"min_volume": 28.305165681252003
+},
+"Se-XO2": {
+"bulk_deriv": 4.49719147765838,
+"bulk_modulus_ev_ang3": 1.0365172003985774,
+"min_volume": 33.000430083019005
+},
+"Se-XO3": {
+"bulk_deriv": 4.800141159779859,
+"bulk_modulus_ev_ang3": 0.6230918636152719,
+"min_volume": 49.771375029987894
+},
+"Si-X/BCC": {
+"bulk_deriv": 4.454850801632052,
+"bulk_modulus_ev_ang3": 0.5823715968321633,
+"min_volume": 14.641805195395513
+},
+"Si-X/Diamond": {
+"bulk_deriv": 4.28789440970007,
+"bulk_modulus_ev_ang3": 0.55367619252687,
+"min_volume": 40.9132385286731
+},
+"Si-X/FCC": {
+"bulk_deriv": 4.364384710326006,
+"bulk_modulus_ev_ang3": 0.5203982769839147,
+"min_volume": 14.470733541765707
+},
+"Si-X/SC": {
+"bulk_deriv": 4.38976655730339,
+"bulk_modulus_ev_ang3": 0.6279411282340697,
+"min_volume": 16.228543135990844
+},
+"Si-X2O": {
+"bulk_deriv": 4.380032816872368,
+"bulk_modulus_ev_ang3": 0.5311345919397692,
+"min_volume": 42.66671992031129
+},
+"Si-X2O3": {
+"bulk_deriv": 4.474788505169085,
+"bulk_modulus_ev_ang3": 0.9448032933768282,
+"min_volume": 97.65625633008442
+},
+"Si-X2O5": {
+"bulk_deriv": 4.700359138182472,
+"bulk_modulus_ev_ang3": 1.032992342888156,
+"min_volume": 121.94480313193785
+},
+"Si-XO": {
+"bulk_deriv": 4.088400428169789,
+"bulk_modulus_ev_ang3": 0.7640282509832753,
+"min_volume": 24.583613673521665
+},
+"Si-XO2": {
+"bulk_deriv": 4.406669842673984,
+"bulk_modulus_ev_ang3": 1.662952606560175,
+"min_volume": 24.06367493342028
+},
+"Si-XO3": {
+"bulk_deriv": 4.231122915529507,
+"bulk_modulus_ev_ang3": 1.2493415756392665,
+"min_volume": 41.864718663963195
+},
+"Sm-X/BCC": {
+"bulk_deriv": 7.819080453055941,
+"bulk_modulus_ev_ang3": 0.06798912947280436,
+"min_volume": 23.794261498876295
+},
+"Sm-X/Diamond": {
+"bulk_deriv": 5.610300503767403,
+"bulk_modulus_ev_ang3": 0.7143227131938457,
+"min_volume": 44.45882495362852
+},
+"Sm-X/FCC": {
+"bulk_deriv": 5.066567141337732,
+"bulk_modulus_ev_ang3": 0.15788151247642357,
+"min_volume": 23.706899504875288
+},
+"Sm-X/SC": {
+"bulk_deriv": 7.40720922638784,
+"bulk_modulus_ev_ang3": 0.4958294240355687,
+"min_volume": 18.512070957786186
+},
+"Sm-X2O": {
+"bulk_deriv": 5.150714867640177,
+"bulk_modulus_ev_ang3": 0.5717355398755928,
+"min_volume": 50.54517963049474
+},
+"Sm-X2O3": {
+"bulk_deriv": 4.891581896701708,
+"bulk_modulus_ev_ang3": 0.7478338272012016,
+"min_volume": 155.6909164997683
+},
+"Sm-X2O5": {
+"bulk_deriv": 4.552159761971915,
+"bulk_modulus_ev_ang3": 0.982698241109906,
+"min_volume": 159.46989192157588
+},
+"Sm-XO": {
+"bulk_deriv": 4.809574885823685,
+"bulk_modulus_ev_ang3": 0.8576950859024008,
+"min_volume": 28.95941523764523
+},
+"Sm-XO2": {
+"bulk_deriv": 4.500220962097918,
+"bulk_modulus_ev_ang3": 1.0112085402009257,
+"min_volume": 38.721003278347766
+},
+"Sm-XO3": {
+"bulk_deriv": 4.232833673872708,
+"bulk_modulus_ev_ang3": 0.5267908617390212,
+"min_volume": 73.7488012286529
+},
+"Sn-X/BCC": {
+"bulk_deriv": 4.77682310810536,
+"bulk_modulus_ev_ang3": 0.2943034691016256,
+"min_volume": 27.67746889191864
+},
+"Sn-X/Diamond": {
+"bulk_deriv": 4.94309272419038,
+"bulk_modulus_ev_ang3": 0.2229768557942104,
+"min_volume": 73.69840649162138
+},
+"Sn-X/FCC": {
+"bulk_deriv": 4.751437461344096,
+"bulk_modulus_ev_ang3": 0.2927603829153269,
+"min_volume": 28.037080246285978
+},
+"Sn-X/SC": {
+"bulk_deriv": 4.867028880472159,
+"bulk_modulus_ev_ang3": 0.28881517366705317,
+"min_volume": 29.472297628971962
+},
+"Sn-X2O": {
+"bulk_deriv": 4.62097683017097,
+"bulk_modulus_ev_ang3": 0.3823792087801935,
+"min_volume": 63.58641965179457
+},
+"Sn-X2O3": {
+"bulk_deriv": 4.609299082674056,
+"bulk_modulus_ev_ang3": 0.671219449624572,
+"min_volume": 145.4567519327262
+},
+"Sn-X2O5": {
+"bulk_deriv": 5.044322295549236,
+"bulk_modulus_ev_ang3": 0.8910826890861181,
+"min_volume": 153.9133098344054
+},
+"Sn-XO": {
+"bulk_deriv": 4.452476640561784,
+"bulk_modulus_ev_ang3": 0.5772458970677209,
+"min_volume": 33.567833944589744
+},
+"Sn-XO2": {
+"bulk_deriv": 4.99104837475875,
+"bulk_modulus_ev_ang3": 1.1562753668793448,
+"min_volume": 34.118832573031796
+},
+"Sn-XO3": {
+"bulk_deriv": 4.8426854993498445,
+"bulk_modulus_ev_ang3": 0.7059474404918776,
+"min_volume": 67.96689375562181
+},
+"Sr-X/BCC": {
+"bulk_deriv": 3.753177031304089,
+"bulk_modulus_ev_ang3": 0.0716298846438132,
+"min_volume": 54.058717588666966
+},
+"Sr-X/Diamond": {
+"bulk_deriv": 3.2316259138663748,
+"bulk_modulus_ev_ang3": 0.01661455488442447,
+"min_volume": 223.89229384909999
+},
+"Sr-X/FCC": {
+"bulk_deriv": 3.3387249015610196,
+"bulk_modulus_ev_ang3": 0.07275417191769852,
+"min_volume": 54.92874933646872
+},
+"Sr-X/SC": {
+"bulk_deriv": 3.300386172916375,
+"bulk_modulus_ev_ang3": 0.04399442602375857,
+"min_volume": 57.23078406862961
+},
+"Sr-X2O": {
+"bulk_deriv": 4.278544230230871,
+"bulk_modulus_ev_ang3": 0.22928601851240515,
+"min_volume": 70.18750729387915
+},
+"Sr-X2O3": {
+"bulk_deriv": 4.323524504330308,
+"bulk_modulus_ev_ang3": 0.3843473619634587,
+"min_volume": 195.2540307379809
+},
+"Sr-X2O5": {
+"bulk_deriv": 4.504465879118287,
+"bulk_modulus_ev_ang3": 0.4826835270386359,
+"min_volume": 195.4177625173232
+},
+"Sr-XO": {
+"bulk_deriv": 4.495463497394845,
+"bulk_modulus_ev_ang3": 0.5279448527754768,
+"min_volume": 35.04950220057093
+},
+"Sr-XO2": {
+"bulk_deriv": 4.2909165818874735,
+"bulk_modulus_ev_ang3": 0.3860964779579029,
+"min_volume": 51.283450091594204
+},
+"Sr-XO3": {
+"bulk_deriv": 2.197861263473705,
+"bulk_modulus_ev_ang3": 0.11466262493584392,
+"min_volume": 113.85505761024228
+},
+"Ta-X/BCC": {
+"bulk_deriv": 3.7806974817496197,
+"bulk_modulus_ev_ang3": 1.216695454978553,
+"min_volume": 18.2772495521344
+},
+"Ta-X/Diamond": {
+"bulk_deriv": 3.1896055189304393,
+"bulk_modulus_ev_ang3": 0.4380270453145997,
+"min_volume": 56.85983418827293
+},
+"Ta-X/FCC": {
+"bulk_deriv": 3.714098187405132,
+"bulk_modulus_ev_ang3": 1.1921593349987636,
+"min_volume": 18.816570025563244
+},
+"Ta-X/SC": {
+"bulk_deriv": 3.816160301250294,
+"bulk_modulus_ev_ang3": 0.8947354955332867,
+"min_volume": 20.658548642822737
+},
+"Ta-X2O": {
+"bulk_deriv": 3.9604329095912867,
+"bulk_modulus_ev_ang3": 1.092872497447526,
+"min_volume": 44.95588667368274
+},
+"Ta-X2O3": {
+"bulk_deriv": 4.443977788926099,
+"bulk_modulus_ev_ang3": 1.5298661169114225,
+"min_volume": 119.7844171542999
+},
+"Ta-X2O5": {
+"bulk_deriv": 4.419418217542483,
+"bulk_modulus_ev_ang3": 1.783474946229847,
+"min_volume": 131.03964921820761
+},
+"Ta-XO": {
+"bulk_deriv": 4.463926089354083,
+"bulk_modulus_ev_ang3": 1.455975252560968,
+"min_volume": 22.81144877649438
+},
+"Ta-XO2": {
+"bulk_deriv": 4.382828907940891,
+"bulk_modulus_ev_ang3": 1.7327204032269634,
+"min_volume": 31.34893700764847
+},
+"Ta-XO3": {
+"bulk_deriv": 4.452252922292033,
+"bulk_modulus_ev_ang3": 1.1798380922073526,
+"min_volume": 61.76315964120269
+},
+"Tb-X/BCC": {
+"bulk_deriv": 2.9668895077163207,
+"bulk_modulus_ev_ang3": 0.12492957707206684,
+"min_volume": 30.050931452870156
+},
+"Tb-X/Diamond": {
+"bulk_deriv": 6.1727625835686615,
+"bulk_modulus_ev_ang3": 0.45756767668361087,
+"min_volume": 44.857813955342
+},
+"Tb-X/FCC": {
+"bulk_deriv": 3.1150202363513904,
+"bulk_modulus_ev_ang3": 0.11309613759908693,
+"min_volume": 29.63379061398068
+},
+"Tb-X/SC": {
+"bulk_deriv": 3.004841689271271,
+"bulk_modulus_ev_ang3": 0.08377614145694257,
+"min_volume": 27.161795347602638
+},
+"Tb-X2O": {
+"bulk_deriv": 5.269061708788635,
+"bulk_modulus_ev_ang3": 0.4709510845048836,
+"min_volume": 51.061218782536436
+},
+"Tb-X2O3": {
+"bulk_deriv": 4.420948544880757,
+"bulk_modulus_ev_ang3": 0.7453488974430477,
+"min_volume": 150.57603225772544
+},
+"Tb-X2O5": {
+"bulk_deriv": 4.556751776559886,
+"bulk_modulus_ev_ang3": 0.9375876976128507,
+"min_volume": 156.52443530189217
+},
+"Tb-XO": {
+"bulk_deriv": 4.782316565321349,
+"bulk_modulus_ev_ang3": 0.7975520896231822,
+"min_volume": 28.258415473386233
+},
+"Tb-XO2": {
+"bulk_deriv": 4.53087281391333,
+"bulk_modulus_ev_ang3": 0.9741793788933911,
+"min_volume": 37.45431307859085
+},
+"Tb-XO3": {
+"bulk_deriv": 4.131058532740211,
+"bulk_modulus_ev_ang3": 0.4844219211509419,
+"min_volume": 72.83702915366801
+},
+"Tc-X/BCC": {
+"bulk_deriv": 4.54596384180944,
+"bulk_modulus_ev_ang3": 1.8218789357633574,
+"min_volume": 14.628962039582273
+},
+"Tc-X/Diamond": {
+"bulk_deriv": 4.293891243064657,
+"bulk_modulus_ev_ang3": 0.9364281754507152,
+"min_volume": 42.386465474784174
+},
+"Tc-X/FCC": {
+"bulk_deriv": 4.454623142582148,
+"bulk_modulus_ev_ang3": 1.849055285500731,
+"min_volume": 14.5155723657036
+},
+"Tc-X/SC": {
+"bulk_deriv": 4.439873442540184,
+"bulk_modulus_ev_ang3": 1.386634938831383,
+"min_volume": 16.2193355687086
+},
+"Tc-X2O": {
+"bulk_deriv": 4.334997426605931,
+"bulk_modulus_ev_ang3": 1.3253127177426454,
+"min_volume": 38.34316659543126
+},
+"Tc-X2O3": {
+"bulk_deriv": 4.626491461703794,
+"bulk_modulus_ev_ang3": 1.5549090589516568,
+"min_volume": 109.4231714150646
+},
+"Tc-X2O5": {
+"bulk_deriv": 4.641354068101006,
+"bulk_modulus_ev_ang3": 1.6316845636459747,
+"min_volume": 124.84149315453232
+},
+"Tc-XO": {
+"bulk_deriv": 4.851761594841085,
+"bulk_modulus_ev_ang3": 1.4844117634675595,
+"min_volume": 21.224631806845256
+},
+"Tc-XO2": {
+"bulk_deriv": 4.572768088307535,
+"bulk_modulus_ev_ang3": 1.789335945666222,
+"min_volume": 28.786669080407087
+},
+"Tc-XO3": {
+"bulk_deriv": 4.66803464519371,
+"bulk_modulus_ev_ang3": 1.3294340194605956,
+"min_volume": 53.3607794490643
+},
+"Te-X/BCC": {
+"bulk_deriv": 4.9160581895978055,
+"bulk_modulus_ev_ang3": 0.3459189386639463,
+"min_volume": 28.524611381752884
+},
+"Te-X/Diamond": {
+"bulk_deriv": 4.359516025512453,
+"bulk_modulus_ev_ang3": 0.16653094140329236,
+"min_volume": 92.83656193023286
+},
+"Te-X/FCC": {
+"bulk_deriv": 4.87601105567913,
+"bulk_modulus_ev_ang3": 0.33772240071944176,
+"min_volume": 28.30897228339572
+},
+"Te-X/SC": {
+"bulk_deriv": 4.825001201385988,
+"bulk_modulus_ev_ang3": 0.3159955703304748,
+"min_volume": 32.77587939111661
+},
+"Te-X2O": {
+"bulk_deriv": 4.665840416801119,
+"bulk_modulus_ev_ang3": 0.4577197926515104,
+"min_volume": 63.01762651201061
+},
+"Te-X2O3": {
+"bulk_deriv": 4.531982861797263,
+"bulk_modulus_ev_ang3": 0.747887296796249,
+"min_volume": 157.7887064850624
+},
+"Te-X2O5": {
+"bulk_deriv": 4.392012197222211,
+"bulk_modulus_ev_ang3": 0.9356444748203195,
+"min_volume": 160.0436902304105
+},
+"Te-XO": {
+"bulk_deriv": 4.654202227085069,
+"bulk_modulus_ev_ang3": 0.6425999794878339,
+"min_volume": 34.87463334344022
+},
+"Te-XO2": {
+"bulk_deriv": 4.584450989173403,
+"bulk_modulus_ev_ang3": 1.012924620684375,
+"min_volume": 39.17692857989036
+},
+"Te-XO3": {
+"bulk_deriv": 5.710477476959539,
+"bulk_modulus_ev_ang3": 0.7535538949666277,
+"min_volume": 58.92775356090974
+},
+"Th-X/BCC": {
+"bulk_deriv": 3.630826090522433,
+"bulk_modulus_ev_ang3": 0.3679273163373637,
+"min_volume": 32.56905072949389
+},
+"Th-X/Diamond": {
+"bulk_deriv": 1.6198251662391376,
+"bulk_modulus_ev_ang3": 0.18731483563996107,
+"min_volume": 91.56732474340453
+},
+"Th-X/FCC": {
+"bulk_deriv": 3.2286261125774844,
+"bulk_modulus_ev_ang3": 0.34505669628036395,
+"min_volume": 32.226446771018566
+},
+"Th-X/SC": {
+"bulk_deriv": 3.3519113591448457,
+"bulk_modulus_ev_ang3": 0.26652854012916033,
+"min_volume": 35.4056406510312
+},
+"Th-X2O": {
+"bulk_deriv": 3.553836139228329,
+"bulk_modulus_ev_ang3": 0.47576035788495497,
+"min_volume": 68.85418132472927
+},
+"Th-X2O3": {
+"bulk_deriv": 4.131428219545865,
+"bulk_modulus_ev_ang3": 0.9502904835147364,
+"min_volume": 174.65504773639256
+},
+"Th-X2O5": {
+"bulk_deriv": 4.203893726429086,
+"bulk_modulus_ev_ang3": 1.135185932509507,
+"min_volume": 177.99635150275418
+},
+"Th-XO": {
+"bulk_deriv": 4.650565258622994,
+"bulk_modulus_ev_ang3": 0.993464232251363,
+"min_volume": 33.09628222250185
+},
+"Th-XO2": {
+"bulk_deriv": 4.25467356940853,
+"bulk_modulus_ev_ang3": 1.1713994058312311,
+"min_volume": 44.246014180448505
+},
+"Th-XO3": {
+"bulk_deriv": 5.213961601171598,
+"bulk_modulus_ev_ang3": 0.3520343208218224,
+"min_volume": 84.99071302587508
+},
+"Ti-X/BCC": {
+"bulk_deriv": 3.3901935913705294,
+"bulk_modulus_ev_ang3": 0.6613434692217995,
+"min_volume": 17.266858248853723
+},
+"Ti-X/Diamond": {
+"bulk_deriv": 2.8339990301980746,
+"bulk_modulus_ev_ang3": 0.21521059493353367,
+"min_volume": 45.83405972950479
+},
+"Ti-X/FCC": {
+"bulk_deriv": 3.450977896998209,
+"bulk_modulus_ev_ang3": 0.670679528915691,
+"min_volume": 17.39399663599583
+},
+"Ti-X/SC": {
+"bulk_deriv": 3.434016619776653,
+"bulk_modulus_ev_ang3": 0.48704306026078387,
+"min_volume": 18.410080538710545
+},
+"Ti-X2O": {
+"bulk_deriv": 4.306097820971404,
+"bulk_modulus_ev_ang3": 0.9168719370403695,
+"min_volume": 36.310014933719465
+},
+"Ti-X2O3": {
+"bulk_deriv": 4.26479291134563,
+"bulk_modulus_ev_ang3": 1.286444566977548,
+"min_volume": 108.47939363480374
+},
+"Ti-X2O5": {
+"bulk_deriv": 4.323729641732415,
+"bulk_modulus_ev_ang3": 1.3150807804371178,
+"min_volume": 127.43108879006786
+},
+"Ti-XO": {
+"bulk_deriv": 4.459870158765229,
+"bulk_modulus_ev_ang3": 1.3863149217477273,
+"min_volume": 19.61357026779305
+},
+"Ti-XO2": {
+"bulk_deriv": 4.256179184043287,
+"bulk_modulus_ev_ang3": 1.5510419435979503,
+"min_volume": 28.166874390006065
+},
+"Ti-XO3": {
+"bulk_deriv": 4.321562236688266,
+"bulk_modulus_ev_ang3": 0.8771853370905284,
+"min_volume": 57.32155716593214
+},
+"Tl-X/BCC": {
+"bulk_deriv": 5.397802422291179,
+"bulk_modulus_ev_ang3": 0.16529352878420328,
+"min_volume": 31.379059918685346
+},
+"Tl-X/Diamond": {
+"bulk_deriv": 5.2235572077013845,
+"bulk_modulus_ev_ang3": 0.08727335901756736,
+"min_volume": 90.11030217173358
+},
+"Tl-X/FCC": {
+"bulk_deriv": 5.506939691600489,
+"bulk_modulus_ev_ang3": 0.16805251209380878,
+"min_volume": 31.1087156663965
+},
+"Tl-X/SC": {
+"bulk_deriv": 5.320477260720995,
+"bulk_modulus_ev_ang3": 0.13679460314522612,
+"min_volume": 34.33983033854988
+},
+"Tl-X2O": {
+"bulk_deriv": 5.04505420640999,
+"bulk_modulus_ev_ang3": 0.23782709645702224,
+"min_volume": 72.14368936494466
+},
+"Tl-X2O3": {
+"bulk_deriv": 5.115727199089714,
+"bulk_modulus_ev_ang3": 0.6201949183904293,
+"min_volume": 159.31624272695464
+},
+"Tl-X2O5": {
+"bulk_deriv": 5.145139327037331,
+"bulk_modulus_ev_ang3": 0.6948153558535461,
+"min_volume": 171.74250395063515
+},
+"Tl-XO": {
+"bulk_deriv": 5.384750494590712,
+"bulk_modulus_ev_ang3": 0.5062679150642021,
+"min_volume": 33.940282670134096
+},
+"Tl-XO2": {
+"bulk_deriv": 5.123179784170867,
+"bulk_modulus_ev_ang3": 0.7321002605252863,
+"min_volume": 40.700512690868344
+},
+"Tl-XO3": {
+"bulk_deriv": 4.965465876185734,
+"bulk_modulus_ev_ang3": 0.339726363596237,
+"min_volume": 78.86829557841764
+},
+"Tm-X/BCC": {
+"bulk_deriv": 3.765763618008318,
+"bulk_modulus_ev_ang3": 0.1375754552500138,
+"min_volume": 33.06420615540166
+},
+"Tm-X/Diamond": {
+"bulk_deriv": 1.936690450765369,
+"bulk_modulus_ev_ang3": 0.01807720751019953,
+"min_volume": 152.02094344654046
+},
+"Tm-X/FCC": {
+"bulk_deriv": 3.1167598342857668,
+"bulk_modulus_ev_ang3": 0.12371423121750659,
+"min_volume": 33.84840829579537
+},
+"Tm-X/SC": {
+"bulk_deriv": 4.387010902419209,
+"bulk_modulus_ev_ang3": 0.08929819664977348,
+"min_volume": 35.53268078664356
+},
+"Tm-X2O": {
+"bulk_deriv": 4.878055003950122,
+"bulk_modulus_ev_ang3": 0.3324145872230081,
+"min_volume": 54.607319631268005
+},
+"Tm-X2O3": {
+"bulk_deriv": 4.457079521723439,
+"bulk_modulus_ev_ang3": 0.7480036852532983,
+"min_volume": 148.18299663256002
+},
+"Tm-X2O5": {
+"bulk_deriv": 4.612195246649098,
+"bulk_modulus_ev_ang3": 0.8824500921755134,
+"min_volume": 157.55474111244823
+},
+"Tm-XO": {
+"bulk_deriv": 5.141716265674702,
+"bulk_modulus_ev_ang3": 0.7343030299109745,
+"min_volume": 27.897798432667155
+},
+"Tm-XO2": {
+"bulk_deriv": 4.6337127071547535,
+"bulk_modulus_ev_ang3": 0.9252885995765225,
+"min_volume": 37.3593838717859
+},
+"Tm-XO3": {
+"bulk_deriv": 4.211111430852674,
+"bulk_modulus_ev_ang3": 0.4381795666200979,
+"min_volume": 75.59687592937362
+},
+"U-X/BCC": {
+"bulk_deriv": 4.904863038773447,
+"bulk_modulus_ev_ang3": 0.8100202250471509,
+"min_volume": 20.26818350523347
+},
+"U-X/Diamond": {
+"bulk_deriv": 5.789384431669994,
+"bulk_modulus_ev_ang3": 1.0094469317982226,
+"min_volume": 49.39639736122469
+},
+"U-X/FCC": {
+"bulk_deriv": 4.519277546572131,
+"bulk_modulus_ev_ang3": 0.7208932345698941,
+"min_volume": 21.70087239481081
+},
+"U-X/SC": {
+"bulk_deriv": 6.433518471784132,
+"bulk_modulus_ev_ang3": 1.048021496108626,
+"min_volume": 19.108810464399053
+},
+"U-X2O": {
+"bulk_deriv": 5.004758588698258,
+"bulk_modulus_ev_ang3": 0.9134021720228628,
+"min_volume": 50.09195240225537
+},
+"U-X2O3": {
+"bulk_deriv": 4.4623311195702415,
+"bulk_modulus_ev_ang3": 1.0761424104763944,
+"min_volume": 150.56971481141704
+},
+"U-X2O5": {
+"bulk_deriv": 4.589060271822431,
+"bulk_modulus_ev_ang3": 1.4958525991733949,
+"min_volume": 152.38341743148288
+},
+"U-XO": {
+"bulk_deriv": 4.899804990599855,
+"bulk_modulus_ev_ang3": 1.2837264613022248,
+"min_volume": 28.299145440039727
+},
+"U-XO2": {
+"bulk_deriv": 4.415151024763731,
+"bulk_modulus_ev_ang3": 1.2684952552064537,
+"min_volume": 38.96035529244457
+},
+"U-XO3": {
+"bulk_deriv": 4.260123318388576,
+"bulk_modulus_ev_ang3": 0.9242602195534761,
+"min_volume": 72.09623871951278
+},
+"V-X/BCC": {
+"bulk_deriv": 3.832900664013083,
+"bulk_modulus_ev_ang3": 1.134537646732334,
+"min_volume": 13.452627829611476
+},
+"V-X/Diamond": {
+"bulk_deriv": 4.11039756832942,
+"bulk_modulus_ev_ang3": 0.40273509964006915,
+"min_volume": 37.19946085748306
+},
+"V-X/FCC": {
+"bulk_deriv": 3.8475469772175597,
+"bulk_modulus_ev_ang3": 1.0992058148643373,
+"min_volume": 13.896431038392594
+},
+"V-X/SC": {
+"bulk_deriv": 3.8249596122366745,
+"bulk_modulus_ev_ang3": 0.8557314356105976,
+"min_volume": 14.666460132587098
+},
+"V-X2O": {
+"bulk_deriv": 4.298745030037536,
+"bulk_modulus_ev_ang3": 1.123353787957544,
+"min_volume": 32.68475729141543
+},
+"V-X2O3": {
+"bulk_deriv": 4.334675255759753,
+"bulk_modulus_ev_ang3": 1.3810428671096984,
+"min_volume": 101.4929588137939
+},
+"V-X2O5": {
+"bulk_deriv": 4.426727983853266,
+"bulk_modulus_ev_ang3": 1.4383294267168207,
+"min_volume": 119.88105692566904
+},
+"V-XO": {
+"bulk_deriv": 4.516304021846174,
+"bulk_modulus_ev_ang3": 1.5104031079509308,
+"min_volume": 18.302613410772942
+},
+"V-XO2": {
+"bulk_deriv": 4.349300119595883,
+"bulk_modulus_ev_ang3": 1.6368071361930203,
+"min_volume": 26.557994411531322
+},
+"V-XO3": {
+"bulk_deriv": 4.495483017578132,
+"bulk_modulus_ev_ang3": 1.132829550648761,
+"min_volume": 50.21077228364581
+},
+"W-X/BCC": {
+"bulk_deriv": 4.211719442462447,
+"bulk_modulus_ev_ang3": 1.9034332760548505,
+"min_volume": 16.145856760461836
+},
+"W-X/Diamond": {
+"bulk_deriv": 3.811821990716754,
+"bulk_modulus_ev_ang3": 0.7541588110363959,
+"min_volume": 49.670546021414495
+},
+"W-X/FCC": {
+"bulk_deriv": 4.088642142696757,
+"bulk_modulus_ev_ang3": 1.7708771073878828,
+"min_volume": 16.458082030893625
+},
+"W-X/SC": {
+"bulk_deriv": 4.189858106031248,
+"bulk_modulus_ev_ang3": 1.3431842227563484,
+"min_volume": 18.387975540285932
+},
+"W-X2O": {
+"bulk_deriv": 4.1653798339854,
+"bulk_modulus_ev_ang3": 1.3311973783588502,
+"min_volume": 41.82617167547012
+},
+"W-X2O3": {
+"bulk_deriv": 4.562412682608931,
+"bulk_modulus_ev_ang3": 1.6626946638088869,
+"min_volume": 114.61342069563078
+},
+"W-X2O5": {
+"bulk_deriv": 4.547317060013983,
+"bulk_modulus_ev_ang3": 1.9075685516863852,
+"min_volume": 125.7520793639683
+},
+"W-XO": {
+"bulk_deriv": 4.55058598958779,
+"bulk_modulus_ev_ang3": 1.5535862156333642,
+"min_volume": 22.284057840473597
+},
+"W-XO2": {
+"bulk_deriv": 4.488839432667968,
+"bulk_modulus_ev_ang3": 1.8574727568497975,
+"min_volume": 30.23078357191458
+},
+"W-XO3": {
+"bulk_deriv": 4.556648218623433,
+"bulk_modulus_ev_ang3": 1.4574906090003077,
+"min_volume": 56.306471410973806
+},
+"Xe-X/BCC": {
+"bulk_deriv": 7.468598340685837,
+"bulk_modulus_ev_ang3": 0.003207672449219835,
+"min_volume": 88.97927662647632
+},
+"Xe-X/Diamond": {
+"bulk_deriv": 7.263905459777666,
+"bulk_modulus_ev_ang3": 0.000980267219912042,
+"min_volume": 331.7188427987022
+},
+"Xe-X/FCC": {
+"bulk_deriv": 7.173723130458752,
+"bulk_modulus_ev_ang3": 0.003416690244148208,
+"min_volume": 86.9542235351026
+},
+"Xe-X/SC": {
+"bulk_deriv": 7.69380222667022,
+"bulk_modulus_ev_ang3": 0.0022010362630621168,
+"min_volume": 109.74882929906788
+},
+"Xe-X2O": {
+"bulk_deriv": 6.623900220937063,
+"bulk_modulus_ev_ang3": 0.02170961112432314,
+"min_volume": 137.57751961050354
+},
+"Xe-X2O3": {
+"bulk_deriv": 5.344896207778858,
+"bulk_modulus_ev_ang3": 0.30604252806996046,
+"min_volume": 200.66975302215891
+},
+"Xe-X2O5": {
+"bulk_deriv": 5.442584680100192,
+"bulk_modulus_ev_ang3": 0.4725537002907208,
+"min_volume": 186.25906069744573
+},
+"Xe-XO": {
+"bulk_deriv": 6.202741524987605,
+"bulk_modulus_ev_ang3": 0.2112277110761172,
+"min_volume": 45.52414593117489
+},
+"Xe-XO2": {
+"bulk_deriv": 5.387565061770992,
+"bulk_modulus_ev_ang3": 0.43467259703638705,
+"min_volume": 48.15991593655611
+},
+"Xe-XO3": {
+"bulk_deriv": 6.394152392537879,
+"bulk_modulus_ev_ang3": 0.4939115732024639,
+"min_volume": 69.77641829721351
+},
+"Y-X/BCC": {
+"bulk_deriv": 3.0543388016287816,
+"bulk_modulus_ev_ang3": 0.24119683661575436,
+"min_volume": 33.02038416231263
+},
+"Y-X/Diamond": {
+"bulk_deriv": 12.092886264639125,
+"bulk_modulus_ev_ang3": 0.05870725621708712,
+"min_volume": 87.55554265846993
+},
+"Y-X/FCC": {
+"bulk_deriv": 3.2487525526528724,
+"bulk_modulus_ev_ang3": 0.24300118941533996,
+"min_volume": 32.46287459257553
+},
+"Y-X/SC": {
+"bulk_deriv": 2.9755746588501766,
+"bulk_modulus_ev_ang3": 0.16231009413275652,
+"min_volume": 34.81240105106044
+},
+"Y-X2O": {
+"bulk_deriv": 4.352100781332537,
+"bulk_modulus_ev_ang3": 0.446700624756539,
+"min_volume": 55.97896310599615
+},
+"Y-X2O3": {
+"bulk_deriv": 4.17702738389335,
+"bulk_modulus_ev_ang3": 0.8306878839976293,
+"min_volume": 152.40033651905438
+},
+"Y-X2O5": {
+"bulk_deriv": 4.258256992332411,
+"bulk_modulus_ev_ang3": 0.8954114960357838,
+"min_volume": 164.80580353168006
+},
+"Y-XO": {
+"bulk_deriv": 4.9233227262240735,
+"bulk_modulus_ev_ang3": 0.8602747448239177,
+"min_volume": 28.032054826999566
+},
+"Y-XO2": {
+"bulk_deriv": 4.214657073592014,
+"bulk_modulus_ev_ang3": 0.8749329532033385,
+"min_volume": 40.157109182075565
+},
+"Y-XO3": {
+"bulk_deriv": 2.6367537351034294,
+"bulk_modulus_ev_ang3": 0.3430827827351756,
+"min_volume": 88.8431437122883
+},
+"Yb-X/BCC": {
+"bulk_deriv": 3.930717756139389,
+"bulk_modulus_ev_ang3": 0.14416205216542968,
+"min_volume": 33.338780089419636
+},
+"Yb-X/Diamond": {
+"bulk_deriv": 2.7927326780223223,
+"bulk_modulus_ev_ang3": 0.02188626168269504,
+"min_volume": 154.62932249442184
+},
+"Yb-X/FCC": {
+"bulk_deriv": 3.452066848641782,
+"bulk_modulus_ev_ang3": 0.12860544976912938,
+"min_volume": 34.210800003528405
+},
+"Yb-X/SC": {
+"bulk_deriv": 3.952356771755575,
+"bulk_modulus_ev_ang3": 0.0829020157283347,
+"min_volume": 36.77541038592243
+},
+"Yb-X2O": {
+"bulk_deriv": 4.34446001570444,
+"bulk_modulus_ev_ang3": 0.31687289017899817,
+"min_volume": 56.80166277969669
+},
+"Yb-X2O3": {
+"bulk_deriv": 4.48153926251084,
+"bulk_modulus_ev_ang3": 0.7496815168376901,
+"min_volume": 148.8764719704053
+},
+"Yb-X2O5": {
+"bulk_deriv": 4.625646318876279,
+"bulk_modulus_ev_ang3": 0.8642730643815841,
+"min_volume": 159.23611045222736
+},
+"Yb-XO": {
+"bulk_deriv": 5.078558650654121,
+"bulk_modulus_ev_ang3": 0.7226364675015071,
+"min_volume": 27.957169889176097
+},
+"Yb-XO2": {
+"bulk_deriv": 4.6581387079734595,
+"bulk_modulus_ev_ang3": 0.9055863259179185,
+"min_volume": 37.68808404212172
+},
+"Yb-XO3": {
+"bulk_deriv": 4.297051725117672,
+"bulk_modulus_ev_ang3": 0.4132846252600006,
+"min_volume": 77.25456432380183
+},
+"Zn-X/BCC": {
+"bulk_deriv": 5.527864378591909,
+"bulk_modulus_ev_ang3": 0.400773023037957,
+"min_volume": 15.395238959476213
+},
+"Zn-X/Diamond": {
+"bulk_deriv": 5.473090909114463,
+"bulk_modulus_ev_ang3": 0.16228781116627575,
+"min_volume": 49.42212579947152
+},
+"Zn-X/FCC": {
+"bulk_deriv": 5.263085957401915,
+"bulk_modulus_ev_ang3": 0.4318062385021736,
+"min_volume": 15.188360639717253
+},
+"Zn-X/SC": {
+"bulk_deriv": 5.234544928307147,
+"bulk_modulus_ev_ang3": 0.2983718170049094,
+"min_volume": 18.20660816229402
+},
+"Zn-X2O": {
+"bulk_deriv": 4.736131454594004,
+"bulk_modulus_ev_ang3": 0.5601389809637267,
+"min_volume": 40.73209218511686
+},
+"Zn-X2O3": {
+"bulk_deriv": 4.5982748334874435,
+"bulk_modulus_ev_ang3": 0.8176962543463001,
+"min_volume": 113.63390125759403
+},
+"Zn-X2O5": {
+"bulk_deriv": 4.613415240138951,
+"bulk_modulus_ev_ang3": 0.8311670228717414,
+"min_volume": 137.2691971672459
+},
+"Zn-XO": {
+"bulk_deriv": 4.554572589120101,
+"bulk_modulus_ev_ang3": 1.0297327995455303,
+"min_volume": 20.352815291700285
+},
+"Zn-XO2": {
+"bulk_deriv": 4.6974901954315955,
+"bulk_modulus_ev_ang3": 0.8888690671101266,
+"min_volume": 30.484309024358794
+},
+"Zn-XO3": {
+"bulk_deriv": 4.856845795957064,
+"bulk_modulus_ev_ang3": 0.5013385035141297,
+"min_volume": 56.78403234010402
+},
+"Zr-X/BCC": {
+"bulk_deriv": 3.1070510884759885,
+"bulk_modulus_ev_ang3": 0.5460621590251616,
+"min_volume": 22.83583818552132
+},
+"Zr-X/Diamond": {
+"bulk_deriv": 3.11187833384418,
+"bulk_modulus_ev_ang3": 0.22576531727785978,
+"min_volume": 61.86456403327298
+},
+"Zr-X/FCC": {
+"bulk_deriv": 3.278916460196542,
+"bulk_modulus_ev_ang3": 0.5621801424135223,
+"min_volume": 23.203750229367902
+},
+"Zr-X/SC": {
+"bulk_deriv": 3.54741786474313,
+"bulk_modulus_ev_ang3": 0.4233714925037969,
+"min_volume": 24.728584873066072
+},
+"Zr-X2O": {
+"bulk_deriv": 4.274451927123434,
+"bulk_modulus_ev_ang3": 0.7645671154681855,
+"min_volume": 48.0313560736849
+},
+"Zr-X2O3": {
+"bulk_deriv": 4.239756648357064,
+"bulk_modulus_ev_ang3": 1.2300346934091257,
+"min_volume": 130.1116800307192
+},
+"Zr-X2O5": {
+"bulk_deriv": 4.243764434742798,
+"bulk_modulus_ev_ang3": 1.3393720375237896,
+"min_volume": 143.8395043554216
+},
+"Zr-XO": {
+"bulk_deriv": 4.716985702070734,
+"bulk_modulus_ev_ang3": 1.2213695608602442,
+"min_volume": 24.25537305654678
+},
+"Zr-XO2": {
+"bulk_deriv": 4.204912409684752,
+"bulk_modulus_ev_ang3": 1.4727293240393353,
+"min_volume": 33.433595251124835
+},
+"Zr-XO3": {
+"bulk_deriv": 3.789634774646504,
+"bulk_modulus_ev_ang3": 0.7337584108731738,
+"min_volume": 72.22148307026418
+}
+},
+"num_atoms_in_sim_cell": {
+"Ac-X/BCC": 1,
+"Ac-X/Diamond": 2,
+"Ac-X/FCC": 1,
+"Ac-X/SC": 1,
+"Ac-X2O": 3,
+"Ac-X2O3": 10,
+"Ac-X2O5": 14,
+"Ac-XO": 2,
+"Ac-XO2": 3,
+"Ac-XO3": 4,
+"Ag-X/BCC": 1,
+"Ag-X/Diamond": 2,
+"Ag-X/FCC": 1,
+"Ag-X/SC": 1,
+"Ag-X2O": 3,
+"Ag-X2O3": 10,
+"Ag-X2O5": 14,
+"Ag-XO": 2,
+"Ag-XO2": 3,
+"Ag-XO3": 4,
+"Al-X/BCC": 1,
+"Al-X/Diamond": 2,
+"Al-X/FCC": 1,
+"Al-X/SC": 1,
+"Al-X2O": 3,
+"Al-X2O3": 10,
+"Al-X2O5": 14,
+"Al-XO": 2,
+"Al-XO2": 3,
+"Al-XO3": 4,
+"Am-X/BCC": 1,
+"Am-X/Diamond": 2,
+"Am-X/FCC": 1,
+"Am-X/SC": 1,
+"Am-X2O": 3,
+"Am-X2O3": 10,
+"Am-X2O5": 14,
+"Am-XO": 2,
+"Am-XO2": 3,
+"Am-XO3": 4,
+"Ar-X/BCC": 1,
+"Ar-X/Diamond": 2,
+"Ar-X/FCC": 1,
+"Ar-X/SC": 1,
+"Ar-X2O": 3,
+"Ar-X2O3": 10,
+"Ar-X2O5": 14,
+"Ar-XO": 2,
+"Ar-XO2": 3,
+"Ar-XO3": 4,
+"As-X/BCC": 1,
+"As-X/Diamond": 2,
+"As-X/FCC": 1,
+"As-X/SC": 1,
+"As-X2O": 3,
+"As-X2O3": 10,
+"As-X2O5": 14,
+"As-XO": 2,
+"As-XO2": 3,
+"As-XO3": 4,
+"At-X/BCC": 1,
+"At-X/Diamond": 2,
+"At-X/FCC": 1,
+"At-X/SC": 1,
+"At-X2O": 3,
+"At-X2O3": 10,
+"At-X2O5": 14,
+"At-XO": 2,
+"At-XO2": 3,
+"At-XO3": 4,
+"Au-X/BCC": 1,
+"Au-X/Diamond": 2,
+"Au-X/FCC": 1,
+"Au-X/SC": 1,
+"Au-X2O": 3,
+"Au-X2O3": 10,
+"Au-X2O5": 14,
+"Au-XO": 2,
+"Au-XO2": 3,
+"Au-XO3": 4,
+"B-X/BCC": 1,
+"B-X/Diamond": 2,
+"B-X/FCC": 1,
+"B-X/SC": 1,
+"B-X2O": 3,
+"B-X2O3": 10,
+"B-X2O5": 14,
+"B-XO": 2,
+"B-XO2": 3,
+"B-XO3": 4,
+"Ba-X/BCC": 1,
+"Ba-X/Diamond": 2,
+"Ba-X/FCC": 1,
+"Ba-X/SC": 1,
+"Ba-X2O": 3,
+"Ba-X2O3": 10,
+"Ba-X2O5": 14,
+"Ba-XO": 2,
+"Ba-XO2": 3,
+"Ba-XO3": 4,
+"Be-X/BCC": 1,
+"Be-X/Diamond": 2,
+"Be-X/FCC": 1,
+"Be-X/SC": 1,
+"Be-X2O": 3,
+"Be-X2O3": 10,
+"Be-X2O5": 14,
+"Be-XO": 2,
+"Be-XO2": 3,
+"Be-XO3": 4,
+"Bi-X/BCC": 1,
+"Bi-X/Diamond": 2,
+"Bi-X/FCC": 1,
+"Bi-X/SC": 1,
+"Bi-X2O": 3,
+"Bi-X2O3": 10,
+"Bi-X2O5": 14,
+"Bi-XO": 2,
+"Bi-XO2": 3,
+"Bi-XO3": 4,
+"Br-X/BCC": 1,
+"Br-X/Diamond": 2,
+"Br-X/FCC": 1,
+"Br-X/SC": 1,
+"Br-X2O": 3,
+"Br-X2O3": 10,
+"Br-X2O5": 14,
+"Br-XO": 2,
+"Br-XO2": 3,
+"Br-XO3": 4,
+"C-X/BCC": 1,
+"C-X/Diamond": 2,
+"C-X/FCC": 1,
+"C-X/SC": 1,
+"C-X2O": 3,
+"C-X2O3": 10,
+"C-X2O5": 14,
+"C-XO": 2,
+"C-XO2": 3,
+"C-XO3": 4,
+"Ca-X/BCC": 1,
+"Ca-X/Diamond": 2,
+"Ca-X/FCC": 1,
+"Ca-X/SC": 1,
+"Ca-X2O": 3,
+"Ca-X2O3": 10,
+"Ca-X2O5": 14,
+"Ca-XO": 2,
+"Ca-XO2": 3,
+"Ca-XO3": 4,
+"Cd-X/BCC": 1,
+"Cd-X/Diamond": 2,
+"Cd-X/FCC": 1,
+"Cd-X/SC": 1,
+"Cd-X2O": 3,
+"Cd-X2O3": 10,
+"Cd-X2O5": 14,
+"Cd-XO": 2,
+"Cd-XO2": 3,
+"Cd-XO3": 4,
+"Ce-X/BCC": 1,
+"Ce-X/Diamond": 2,
+"Ce-X/FCC": 1,
+"Ce-X/SC": 1,
+"Ce-X2O": 3,
+"Ce-X2O3": 10,
+"Ce-X2O5": 14,
+"Ce-XO": 2,
+"Ce-XO2": 3,
+"Ce-XO3": 4,
+"Cl-X/BCC": 1,
+"Cl-X/Diamond": 2,
+"Cl-X/FCC": 1,
+"Cl-X/SC": 1,
+"Cl-X2O": 3,
+"Cl-X2O3": 10,
+"Cl-X2O5": 14,
+"Cl-XO": 2,
+"Cl-XO2": 3,
+"Cl-XO3": 4,
+"Cm-X/BCC": 1,
+"Cm-X/Diamond": 2,
+"Cm-X/FCC": 1,
+"Cm-X/SC": 1,
+"Cm-X2O": 3,
+"Cm-X2O3": 10,
+"Cm-X2O5": 14,
+"Cm-XO": 2,
+"Cm-XO2": 3,
+"Cm-XO3": 4,
+"Co-X/BCC": 1,
+"Co-X/Diamond": 2,
+"Co-X/FCC": 1,
+"Co-X/SC": 1,
+"Co-X2O": 3,
+"Co-X2O3": 10,
+"Co-X2O5": 14,
+"Co-XO": 2,
+"Co-XO2": 3,
+"Co-XO3": 4,
+"Cr-X/BCC": 1,
+"Cr-X/Diamond": 2,
+"Cr-X/FCC": 1,
+"Cr-X/SC": 1,
+"Cr-X2O": 3,
+"Cr-X2O3": 10,
+"Cr-X2O5": 14,
+"Cr-XO": 2,
+"Cr-XO2": 3,
+"Cr-XO3": 4,
+"Cs-X/BCC": 1,
+"Cs-X/Diamond": 2,
+"Cs-X/FCC": 1,
+"Cs-X/SC": 1,
+"Cs-X2O": 3,
+"Cs-X2O3": 10,
+"Cs-X2O5": 14,
+"Cs-XO": 2,
+"Cs-XO2": 3,
+"Cs-XO3": 4,
+"Cu-X/BCC": 1,
+"Cu-X/Diamond": 2,
+"Cu-X/FCC": 1,
+"Cu-X/SC": 1,
+"Cu-X2O": 3,
+"Cu-X2O3": 10,
+"Cu-X2O5": 14,
+"Cu-XO": 2,
+"Cu-XO2": 3,
+"Cu-XO3": 4,
+"Dy-X/BCC": 1,
+"Dy-X/Diamond": 2,
+"Dy-X/FCC": 1,
+"Dy-X/SC": 1,
+"Dy-X2O": 3,
+"Dy-X2O3": 10,
+"Dy-X2O5": 14,
+"Dy-XO": 2,
+"Dy-XO2": 3,
+"Dy-XO3": 4,
+"Er-X/BCC": 1,
+"Er-X/Diamond": 2,
+"Er-X/FCC": 1,
+"Er-X/SC": 1,
+"Er-X2O": 3,
+"Er-X2O3": 10,
+"Er-X2O5": 14,
+"Er-XO": 2,
+"Er-XO2": 3,
+"Er-XO3": 4,
+"Eu-X/BCC": 1,
+"Eu-X/Diamond": 2,
+"Eu-X/FCC": 1,
+"Eu-X/SC": 1,
+"Eu-X2O": 3,
+"Eu-X2O3": 10,
+"Eu-X2O5": 14,
+"Eu-XO": 2,
+"Eu-XO2": 3,
+"Eu-XO3": 4,
+"F-X/BCC": 1,
+"F-X/Diamond": 2,
+"F-X/FCC": 1,
+"F-X/SC": 1,
+"F-X2O": 3,
+"F-X2O3": 10,
+"F-X2O5": 14,
+"F-XO": 2,
+"F-XO2": 3,
+"F-XO3": 4,
+"Fe-X/BCC": 1,
+"Fe-X/Diamond": 2,
+"Fe-X/FCC": 1,
+"Fe-X/SC": 1,
+"Fe-X2O": 3,
+"Fe-X2O3": 10,
+"Fe-X2O5": 14,
+"Fe-XO": 2,
+"Fe-XO2": 3,
+"Fe-XO3": 4,
+"Fr-X/BCC": 1,
+"Fr-X/Diamond": 2,
+"Fr-X/FCC": 1,
+"Fr-X/SC": 1,
+"Fr-X2O": 3,
+"Fr-X2O3": 10,
+"Fr-X2O5": 14,
+"Fr-XO": 2,
+"Fr-XO2": 3,
+"Fr-XO3": 4,
+"Ga-X/BCC": 1,
+"Ga-X/Diamond": 2,
+"Ga-X/FCC": 1,
+"Ga-X/SC": 1,
+"Ga-X2O": 3,
+"Ga-X2O3": 10,
+"Ga-X2O5": 14,
+"Ga-XO": 2,
+"Ga-XO2": 3,
+"Ga-XO3": 4,
+"Gd-X/BCC": 1,
+"Gd-X/Diamond": 2,
+"Gd-X/FCC": 1,
+"Gd-X/SC": 1,
+"Gd-X2O": 3,
+"Gd-X2O3": 10,
+"Gd-X2O5": 14,
+"Gd-XO": 2,
+"Gd-XO2": 3,
+"Gd-XO3": 4,
+"Ge-X/BCC": 1,
+"Ge-X/Diamond": 2,
+"Ge-X/FCC": 1,
+"Ge-X/SC": 1,
+"Ge-X2O": 3,
+"Ge-X2O3": 10,
+"Ge-X2O5": 14,
+"Ge-XO": 2,
+"Ge-XO2": 3,
+"Ge-XO3": 4,
+"H-X/BCC": 1,
+"H-X/Diamond": 2,
+"H-X/FCC": 1,
+"H-X/SC": 1,
+"H-X2O": 3,
+"H-X2O3": 10,
+"H-X2O5": 14,
+"H-XO": 2,
+"H-XO2": 3,
+"H-XO3": 4,
+"He-X/BCC": 1,
+"He-X/Diamond": 2,
+"He-X/FCC": 1,
+"He-X/SC": 1,
+"He-X2O": 3,
+"He-X2O3": 10,
+"He-X2O5": 14,
+"He-XO": 2,
+"He-XO2": 3,
+"He-XO3": 4,
+"Hf-X/BCC": 1,
+"Hf-X/Diamond": 2,
+"Hf-X/FCC": 1,
+"Hf-X/SC": 1,
+"Hf-X2O": 3,
+"Hf-X2O3": 10,
+"Hf-X2O5": 14,
+"Hf-XO": 2,
+"Hf-XO2": 3,
+"Hf-XO3": 4,
+"Hg-X/BCC": 1,
+"Hg-X/Diamond": 2,
+"Hg-X/FCC": 1,
+"Hg-X/SC": 1,
+"Hg-X2O": 3,
+"Hg-X2O3": 10,
+"Hg-X2O5": 14,
+"Hg-XO": 2,
+"Hg-XO2": 3,
+"Hg-XO3": 4,
+"Ho-X/BCC": 1,
+"Ho-X/Diamond": 2,
+"Ho-X/FCC": 1,
+"Ho-X/SC": 1,
+"Ho-X2O": 3,
+"Ho-X2O3": 10,
+"Ho-X2O5": 14,
+"Ho-XO": 2,
+"Ho-XO2": 3,
+"Ho-XO3": 4,
+"I-X/BCC": 1,
+"I-X/Diamond": 2,
+"I-X/FCC": 1,
+"I-X/SC": 1,
+"I-X2O": 3,
+"I-X2O3": 10,
+"I-X2O5": 14,
+"I-XO": 2,
+"I-XO2": 3,
+"I-XO3": 4,
+"In-X/BCC": 1,
+"In-X/Diamond": 2,
+"In-X/FCC": 1,
+"In-X/SC": 1,
+"In-X2O": 3,
+"In-X2O3": 10,
+"In-X2O5": 14,
+"In-XO": 2,
+"In-XO2": 3,
+"In-XO3": 4,
+"Ir-X/BCC": 1,
+"Ir-X/Diamond": 2,
+"Ir-X/FCC": 1,
+"Ir-X/SC": 1,
+"Ir-X2O": 3,
+"Ir-X2O3": 10,
+"Ir-X2O5": 14,
+"Ir-XO": 2,
+"Ir-XO2": 3,
+"Ir-XO3": 4,
+"K-X/BCC": 1,
+"K-X/Diamond": 2,
+"K-X/FCC": 1,
+"K-X/SC": 1,
+"K-X2O": 3,
+"K-X2O3": 10,
+"K-X2O5": 14,
+"K-XO": 2,
+"K-XO2": 3,
+"K-XO3": 4,
+"Kr-X/BCC": 1,
+"Kr-X/Diamond": 2,
+"Kr-X/FCC": 1,
+"Kr-X/SC": 1,
+"Kr-X2O": 3,
+"Kr-X2O3": 10,
+"Kr-X2O5": 14,
+"Kr-XO": 2,
+"Kr-XO2": 3,
+"Kr-XO3": 4,
+"La-X/BCC": 1,
+"La-X/Diamond": 2,
+"La-X/FCC": 1,
+"La-X/SC": 1,
+"La-X2O": 3,
+"La-X2O3": 10,
+"La-X2O5": 14,
+"La-XO": 2,
+"La-XO2": 3,
+"La-XO3": 4,
+"Li-X/BCC": 1,
+"Li-X/Diamond": 2,
+"Li-X/FCC": 1,
+"Li-X/SC": 1,
+"Li-X2O": 3,
+"Li-X2O3": 10,
+"Li-X2O5": 14,
+"Li-XO": 2,
+"Li-XO2": 3,
+"Li-XO3": 4,
+"Lu-X/BCC": 1,
+"Lu-X/Diamond": 2,
+"Lu-X/FCC": 1,
+"Lu-X/SC": 1,
+"Lu-X2O": 3,
+"Lu-X2O3": 10,
+"Lu-X2O5": 14,
+"Lu-XO": 2,
+"Lu-XO2": 3,
+"Lu-XO3": 4,
+"Mg-X/BCC": 1,
+"Mg-X/Diamond": 2,
+"Mg-X/FCC": 1,
+"Mg-X/SC": 1,
+"Mg-X2O": 3,
+"Mg-X2O3": 10,
+"Mg-X2O5": 14,
+"Mg-XO": 2,
+"Mg-XO2": 3,
+"Mg-XO3": 4,
+"Mn-X/BCC": 1,
+"Mn-X/Diamond": 2,
+"Mn-X/FCC": 1,
+"Mn-X/SC": 1,
+"Mn-X2O": 3,
+"Mn-X2O3": 10,
+"Mn-X2O5": 14,
+"Mn-XO": 2,
+"Mn-XO2": 3,
+"Mn-XO3": 4,
+"Mo-X/BCC": 1,
+"Mo-X/Diamond": 2,
+"Mo-X/FCC": 1,
+"Mo-X/SC": 1,
+"Mo-X2O": 3,
+"Mo-X2O3": 10,
+"Mo-X2O5": 14,
+"Mo-XO": 2,
+"Mo-XO2": 3,
+"Mo-XO3": 4,
+"N-X/BCC": 1,
+"N-X/Diamond": 2,
+"N-X/FCC": 1,
+"N-X/SC": 1,
+"N-X2O": 3,
+"N-X2O3": 10,
+"N-X2O5": 14,
+"N-XO": 2,
+"N-XO2": 3,
+"N-XO3": 4,
+"Na-X/BCC": 1,
+"Na-X/Diamond": 2,
+"Na-X/FCC": 1,
+"Na-X/SC": 1,
+"Na-X2O": 3,
+"Na-X2O3": 10,
+"Na-X2O5": 14,
+"Na-XO": 2,
+"Na-XO2": 3,
+"Na-XO3": 4,
+"Nb-X/BCC": 1,
+"Nb-X/Diamond": 2,
+"Nb-X/FCC": 1,
+"Nb-X/SC": 1,
+"Nb-X2O": 3,
+"Nb-X2O3": 10,
+"Nb-X2O5": 14,
+"Nb-XO": 2,
+"Nb-XO2": 3,
+"Nb-XO3": 4,
+"Nd-X/BCC": 1,
+"Nd-X/Diamond": 2,
+"Nd-X/FCC": 1,
+"Nd-X/SC": 1,
+"Nd-X2O": 3,
+"Nd-X2O3": 10,
+"Nd-X2O5": 14,
+"Nd-XO": 2,
+"Nd-XO2": 3,
+"Nd-XO3": 4,
+"Ne-X/BCC": 1,
+"Ne-X/Diamond": 2,
+"Ne-X/FCC": 1,
+"Ne-X/SC": 1,
+"Ne-X2O": 3,
+"Ne-X2O3": 10,
+"Ne-X2O5": 14,
+"Ne-XO": 2,
+"Ne-XO2": 3,
+"Ne-XO3": 4,
+"Ni-X/BCC": 1,
+"Ni-X/Diamond": 2,
+"Ni-X/FCC": 1,
+"Ni-X/SC": 1,
+"Ni-X2O": 3,
+"Ni-X2O3": 10,
+"Ni-X2O5": 14,
+"Ni-XO": 2,
+"Ni-XO2": 3,
+"Ni-XO3": 4,
+"Np-X/BCC": 1,
+"Np-X/Diamond": 2,
+"Np-X/FCC": 1,
+"Np-X/SC": 1,
+"Np-X2O": 3,
+"Np-X2O3": 10,
+"Np-X2O5": 14,
+"Np-XO": 2,
+"Np-XO2": 3,
+"Np-XO3": 4,
+"O-X/BCC": 1,
+"O-X/Diamond": 2,
+"O-X/FCC": 1,
+"O-X/SC": 1,
+"O-X2O": 3,
+"O-X2O3": 10,
+"O-X2O5": 7,
+"O-XO": 1,
+"O-XO2": 3,
+"O-XO3": 4,
+"Os-X/BCC": 1,
+"Os-X/Diamond": 2,
+"Os-X/FCC": 1,
+"Os-X/SC": 1,
+"Os-X2O": 3,
+"Os-X2O3": 10,
+"Os-X2O5": 14,
+"Os-XO": 2,
+"Os-XO2": 3,
+"Os-XO3": 4,
+"P-X/BCC": 1,
+"P-X/Diamond": 2,
+"P-X/FCC": 1,
+"P-X/SC": 1,
+"P-X2O": 3,
+"P-X2O3": 10,
+"P-X2O5": 14,
+"P-XO": 2,
+"P-XO2": 3,
+"P-XO3": 4,
+"Pa-X/BCC": 1,
+"Pa-X/Diamond": 2,
+"Pa-X/FCC": 1,
+"Pa-X/SC": 1,
+"Pa-X2O": 3,
+"Pa-X2O3": 10,
+"Pa-X2O5": 14,
+"Pa-XO": 2,
+"Pa-XO2": 3,
+"Pa-XO3": 4,
+"Pb-X/BCC": 1,
+"Pb-X/Diamond": 2,
+"Pb-X/FCC": 1,
+"Pb-X/SC": 1,
+"Pb-X2O": 3,
+"Pb-X2O3": 10,
+"Pb-X2O5": 14,
+"Pb-XO": 2,
+"Pb-XO2": 3,
+"Pb-XO3": 4,
+"Pd-X/BCC": 1,
+"Pd-X/Diamond": 2,
+"Pd-X/FCC": 1,
+"Pd-X/SC": 1,
+"Pd-X2O": 3,
+"Pd-X2O3": 10,
+"Pd-X2O5": 14,
+"Pd-XO": 2,
+"Pd-XO2": 3,
+"Pd-XO3": 4,
+"Pm-X/BCC": 1,
+"Pm-X/Diamond": 2,
+"Pm-X/FCC": 1,
+"Pm-X/SC": 1,
+"Pm-X2O": 3,
+"Pm-X2O3": 10,
+"Pm-X2O5": 14,
+"Pm-XO": 2,
+"Pm-XO2": 3,
+"Pm-XO3": 4,
+"Po-X/BCC": 1,
+"Po-X/Diamond": 2,
+"Po-X/FCC": 1,
+"Po-X/SC": 1,
+"Po-X2O": 3,
+"Po-X2O3": 10,
+"Po-X2O5": 14,
+"Po-XO": 2,
+"Po-XO2": 3,
+"Po-XO3": 4,
+"Pr-X/BCC": 1,
+"Pr-X/Diamond": 2,
+"Pr-X/FCC": 1,
+"Pr-X/SC": 1,
+"Pr-X2O": 3,
+"Pr-X2O3": 10,
+"Pr-X2O5": 14,
+"Pr-XO": 2,
+"Pr-XO2": 3,
+"Pr-XO3": 4,
+"Pt-X/BCC": 1,
+"Pt-X/Diamond": 2,
+"Pt-X/FCC": 1,
+"Pt-X/SC": 1,
+"Pt-X2O": 3,
+"Pt-X2O3": 10,
+"Pt-X2O5": 14,
+"Pt-XO": 2,
+"Pt-XO2": 3,
+"Pt-XO3": 4,
+"Pu-X/BCC": 1,
+"Pu-X/Diamond": 2,
+"Pu-X/FCC": 1,
+"Pu-X/SC": 1,
+"Pu-X2O": 3,
+"Pu-X2O3": 10,
+"Pu-X2O5": 14,
+"Pu-XO": 2,
+"Pu-XO2": 3,
+"Pu-XO3": 4,
+"Ra-X/BCC": 1,
+"Ra-X/Diamond": 2,
+"Ra-X/FCC": 1,
+"Ra-X/SC": 1,
+"Ra-X2O": 3,
+"Ra-X2O3": 10,
+"Ra-X2O5": 14,
+"Ra-XO": 2,
+"Ra-XO2": 3,
+"Ra-XO3": 4,
+"Rb-X/BCC": 1,
+"Rb-X/Diamond": 2,
+"Rb-X/FCC": 1,
+"Rb-X/SC": 1,
+"Rb-X2O": 3,
+"Rb-X2O3": 10,
+"Rb-X2O5": 14,
+"Rb-XO": 2,
+"Rb-XO2": 3,
+"Rb-XO3": 4,
+"Re-X/BCC": 1,
+"Re-X/Diamond": 2,
+"Re-X/FCC": 1,
+"Re-X/SC": 1,
+"Re-X2O": 3,
+"Re-X2O3": 10,
+"Re-X2O5": 14,
+"Re-XO": 2,
+"Re-XO2": 3,
+"Re-XO3": 4,
+"Rh-X/BCC": 1,
+"Rh-X/Diamond": 2,
+"Rh-X/FCC": 1,
+"Rh-X/SC": 1,
+"Rh-X2O": 3,
+"Rh-X2O3": 10,
+"Rh-X2O5": 14,
+"Rh-XO": 2,
+"Rh-XO2": 3,
+"Rh-XO3": 4,
+"Rn-X/BCC": 1,
+"Rn-X/Diamond": 2,
+"Rn-X/FCC": 1,
+"Rn-X/SC": 1,
+"Rn-X2O": 3,
+"Rn-X2O3": 10,
+"Rn-X2O5": 14,
+"Rn-XO": 2,
+"Rn-XO2": 3,
+"Rn-XO3": 4,
+"Ru-X/BCC": 1,
+"Ru-X/Diamond": 2,
+"Ru-X/FCC": 1,
+"Ru-X/SC": 1,
+"Ru-X2O": 3,
+"Ru-X2O3": 10,
+"Ru-X2O5": 14,
+"Ru-XO": 2,
+"Ru-XO2": 3,
+"Ru-XO3": 4,
+"S-X/BCC": 1,
+"S-X/Diamond": 2,
+"S-X/FCC": 1,
+"S-X/SC": 1,
+"S-X2O": 3,
+"S-X2O3": 10,
+"S-X2O5": 14,
+"S-XO": 2,
+"S-XO2": 3,
+"S-XO3": 4,
+"Sb-X/BCC": 1,
+"Sb-X/Diamond": 2,
+"Sb-X/FCC": 1,
+"Sb-X/SC": 1,
+"Sb-X2O": 3,
+"Sb-X2O3": 10,
+"Sb-X2O5": 14,
+"Sb-XO": 2,
+"Sb-XO2": 3,
+"Sb-XO3": 4,
+"Sc-X/BCC": 1,
+"Sc-X/Diamond": 2,
+"Sc-X/FCC": 1,
+"Sc-X/SC": 1,
+"Sc-X2O": 3,
+"Sc-X2O3": 10,
+"Sc-X2O5": 14,
+"Sc-XO": 2,
+"Sc-XO2": 3,
+"Sc-XO3": 4,
+"Se-X/BCC": 1,
+"Se-X/Diamond": 2,
+"Se-X/FCC": 1,
+"Se-X/SC": 1,
+"Se-X2O": 3,
+"Se-X2O3": 10,
+"Se-X2O5": 14,
+"Se-XO": 2,
+"Se-XO2": 3,
+"Se-XO3": 4,
+"Si-X/BCC": 1,
+"Si-X/Diamond": 2,
+"Si-X/FCC": 1,
+"Si-X/SC": 1,
+"Si-X2O": 3,
+"Si-X2O3": 10,
+"Si-X2O5": 14,
+"Si-XO": 2,
+"Si-XO2": 3,
+"Si-XO3": 4,
+"Sm-X/BCC": 1,
+"Sm-X/Diamond": 2,
+"Sm-X/FCC": 1,
+"Sm-X/SC": 1,
+"Sm-X2O": 3,
+"Sm-X2O3": 10,
+"Sm-X2O5": 14,
+"Sm-XO": 2,
+"Sm-XO2": 3,
+"Sm-XO3": 4,
+"Sn-X/BCC": 1,
+"Sn-X/Diamond": 2,
+"Sn-X/FCC": 1,
+"Sn-X/SC": 1,
+"Sn-X2O": 3,
+"Sn-X2O3": 10,
+"Sn-X2O5": 14,
+"Sn-XO": 2,
+"Sn-XO2": 3,
+"Sn-XO3": 4,
+"Sr-X/BCC": 1,
+"Sr-X/Diamond": 2,
+"Sr-X/FCC": 1,
+"Sr-X/SC": 1,
+"Sr-X2O": 3,
+"Sr-X2O3": 10,
+"Sr-X2O5": 14,
+"Sr-XO": 2,
+"Sr-XO2": 3,
+"Sr-XO3": 4,
+"Ta-X/BCC": 1,
+"Ta-X/Diamond": 2,
+"Ta-X/FCC": 1,
+"Ta-X/SC": 1,
+"Ta-X2O": 3,
+"Ta-X2O3": 10,
+"Ta-X2O5": 14,
+"Ta-XO": 2,
+"Ta-XO2": 3,
+"Ta-XO3": 4,
+"Tb-X/BCC": 1,
+"Tb-X/Diamond": 2,
+"Tb-X/FCC": 1,
+"Tb-X/SC": 1,
+"Tb-X2O": 3,
+"Tb-X2O3": 10,
+"Tb-X2O5": 14,
+"Tb-XO": 2,
+"Tb-XO2": 3,
+"Tb-XO3": 4,
+"Tc-X/BCC": 1,
+"Tc-X/Diamond": 2,
+"Tc-X/FCC": 1,
+"Tc-X/SC": 1,
+"Tc-X2O": 3,
+"Tc-X2O3": 10,
+"Tc-X2O5": 14,
+"Tc-XO": 2,
+"Tc-XO2": 3,
+"Tc-XO3": 4,
+"Te-X/BCC": 1,
+"Te-X/Diamond": 2,
+"Te-X/FCC": 1,
+"Te-X/SC": 1,
+"Te-X2O": 3,
+"Te-X2O3": 10,
+"Te-X2O5": 14,
+"Te-XO": 2,
+"Te-XO2": 3,
+"Te-XO3": 4,
+"Th-X/BCC": 1,
+"Th-X/Diamond": 2,
+"Th-X/FCC": 1,
+"Th-X/SC": 1,
+"Th-X2O": 3,
+"Th-X2O3": 10,
+"Th-X2O5": 14,
+"Th-XO": 2,
+"Th-XO2": 3,
+"Th-XO3": 4,
+"Ti-X/BCC": 1,
+"Ti-X/Diamond": 2,
+"Ti-X/FCC": 1,
+"Ti-X/SC": 1,
+"Ti-X2O": 3,
+"Ti-X2O3": 10,
+"Ti-X2O5": 14,
+"Ti-XO": 2,
+"Ti-XO2": 3,
+"Ti-XO3": 4,
+"Tl-X/BCC": 1,
+"Tl-X/Diamond": 2,
+"Tl-X/FCC": 1,
+"Tl-X/SC": 1,
+"Tl-X2O": 3,
+"Tl-X2O3": 10,
+"Tl-X2O5": 14,
+"Tl-XO": 2,
+"Tl-XO2": 3,
+"Tl-XO3": 4,
+"Tm-X/BCC": 1,
+"Tm-X/Diamond": 2,
+"Tm-X/FCC": 1,
+"Tm-X/SC": 1,
+"Tm-X2O": 3,
+"Tm-X2O3": 10,
+"Tm-X2O5": 14,
+"Tm-XO": 2,
+"Tm-XO2": 3,
+"Tm-XO3": 4,
+"U-X/BCC": 1,
+"U-X/Diamond": 2,
+"U-X/FCC": 1,
+"U-X/SC": 1,
+"U-X2O": 3,
+"U-X2O3": 10,
+"U-X2O5": 14,
+"U-XO": 2,
+"U-XO2": 3,
+"U-XO3": 4,
+"V-X/BCC": 1,
+"V-X/Diamond": 2,
+"V-X/FCC": 1,
+"V-X/SC": 1,
+"V-X2O": 3,
+"V-X2O3": 10,
+"V-X2O5": 14,
+"V-XO": 2,
+"V-XO2": 3,
+"V-XO3": 4,
+"W-X/BCC": 1,
+"W-X/Diamond": 2,
+"W-X/FCC": 1,
+"W-X/SC": 1,
+"W-X2O": 3,
+"W-X2O3": 10,
+"W-X2O5": 14,
+"W-XO": 2,
+"W-XO2": 3,
+"W-XO3": 4,
+"Xe-X/BCC": 1,
+"Xe-X/Diamond": 2,
+"Xe-X/FCC": 1,
+"Xe-X/SC": 1,
+"Xe-X2O": 3,
+"Xe-X2O3": 10,
+"Xe-X2O5": 14,
+"Xe-XO": 2,
+"Xe-XO2": 3,
+"Xe-XO3": 4,
+"Y-X/BCC": 1,
+"Y-X/Diamond": 2,
+"Y-X/FCC": 1,
+"Y-X/SC": 1,
+"Y-X2O": 3,
+"Y-X2O3": 10,
+"Y-X2O5": 14,
+"Y-XO": 2,
+"Y-XO2": 3,
+"Y-XO3": 4,
+"Yb-X/BCC": 1,
+"Yb-X/Diamond": 2,
+"Yb-X/FCC": 1,
+"Yb-X/SC": 1,
+"Yb-X2O": 3,
+"Yb-X2O3": 10,
+"Yb-X2O5": 14,
+"Yb-XO": 2,
+"Yb-XO2": 3,
+"Yb-XO3": 4,
+"Zn-X/BCC": 1,
+"Zn-X/Diamond": 2,
+"Zn-X/FCC": 1,
+"Zn-X/SC": 1,
+"Zn-X2O": 3,
+"Zn-X2O3": 10,
+"Zn-X2O5": 14,
+"Zn-XO": 2,
+"Zn-XO2": 3,
+"Zn-XO3": 4,
+"Zr-X/BCC": 1,
+"Zr-X/Diamond": 2,
+"Zr-X/FCC": 1,
+"Zr-X/SC": 1,
+"Zr-X2O": 3,
+"Zr-X2O3": 10,
+"Zr-X2O5": 14,
+"Zr-XO": 2,
+"Zr-XO2": 3,
+"Zr-XO3": 4
+}
+}

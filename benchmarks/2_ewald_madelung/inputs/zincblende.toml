@@ -1,0 +1,16 @@
+# Zincblende, a = 10.22 Bohr: the anion a quarter along the body diagonal.
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 5.11, 5.11], [5.11, 0.0, 5.11], [5.11, 5.11, 0.0]]
+
+[basis]
+cutoff_ha = 10.0
+
+[kpoints]
+list = [[0.0, 0.0, 0.0]]
+
+[probe]
+term = "ewald"
+charges = [1.0, -1.0]
+positions_fractional = [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]]

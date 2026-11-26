@@ -1,0 +1,15 @@
+orbitaR-PBE-v0: Pipeline proof for the pinned ATOMPAW rebuild of JTH v2.0's O input. ACWF, held-out checks and cutoff convergence are unrecorded.
+
+The ATOMPAW inputs in this directory derive from the JTH v2.0 table of PAW atomic datasets:
+F. Jollet, M. Torrent, N. Holzwarth, Comput. Phys. Commun. 185, 1246 (2014), doi:10.1016/j.cpc.2013.12.023.
+Source: abinit/paw_jth_datasets, commit a03e3f0b7ac8395550cca88880d8cb7dcd478bb3, directory pseudos/JTH-PBE-v2.0.
+Each <element>.in is the generator input that the JTH file of that element holds after "atompaw - input data follows".
+JTH v2.0 is GPL-3.0, so these inputs and each PAW-XML file built from them are GPL-3.0 too: see LICENSE here.
+LICENSE is the GPL-3.0 text of that commit, byte for byte.
+Each PAW-XML file here is built with ATOMPAW 4.2.0.4: N. A. W. Holzwarth, A. R. Tackett, G. E. Matthews,
+Comput. Phys. Commun. 135, 329 (2001); pwpaw.wfu.edu.
+`cargo xtask atompaw` removes the two contact lines of ATOMPAW's header comment and sets its date line to a fixed stamp.
+
+O.in: the input of JTH-PBE-v2.0/O/O.GGA_PBE-JTH.xml, unchanged.
+O.xml: built from O.in by `cargo xtask atompaw`, which names it after its element (ATOMPAW writes O.GGA_X_PBE+GGA_C_PBE-paw.xml).
+tuning.toml: the rows from which `cargo xtask family` wrote ../orbitaR-PBE-v0.toml; that table pins O.xml.

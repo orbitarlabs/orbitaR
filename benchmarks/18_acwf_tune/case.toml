@@ -1,0 +1,15 @@
+[case]
+tier = "node"
+status = "planned"
+claims = ["correctness"]
+reference = "all-electron"
+
+# The ACWF tuning part (benchmarks/ACWF.toml) of the 86 elements with a JTH v2.0 file: 430 crystals, at the dataset
+# table table.toml (datasets.rs `Table`) or a candidate at ORBITAR_DATASET_TABLE. A dataset is judged here.
+# metric             what
+# epsilon/<system>   ε per atom against the all-electron average (eos::epsilon, orbitaR first); NaN when the fit fails
+# nu/<system>        ν, the same way
+# epsilon            the worst ε of the run: the bar's "no ε > 1.0", the one set rule that a shard can judge
+# The median and share(ε ≤ 0.06) need the whole set beside VASP's: `cargo xtask epsilon` reads them from the shards.
+[tolerance]
+epsilon_max = 1.0

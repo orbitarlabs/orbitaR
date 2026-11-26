@@ -1,0 +1,13 @@
+# The image build context: the checkout without its build outputs or scratch. The family tables datasets/*.toml stay:
+# the wheel carries them, and `fetch` writes them where the engine reads them. So do the tracked directories of our
+# families, datasets/<family>/: the bench stage checks that the context holds every tracked file.
+target/
+scratch/
+datasets/*
+!datasets/*.toml
+!datasets/*/
+**/__pycache__/
+*.whl
+# The data package's fetched files: its wheel stage fetches them by pin (container/Dockerfile jth-build).
+packages/orbitar-jth/orbitar_jth/*
+!packages/orbitar-jth/orbitar_jth/__init__.py

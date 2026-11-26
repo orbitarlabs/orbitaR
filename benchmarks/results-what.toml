@@ -1,0 +1,134 @@
+# Per case number: what the case checks (at most 40 characters), the metrics of which the results chart shows the one
+# nearest its bound, their unit, and the chart's text for a headline of 0 against a bound of 0 (exact). Display text
+# for `cargo xtask results`: it judges nothing.
+
+[1]
+what = "free-electron eigenvalues vs analytic"
+metric = ["eigenvalue_error_ha"]
+unit = "Ha"
+
+[2]
+what = "Ewald energy vs Madelung constants"
+metric = ["madelung_error"]
+unit = ""
+
+[3]
+what = "Hartree energy of Gaussians vs analytic"
+metric = ["hartree_relative_error"]
+unit = "relative"
+
+[4]
+what = "XC energy densities vs Libxc"
+metric = ["xc_relative_error"]
+unit = "relative"
+
+[5]
+what = "LOBPCG SCF vs dense eigensolver"
+metric = ["eigenvalue_difference_ha", "free_energy_difference_ha"]
+unit = "Ha"
+
+[6]
+what = "PAW SCF vs ABINIT, same datasets"
+metric = ["free_energy_error_ha"]
+unit = "Ha"
+
+[7]
+what = "symmetry-reduced vs full k mesh"
+metric = ["term_difference_ha"]
+unit = "Ha"
+
+[8]
+what = "supercell vs primitive cell"
+metric = ["term_difference_ha"]
+unit = "Ha"
+
+[9]
+what = "1 vs 4 threads, bit for bit"
+metric = [
+  "term_difference_ha",
+  "fermi_level_difference_ha",
+  "magnetization_difference_bohr_magneton",
+  "eigenvalue_difference_ha",
+  "occupation_difference",
+  "kpoint_difference",
+  "weight_difference",
+  "basis_size_difference",
+  "scf_step_difference",
+]
+unit = ""
+exact = "bit-identical at 1 and 4 threads"
+
+[10]
+what = "ACWF subset vs ABINIT, same datasets"
+metric = ["free_energy_error_ev"]
+unit = "eV"
+
+[11]
+what = "F per atom vs ABINIT; speed vs QE"
+metric = ["free_energy_error_ha_per_atom"]
+unit = "Ha/atom"
+
+[12]
+what = "energy terms as cells grow; memory"
+metric = ["term_difference_ha_per_cell", "fermi_level_difference_ha"]
+unit = "Ha"
+
+[13]
+what = "forces vs finite differences of F"
+metric = [
+  "gaas_force_difference_ha_bohr",
+  "fe_pbe_force_difference_ha_bohr",
+  "fe_lda_force_difference_ha_bohr",
+  "feo_force_difference_ha_bohr",
+  "symmetry_force_difference_ha_bohr",
+]
+unit = "Ha/Bohr"
+
+[14]
+what = "the large set W vs ABINIT; speed"
+metric = ["free_energy_error_ha_per_atom"]
+unit = "Ha/atom"
+
+[15]
+what = "stress vs strain differences of F"
+metric = [
+  "gaas_stress_difference_ha_bohr3",
+  "gaas_volume_stress_difference_ha_bohr3",
+  "fe_pbe_stress_difference_ha_bohr3",
+  "feo_stress_difference_ha_bohr3",
+  "afm_stress_difference_ha_bohr3",
+  "fe_lda_stress_difference_ha_bohr3",
+  "symmetry_stress_difference_ha_bohr3",
+]
+unit = "Ha/Bohr³"
+
+[16]
+what = "relaxation endpoints vs cold runs"
+metric = [
+  "si_ions_fmax_share",
+  "si_cell_fmax_share",
+  "fe_ions_fmax_share",
+  "fe_cell_fmax_share",
+]
+unit = "(share of bound)"
+
+[17]
+what = "magnetic EOS vs all-electron WIEN2k"
+metric = [
+  "fe_delta_mev",
+  "co_delta_mev",
+  "ni_delta_mev",
+  "cr_delta_mev",
+  "mn_delta_mev",
+]
+unit = "meV/atom"
+
+[18]
+what = "ACWF tuning part vs all-electron"
+metric = ["epsilon"]
+unit = "ε"
+
+[19]
+what = "rebuilt O dataset vs JTH v2.0 on MgO"
+metric = ["term_difference_ha"]
+unit = "Ha"

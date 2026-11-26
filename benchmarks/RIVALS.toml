@@ -1,0 +1,85 @@
+# The rivals of the claim tier (harness/rival.rs).
+# Each code meets one accuracy target against itself at its converged cutoff (CONTRIBUTING.md, rival cases: one
+# target, not equal settings).
+# `cargo xtask rivals` reads this file and writes TUNED.toml.
+# The cells are case 11's and case 14's tuning cells, never a cell that a claim times. The cutoff is per element,
+# so the calibration needs one cell per element: fe2o3_10 brings Fe, sto5 Sr and Ti.
+# A cell without its own row borrows one (Rivals::calibrated in harness/rival.rs).
+# The layout must suit every timed cell, so the search runs all seven.
+calibration_cells = [
+  "benchmarks/11_speed_scaling/input.toml",
+  "benchmarks/11_speed_scaling/inputs/gaas.toml",
+  "benchmarks/11_speed_scaling/inputs/nio.toml",
+  "benchmarks/11_speed_scaling/inputs/al2o3.toml",
+  "benchmarks/14_set_w/tuning/fe2o3_10.toml",
+  "benchmarks/14_set_w/tuning/sto5.toml",
+]
+# The SCF mixing search's tuning cells: case 14's, whose magnetic and oxide cells need a mixing.
+# Outside budget_s: the defaults and each candidate run once per cell, each run capped at 3600 s (tune.rs TIMEOUT).
+# Run `rivals layout` again after `rivals mixing` freezes: the layout search times its runs on the frozen mixing.
+mixing_cells = [
+  "benchmarks/14_set_w/tuning/fe2o3_10.toml",
+  "benchmarks/14_set_w/tuning/sto5.toml",
+]
+layout_cells = [
+  "benchmarks/11_speed_scaling/input.toml",
+  "benchmarks/11_speed_scaling/inputs/gaas.toml",
+  "benchmarks/11_speed_scaling/inputs/nio.toml",
+  "benchmarks/11_speed_scaling/inputs/al2o3.toml",
+  "benchmarks/11_speed_scaling/inputs/si32.toml",
+  "benchmarks/14_set_w/tuning/fe2o3_10.toml",
+  "benchmarks/14_set_w/tuning/sto5.toml",
+]
+# Wall seconds of one code's layout search.
+# QE's 10 layouts took 3808 s (runner-jobs run 42287351628).
+# ABINIT's 7 layouts, 4 plain and 3 paral_kgb, took 5756 s (runner-jobs run 42311471461).
+budget_s = 14400.0
+# M3's bar on G is set at 8 cores ("M3: G ≥ 1.0 on 8 cores", harness/speed.rs `Milestone`), and R compares the same runs.
+# orbitaR alone runs the whole claim sweep, for T(p) and E(p).
+threads = [8]
+
+# The energy target is on E(V1) - E(V2), V2 = volume_scale x V1: across the ACWF compression range, energy
+# differences converge to 1 meV per atom. 0.94 V1 is the edge of the ACWF volume grid, the same for every code.
+# Why 0.94 and not 1.02: the energy-difference error is about dP x dV. On Si (20.4 A^3 per atom), 0.1 GPa gives
+# 0.76 meV per atom at 0.94, so the energy rule binds on its own; at 1.02 it gives 0.25 meV, nearly implied by the
+# pressure rule. Compression is also the harder side for a fixed cutoff.
+# 1 meV per atom: ten times δ of T(δ), harness/speed.rs DELTA_HA_PER_ATOM (0.1 meV per atom); a test holds the two.
+# 0.1 GPa: for Si (B0 ≈ 88 GPa) a pressure error moves the equilibrium volume by about 0.1 %.
+[target]
+energy_difference_ha_per_atom = 3.674932217565499e-5   # 1 meV per atom
+volume_scale = 0.94                                     # V2 / V1
+pressure_gpa = 0.1                                      # 1 kbar
+
+[qe]
+# Wave-function cutoffs in Ha; pw.x reads Ry. Below 15 Ha no cell met the target (runner-jobs run 41242195098). GaAs
+# first met it at 55 Ha (runs 42486149733, 42503693733) and NiO at 60 Ha (run 41262269485), so the ladder reaches
+# 70 Ha.
+ladder_ha = [15.0, 17.5, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0]
+converged_ha = 100.0
+density_ratio = 8.0                         # ecutrho / ecutwfc: SSSP's dual for its US and PAW files
+# No Ni dataset converges NiO under this input. SSSP 1.3's GBRV Ni loses 5.35e-5 Ha per atom from 100 to 120 Ha
+# (runner-jobs runs 41266306693, 41272036414); pslibrary 1.0.0's PAW Ni leaves the SCF unconverged from 60 Ha (runs
+# 42246118529, 42253060291).
+skip_cells = [
+  { cell = "benchmarks/11_speed_scaling/inputs/nio.toml", reason = "no Ni dataset converges NiO (owner, 2026-11-06)" },
+]
+# Open MPI 5 binds each rank to a core or a package by default (mpirun(1), "Mapping, ranking, and binding"), so the
+# threads of a rank could share one core.
+mpiexec = ["--bind-to", "none"]
+
+[abinit]
+# Below 12 Ha no cell met the target (runner-jobs runs 41242195098, 41252799303, 41252950898). GaAs first met it at
+# 100 Ha (run 41264421880), so the ladder reaches 120 Ha.
+ladder_ha = [12.0, 14.0, 16.0, 18.0, 20.0, 22.5, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 70.0, 80.0, 90.0,
+             100.0, 110.0, 120.0]
+# GaAs's error against 80 Ha still fell past 50 Ha; against 170 Ha its 140 Ha energy lies 8.0e-6 Ha per atom off
+# (runner-jobs run 41272036414).
+converged_ha = 170.0
+# pawecutdg / ecut: case 6's ratio. GaAs's error moves by less than 6e-7 Ha per atom across ratios 2 to 6 (runner-jobs
+# run 41252799303), so the calibration searches ecut alone.
+density_ratio = 2.0
+# Case 11's Si2 meets toldfe 1e-10 but not 1e-11: its energy moves by about 1.9e-11 Ha per step to nstep 100
+# (runner-jobs run 42462059638).
+stop_floor_ha = 1e-10
+# The conda-forge build links no OpenMP runtime: its "openMP support :" line is empty (runner-jobs run 42287351628).
+openmp = false

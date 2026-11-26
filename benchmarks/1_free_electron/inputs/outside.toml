@@ -1,0 +1,15 @@
+# The same turned cube with the cutoff 1e-9 below the shell: those 6 plane waves stay out,
+# so an engine margin looser than 1e-9 counts 33 plane waves instead of 27.
+schema = 1
+
+[structure]
+cell_bohr = [[6.002556191886538, 1.8568082204692036, 0.0], [-1.8568082204692036, 6.002556191886538, 0.0], [0.0, 0.0, 6.283185307179586]]
+
+[basis]
+cutoff_ha = 1.999999998
+
+[kpoints]
+list = [[0.0, 0.0, 0.0]]
+
+[bands]
+count = 27

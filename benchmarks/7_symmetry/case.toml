@@ -1,0 +1,18 @@
+[case]
+tier = "pr"
+status = "active"
+claims = ["correctness"]
+reference = "oracle"
+
+# The engine reduced by symmetry against itself on the full mesh. Si runs at 5.5 Ha, whose grids (16³, 24³) keep the
+# operations with t = ¼. Each SCF stops at ‖Δñ‖ 1e-11, where each E_F lies within 0.54 × 1e-11 Ha of its fixed point
+# (fitted, ks/scf.rs), so a pair's E_F lie within twice that. The weighted mean is a sum over the reported bands;
+# their errors partly cancel. Terms, magnetization, and eigenvalues: no derived bound; margin over the records. The
+# antiferromagnet converges slowly, so it stops at 1e-12: at 1e-11, a rotated rerun moved an output past the harness's
+# 1e-10 bound.
+[tolerance]
+term_difference_ha_max = 5e-10
+fermi_level_difference_ha_max = 2e-11
+magnetization_difference_bohr_magneton_max = 1e-10
+eigenvalue_difference_ha_max = 5e-11
+weighted_eigenvalue_difference_ha_max = 2e-10

@@ -1,0 +1,20 @@
+[case]
+tier = "claim"
+status = "planned"
+claims = ["speed", "correctness"]
+reference = "same-dataset"
+rivals = ["qe", "abinit"]
+
+# T(δ), peak RSS, and Pss at the claim's 8 threads. Beside rivals, a claim run judges G against each by the M3 bar
+# (the default milestone) beside R ≥ 1.0 (harness/speed.rs `versus`); either one missed fails the case.
+# Each rival runs at its own frozen cutoff and layout (benchmarks/TUNED.toml).
+# The cells of reference/cells.py each have fewer k-points than cores.
+# Beside the rivals, orbitaR's timed runs use ABINIT's frozen cutoff.
+# There they must meet the rivals' energy target (harness.rs `accuracies`).
+# The tolerance compares F per atom with ABINIT on the same JTH files at each input's own cutoff
+# (reference/<name>.json).
+# One untimed orbitaR run per input at that cutoff is what the tolerance judges.
+# Case 6 allows 5e-10 Ha for its cells of one and two atoms.
+# Both codes sum their numerical errors over atoms, so the bound holds per atom: the two-atom share, 2.5e-10 Ha.
+[tolerance]
+free_energy_error_ha_per_atom_max = 2.5e-10

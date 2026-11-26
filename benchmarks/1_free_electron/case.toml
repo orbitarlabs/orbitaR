@@ -1,0 +1,9 @@
+[case]
+tier = "push"
+status = "active"
+claims = ["correctness"]
+reference = "analytic"
+
+[tolerance]
+eigenvalue_error_ha_max = 1e-12
+basis_size_error_max = 0.0

@@ -1,0 +1,17 @@
+acell 3*4.04 Angstrom
+rprim 0.0 0.5 0.5  0.5 0.0 0.5  0.5 0.5 0.0
+natom 1
+ntypat 1
+znucl 13
+typat 1
+xred 0.0 0.0 0.0
+pseudos "Al/Al.GGA_PBE-JTH.xml"
+ecut 12.0
+pawecutdg 24.0
+ngkpt 4 4 4
+nshiftk 1
+shiftk 0 0 0
+occopt 3
+tsmear 0.00225
+fband 4.0
+istwfk 64*1

@@ -1,0 +1,5 @@
+# orbitaR-PBE-v0: Pipeline proof for the pinned ATOMPAW rebuild of JTH v2.0's O input.
+# ACWF, held-out checks and cutoff convergence are unrecorded.
+# O is JTH v2.0's O input rebuilt by the pinned ATOMPAW (NOTICE), at JTH's O hint; every other element reads jth-2.0.
+[element]
+O = { file = "O.xml", sha256 = "b9ad66a373184ecbd8e39f89bac9d337275a297019432470d998ee3e3fbb2bb1", cutoff_hint_ha = 17.5 }

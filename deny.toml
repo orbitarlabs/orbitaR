@@ -1,0 +1,19 @@
+[graph]
+all-features = true
+
+[advisories]
+unmaintained = "all"
+ignore = [{ id = "RUSTSEC-2024-0436", reason = "paste 1.0.15 is a transitive compile-time macro, not an identified runtime vulnerability; recheck when updating faer" }]
+
+[licenses]
+allow = ["Apache-2.0", "BSD-3-Clause", "MIT", "Unicode-3.0", "Zlib"]
+
+[licenses.private]
+ignore = true
+
+[bans]
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

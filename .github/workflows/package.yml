@@ -1,0 +1,54 @@
+name: package
+
+on:
+  pull_request:
+    paths:
+      - "python/**"
+      - "pyproject.toml"
+      - "packages/**"
+      - "datasets/jth-2.0.toml"
+      - "Cargo.*"
+      - ".cargo/**"
+      - "src/main.rs"
+      - "container/**"
+      - ".dockerignore"
+      - "xtask/src/release.rs"
+      - "xtask/src/harness/datasets.rs"
+      - "xtask/src/reproduce.rs"
+      - ".github/workflows/package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Free the runner's disk
+        run: |
+          df -h /
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/share/swift /usr/local/.ghcup /opt/ghc \
+            /usr/lib/jvm /usr/local/share/boost /usr/local/share/chromium /usr/local/share/powershell \
+            /opt/microsoft /opt/google /usr/local/julia*
+          sudo find "$RUNNER_TOOL_CACHE" -mindepth 1 -delete
+          df -h /
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          python-version: "3.12.16"
+      - run: cargo xtask reproduce
+      - run: cargo xtask wheel
+      - run: sha256sum target/wheel/wheel/*.whl target/wheel/jth-wheel/*.whl
+      - run: cargo xtask image

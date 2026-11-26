@@ -1,0 +1,14 @@
+# Empty fcc lattice (a = 10.26 Bohr): eigenvalues are |k+G|²/2 exactly.
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 5.13, 5.13], [5.13, 0.0, 5.13], [5.13, 5.13, 0.0]]
+
+[basis]
+cutoff_ha = 6.0
+
+[kpoints]
+list = [[0.0, 0.0, 0.0], [0.5, 0.0, 0.5], [0.5, 0.5, 0.5], [0.123, 0.271, 0.389]]
+
+[bands]
+count = 16

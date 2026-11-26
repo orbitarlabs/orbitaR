@@ -1,0 +1,21 @@
+[case]
+tier = "pr"
+status = "active"
+claims = ["correctness"]
+reference = "same-dataset"
+
+# Si (also at a density cutoff of 30 Ha), fcc Al, a distorted GaAs, and bcc Fe, ferromagnetic and in a two-atom
+# antiferromagnetic cell, against ABINIT on the same JTH files, full k mesh, no symmetry. The run asks ABINIT to stop
+# at tolvrs 1e-24 (reference/run.sh). F is stationary at the fixed point, so its error is mostly the two codes'
+# numerics. The terms are not stationary: they carry the stop's first-order error, so they take a looser tolerance.
+# E_F, eigenvalues, and the magnetization: no derived bound; margin over the records. The antiferromagnet's moment is
+# 1.7e-5 μB, not 0: a convention of ABINIT's mixed spin derivatives, which the engine takes too. Nonmagnetic Fe
+# stays out: ABINIT's tol8 cut, which the engine does not take, moves its F past the F tolerance.
+# Occupations stay out: they follow from eigenvalues, E_F, and the smearing, and ABINIT's full ones (1.99999999997)
+# lie within 1e-6 of every literal 2 in the engine, which the science scan (S1) flags.
+[tolerance]
+free_energy_error_ha_max = 5e-10
+term_error_ha_max = 1e-9
+eigenvalue_error_ha_max = 1e-10
+fermi_level_error_ha_max = 5e-11
+magnetization_error_bohr_magneton_max = 1e-9

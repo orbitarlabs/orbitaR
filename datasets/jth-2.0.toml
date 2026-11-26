@@ -1,0 +1,102 @@
+# JTH v2.0 PAW-XML datasets: abinit/paw_jth_datasets at the url commit.
+# GPL-3.0: the files stay out of git, the wheel, and the image. A family table never changes; a new version is a new table.
+# Each file lies at <layout> with {element} put in, beside [datasets] directory and below url.
+# cutoff_hint_ha: the JTH README "Suggested PW cut-off" high hint at the url commit; La, the lanthanides, and At have none.
+url = "https://raw.githubusercontent.com/abinit/paw_jth_datasets/a03e3f0b7ac8395550cca88880d8cb7dcd478bb3/pseudos"
+
+[pbe]
+layout = "JTH-PBE-v2.0/{element}/{element}.GGA_PBE-JTH.xml"
+
+[pbe.element]
+Ag = { sha256 = "230fb7cf2eccedee14f0e35c6a9687fdf846027eb430995d32f86411373583e9", cutoff_hint_ha = 12.0 }
+Al = { sha256 = "aef5abc66415134e858fd73ce9dc64c2de7c87bb449a99e2679a25d21a8cae3f", cutoff_hint_ha = 12.0 }
+Ar = { sha256 = "28a32ab39fb26647caefcda6dfa44cba49d38f88e9c2e9910616779227d43057", cutoff_hint_ha = 12.0 }
+As = { sha256 = "4f950726afe6f5b426a92b3a75e92815cb10260029b26be18c0e47c047e8d80a", cutoff_hint_ha = 10.0 }
+At = { sha256 = "10b5f9d1829c1312a0ad298f04700aa4a0401b031c8658c7b805e0ee69946c19" }
+Au = { sha256 = "da40a8f2aa5c964c854a2ca47bab78ccd19674ce7be98312ea0cc79085082c8b", cutoff_hint_ha = 15.0 }
+B = { sha256 = "a084f28e6e42f616016651c420022af0aa06fb8e17d02d7a39ba7ca525cad985", cutoff_hint_ha = 10.0 }
+Ba = { sha256 = "9cae90f247664375018cd286e2551f6419f6238e246ae3c7df1f5735df8d920c", cutoff_hint_ha = 10.0 }
+Be = { sha256 = "c1ccda52de47f511ffed3137320aaec71b2636fba056a28744efcc3cd90b09dc", cutoff_hint_ha = 10.0 }
+Bi = { sha256 = "2a6bad409587e0eac1d09450d27ab75b8734877b7ad6a3476d1425c8d2004dad", cutoff_hint_ha = 10.0 }
+Br = { sha256 = "85dee49d69185bac33042d7fb4b61158a65e2e3af6be4ec25588dbd10b9673a8", cutoff_hint_ha = 10.0 }
+C = { sha256 = "13f129128c908f9e6d8160a52f89491ee6f94306345f1de573847c9c5d37b9c8", cutoff_hint_ha = 15.0 }
+Ca = { sha256 = "163cde9e82f60d82c0245be0f7cd0b5a191cf9744183e4f4cf403ffbe46ba4a2", cutoff_hint_ha = 12.0 }
+Cd = { sha256 = "02170a46d9d7d47f11707ea9514538769ac596bd8b4fb5bebdeeb747605f78f3", cutoff_hint_ha = 12.0 }
+Ce = { sha256 = "9a4794b1620460d968f58d33b49d6fd7e09e22156ad4557a8e669a4f7067d2f7" }
+Cl = { sha256 = "acd25431d952d921ad8f97f17025d68db257baa4ad63fa409fb7ee0fe9c3b6d1", cutoff_hint_ha = 17.5 }
+Co = { sha256 = "a889c1d3c063e2f5f802f3fa0b6cafd43a12fd91c4a20316279730ccb8df7bae", cutoff_hint_ha = 12.0 }
+Cr = { sha256 = "459b217bdf3857f9d194636758addfae204badbb892acb3ba9dcc2b6abf33562", cutoff_hint_ha = 17.5 }
+Cs = { sha256 = "999ea1072868b7d41a9d9953154dc84e9e45060399659ab06e995261189b7a33", cutoff_hint_ha = 15.0 }
+Cu = { sha256 = "c62ec703c41212ea88842d456c9fbdbe4dffcb2e3d9524ba3569440afbfa0919", cutoff_hint_ha = 15.0 }
+Dy = { sha256 = "25029e2d7494fa8e368feebd7c6d93d2226616339f1f76b0e26d7b84406188b7" }
+Er = { sha256 = "50b085197e418673a9c9001d01be4307c4b87e254d13aaf0fe33eb4ae7a88543" }
+Eu = { sha256 = "ea4647131edf0cf2b88e3d88d82e552c71d05603a29110ca0027563702fd18c5" }
+F = { sha256 = "619cd742321b31fe5ddf29668f9cdbe6684a616fc00966de7b24715e0e6ac04a", cutoff_hint_ha = 17.5 }
+Fe = { sha256 = "4f9708666cade62f8ee7c6a10d08a85da9dbd641b8e95d6494c89d488bf7ee85", cutoff_hint_ha = 12.0 }
+Ga = { sha256 = "de337688fea5c1d4578c53e3ad3cdbd7694b29f4aa79cb850e85cb0196001937", cutoff_hint_ha = 12.0 }
+Gd = { sha256 = "17d1eb678a98ffd624dacb9e1a0f3bd49b87a36a6d9507d44c9833b52b7e87af" }
+Ge = { sha256 = "39b36c54b7109515cc3878637d758c0bb6c127e857d0c8927943c0ee64e3750e", cutoff_hint_ha = 15.0 }
+H = { sha256 = "88028f96e571fcfe3354c12d053eb5e4081cc64ad3e6db5010d51cc5998f901d", cutoff_hint_ha = 20.0 }
+He = { sha256 = "3811f76eded3aad3b4c828f7098427c58adb75586fbfffdf316a445b0a23d08b", cutoff_hint_ha = 15.0 }
+Hf = { sha256 = "d1a0659e14932a666741ce0ebed9d25301d67416ef491517aa6aaa98f5f71c62", cutoff_hint_ha = 10.0 }
+Hg = { sha256 = "6d0d38f7481030d9d27b2d31888396503222b452f273827d8fe27679b4dc1c79", cutoff_hint_ha = 15.0 }
+Ho = { sha256 = "1b847624d98dcbd2a240bcf3479a082ff80d4bb862a32f90d925e8fee02e4a9a" }
+I = { sha256 = "62a952ee68436dda699c9e9576fc0ead59a8d1817a26ca3d50c1bb57e0b5ca69", cutoff_hint_ha = 10.0 }
+In = { sha256 = "13f987c3b72aaf2cf5f9febcfbe83617a55089c88a5caff76f97664773de10cf", cutoff_hint_ha = 12.0 }
+Ir = { sha256 = "394550252942280fd89f3fc73e116c41af9242222f9b47663b938979d2e1b720", cutoff_hint_ha = 10.0 }
+K = { sha256 = "7f7a2b846296d09452662f98cb2d0e90bf368a832a803eeb01a994554c222da5", cutoff_hint_ha = 15.0 }
+Kr = { sha256 = "9eb4247c5ff531a3df784a228af90e9f27245ba2513b64c8023020038773cd5e", cutoff_hint_ha = 10.0 }
+La = { sha256 = "8b9a34a879063b619213ba33ce4241a49d278aa13d824fedea7adc0456baf198" }
+Li = { sha256 = "9258a704da52b87fb7c4b539b8e8a2423f6b787aaa3b155c14817e12b3bd9619", cutoff_hint_ha = 10.0 }
+Lu = { sha256 = "08eb89e1194f375a066d8acc3309a89a522aad30652d11ab7b644bd3a7063c49", cutoff_hint_ha = 15.0 }
+Mg = { sha256 = "6e96725e638bc5fe61f9747a337b2c7c8a26594e6983ec30243b477ec979ab3f", cutoff_hint_ha = 10.0 }
+Mn = { sha256 = "b62a860f1916c36048f67c82a9c598adadd0106a13ea494c0a3ae024e8a19ccf", cutoff_hint_ha = 12.0 }
+Mo = { sha256 = "fb9633425ebcd351b79b369f3a3880fe0450d683bfefcc3c60c9edd065ccf29e", cutoff_hint_ha = 10.0 }
+N = { sha256 = "d9c1805b780dca113fd61624178367b07264eff204743f45bd3745ad1c42b195", cutoff_hint_ha = 20.0 }
+Na = { sha256 = "2061f58b64205d482f4fafe482027de3b47860c467ac7e63aeabf54337595bbe", cutoff_hint_ha = 17.5 }
+Nb = { sha256 = "0fd36a4fee783ca05a5455b1691f67f6978ee3d5330af28dde5cc190c42f757a", cutoff_hint_ha = 10.0 }
+Nd = { sha256 = "3b214f269fe4a76749b689f560307a3c1a4ec9a49007bd89ac5e71c45d3fb597" }
+Ne = { sha256 = "6212236385a2c1139fc39673a985cb0c15d776481f83ac30a0a22c68bec6d948", cutoff_hint_ha = 20.0 }
+Ni = { sha256 = "256258ff26822faadab1c5859380190addff562bc533672378e587f1091a3417", cutoff_hint_ha = 25.0 }
+O = { sha256 = "ce05d76f715d2fde8fe24585885d3d5a468697d92a00e671e757525ab14e11d0", cutoff_hint_ha = 17.5 }
+Os = { sha256 = "36bd08fa82c0d523201c8b0dba6e97c90ded97e1cec1266935f871b28c43b5e3", cutoff_hint_ha = 10.0 }
+P = { sha256 = "8574b30f9f134e566f1165efe7c764787965912a6b6feed126a70f3c02befc23", cutoff_hint_ha = 15.0 }
+Pb = { sha256 = "95a46ce640ccd569c4b2fe6e234446acca9c4817de0a7e1b4860d0e19b80d78f", cutoff_hint_ha = 10.0 }
+Pd = { sha256 = "1675c5dbccc5e9e377c8b34a043ff1bd44ae4bdabd96d3c190ba7361478d1ece", cutoff_hint_ha = 17.5 }
+Pm = { sha256 = "d5251b6754c137173bff1a1ea39250384e815f1e9c7783149b1d3d4b2afff8ee" }
+Po = { sha256 = "5520777228cb57b2103e4d06629fda8529b13b4913c4dad388010cde7dc64bcf", cutoff_hint_ha = 10.0 }
+Pr = { sha256 = "4789161e9ca426bfb156ed581e3941d209fc08db243715b72a14e49d74516955" }
+Pt = { sha256 = "0fe438b4e8ee72c33d93b977b4ed373cce8076227d96f28389759eaab78608c6", cutoff_hint_ha = 15.0 }
+Rb = { sha256 = "b1205fb809a79f69f794a06f1133a9db792cbc0cd9988301103141db08358741", cutoff_hint_ha = 10.0 }
+Re = { sha256 = "047dfc2b30f517dcd86fa3421a05db87c494bdcb99cef2f6b4f6181d562dafc7", cutoff_hint_ha = 12.0 }
+Rh = { sha256 = "0edf81c8c1e96cde25dcf004f0be28e12de4f1f89e2ac276d9cf8e92a0a581f7", cutoff_hint_ha = 10.0 }
+Rn = { sha256 = "774d342da15119c7915f7170b6f14f89af1963a602664e3c6853e8ac9908276d", cutoff_hint_ha = 10.0 }
+Ru = { sha256 = "1ac0dbb3fc3c36896324495c4afca6ab1d1df49d24616146ae1f575744cdd333", cutoff_hint_ha = 10.0 }
+S = { sha256 = "355d662143d41f97d35eb5d8469c98a87c5aa46e3b1dc5c26e6d634e5c1d1c56", cutoff_hint_ha = 15.0 }
+Sb = { sha256 = "2324b52a5f0798ab2ed46b9bbcd13a9771b043540b232ef96309b6c7108abd65", cutoff_hint_ha = 10.0 }
+Sc = { sha256 = "fa684b87afaa31d6ba8f3f56380edf9e02559043fb96ef2da21bee4b82a847b4", cutoff_hint_ha = 10.0 }
+Se = { sha256 = "55bfa998b4cfecf73d1980b9f3859e3d4a723484aa16ef141691ea5242758119", cutoff_hint_ha = 10.0 }
+Si = { sha256 = "79075fcce1418817b2dce0ebe90d6a970776fc0832375a2ef99af0ac9dbe863a", cutoff_hint_ha = 10.0 }
+Sm = { sha256 = "3ee3be018da5fc283bc710d1d1ea57ea973719fdcdccb63200debbc58552663e" }
+Sn = { sha256 = "5bc9eb80e9f31b1705cf8128ba8da385c64deba04186733a13a18cf25708bcd0", cutoff_hint_ha = 10.0 }
+Sr = { sha256 = "1787db22af830a058df2d085c90c8b704cfac9ef3805d9c197ae060acaefe4b7", cutoff_hint_ha = 10.0 }
+Ta = { sha256 = "d74c5b72feaf4c98865e154b58c0fbbd0c8daa861e9ca776d33359896e5276ee", cutoff_hint_ha = 10.0 }
+Tb = { sha256 = "e2c1c6b1e4ac5a6fe1a5305d2bfe3d26ddac1d1e03b2cbc23ba3b654a7a91e6b" }
+Tc = { sha256 = "0bdc619d72c345cd814b4031adfda26f53cf4cd268b15d8ebffb2eaf4f1ce9d3", cutoff_hint_ha = 10.0 }
+Te = { sha256 = "114a00069e31ff665ff809a3d1cf67a1d134813a9eefde1b1aac592dd6000642", cutoff_hint_ha = 10.0 }
+Ti = { sha256 = "f40e640d7e9afaad3dfb71381bdf15d67ad33d9b7d1978448aaac9475fd9a67e", cutoff_hint_ha = 10.0 }
+Tl = { sha256 = "707de29b64dcb172ced9ccaeb662cd19db6268140a930efbee9e8f6002844675", cutoff_hint_ha = 12.0 }
+Tm = { sha256 = "6a3722f8e816647505c68ecc723eb135371a2785ed2e57ca118e22aa32c5916d" }
+V = { sha256 = "03498fcddb071f2c68063856435f06bfaaee9fe3c0ac8c860308d13bd2d43916", cutoff_hint_ha = 10.0 }
+W = { sha256 = "077373f38cf5b606b4c1d24d06e83afa45574cf5660509a5d74e891cae18f51b", cutoff_hint_ha = 10.0 }
+Xe = { sha256 = "9fa7b5f80176e143a4a3d16d2e8bd05c7d971a5e026036cea500fe7677bc6856", cutoff_hint_ha = 10.0 }
+Y = { sha256 = "781e9a76ad4d5ed05b41cba875ceaed72a2868bde8332ae3dbf6c10f1f6599b4", cutoff_hint_ha = 10.0 }
+Yb = { sha256 = "93986b1c902eb1f77d56cc5363f6c2d3824b2a61530bd5d21ffa164c6d8752e7" }
+Zn = { sha256 = "b35fa775249649a70e0192d1874f97c20aa70889438ebd77d836dec980dbadc7", cutoff_hint_ha = 12.0 }
+Zr = { sha256 = "4e42a6aa949274222329663eca795bc4a03819adfe55fc7beacb537fc0d38980", cutoff_hint_ha = 12.0 }
+
+[lda]
+layout = "JTH-LDA-v2.0/{element}/{element}.LDA_PW-JTH.xml"
+
+[lda.element]
+Fe = { sha256 = "170144c98c817c29925435279513ce2f1abb5ae6e235218cd915336d7d864769" }

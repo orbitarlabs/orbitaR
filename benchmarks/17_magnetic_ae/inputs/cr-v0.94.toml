@@ -1,0 +1,31 @@
+schema = 1
+
+[structure]
+cell_bohr = [[5.31464827449754, 0.0, 0.0],
+             [0.0, 5.31464827449754, 0.0],
+             [0.0, 0.0, 5.31464827449754]]
+species = ["Cr", "Cr"]
+positions_fractional = [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
+
+[basis]
+cutoff_ha = 30.0
+
+[kpoints]
+mesh = [16, 16, 16]
+
+[xc]
+functional = "pbe"
+
+[datasets]
+family = "jth-2.0"
+
+[spin]
+moments = [2.0, -2.0]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.001
+
+[scf]
+energy_tolerance_ha = 1e-9
+max_iterations = 200

@@ -1,0 +1,5 @@
+/target/
+/scratch/
+__pycache__/
+/THIRD-PARTY-NOTICES
+/mutants.out*/

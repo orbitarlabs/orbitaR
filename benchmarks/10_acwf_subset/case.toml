@@ -1,0 +1,13 @@
+[case]
+tier = "node"
+status = "active"
+claims = ["correctness"]
+reference = "same-dataset"
+
+# The two codes agree in absolute energy, so no constant is fitted.
+# The tolerance is per cell: 20 × ABINIT's 11-digit print floor, 5e-9 Ha below |E| = 1e3 Ha. Both SCF stops sit lower.
+# It catches a code error that moves one point past it, long before ε would.
+# ε is only reported: xtask/tests/harness/eos.rs shows that the tolerance keeps it below 3.9e-3.
+# Na runs 2.5 Ha below its XML hint, as ABINIT did.
+[tolerance]
+free_energy_error_ev_max = 2.7e-6

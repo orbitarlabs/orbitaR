@@ -1,0 +1,14 @@
+[case]
+tier = "pr"
+status = "active"
+claims = ["correctness"]
+reference = "oracle"
+
+# Doubling a1 doubles both FFT grids along it. The 2×4×4 mesh folds onto the cell's 4×4×4, so both runs hold the same
+# plane waves. Each SCF stops at ‖Δñ‖ 1e-11, where each E_F lies within 0.54 × 1e-11 Ha of its fixed point (fitted,
+# ks/scf.rs), so a pair's E_F lie within twice that. Terms and magnetization: no derived bound; margin over the
+# records. The Fe SCFs stop at 1e-12: at 1e-11, a rotated rerun moved an Fe output past the harness's 1e-10 bound.
+[tolerance]
+term_difference_ha_max = 1e-9
+fermi_level_difference_ha_max = 2e-11
+magnetization_difference_bohr_magneton_max = 5e-10

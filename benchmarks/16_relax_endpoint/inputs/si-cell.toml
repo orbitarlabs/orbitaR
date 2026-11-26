@@ -1,0 +1,28 @@
+schema = 1
+
+[structure]
+cell_bohr = [[0.04, 5.21, 5.13],
+             [5.16, -0.03, 5.24],
+             [5.19, 5.11, 0.02]]
+species = ["Si", "Si"]
+positions_fractional = [[0.012, -0.009, 0.006],
+                        [0.243, 0.259, 0.262]]
+
+[basis]
+cutoff_ha = 8.0
+density_cutoff_ha = 16.0
+
+[kpoints]
+mesh = [2, 2, 2]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.005
+
+[scf]
+energy_tolerance_ha = 1e-9
+max_iterations = 200
+
+[outputs]
+forces = true
+stress = true

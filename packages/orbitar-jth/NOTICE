@@ -1,0 +1,11 @@
+orbitar-jth: the JTH v2.0 PAW-XML datasets of family jth-2.0, packaged for orbitaR.
+
+The files under orbitar_jth/JTH-PBE-v2.0/ and orbitar_jth/JTH-LDA-v2.0/ are files of the JTH v2.0 table of PAW
+atomic datasets, unchanged:
+F. Jollet, M. Torrent, N. Holzwarth, Comput. Phys. Commun. 185, 1246 (2014), doi:10.1016/j.cpc.2013.12.023.
+Source: abinit/paw_jth_datasets, commit a03e3f0b7ac8395550cca88880d8cb7dcd478bb3,
+directories pseudos/JTH-PBE-v2.0 and pseudos/JTH-LDA-v2.0.
+orbitar_jth/jth-2.0.toml is the orbitaR repository's datasets/jth-2.0.toml: it pins each file by its sha256.
+LICENSE is the GPL-3.0 text of that commit, byte for byte: the source ships the GPLv3 text and names no version
+of the GPL for its files. GPLv3 section 14 lets a recipient choose any published version then; orbitar-jth
+distributes these files under GPL version 3, so in this package they are GPL-3.0 too (SPDX GPL-3.0-only).

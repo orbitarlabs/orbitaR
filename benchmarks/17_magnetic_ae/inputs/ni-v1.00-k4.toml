@@ -1,0 +1,31 @@
+schema = 1
+
+[structure]
+cell_bohr = [[0.0, 3.3298278372476724, 3.3298278372476724],
+             [3.3298278372476724, 0.0, 3.3298278372476724],
+             [3.3298278372476724, 3.3298278372476724, 0.0]]
+species = ["Ni"]
+positions_fractional = [[0.0, 0.0, 0.0]]
+
+[basis]
+cutoff_ha = 40.0
+
+[kpoints]
+mesh = [24, 24, 24]
+
+[xc]
+functional = "pbe"
+
+[datasets]
+family = "jth-2.0"
+
+[spin]
+moments = [1.0]
+
+[occupations]
+smearing = "fermi-dirac"
+width_ha = 0.002
+
+[scf]
+energy_tolerance_ha = 1e-9
+max_iterations = 200

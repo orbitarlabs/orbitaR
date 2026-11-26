@@ -1,0 +1,28 @@
+# Step 10: the hcp probe at 15 Ha (pawecutdg 30) with the engine's grids, which the inversion's translation fits: symmetry
+# on in both codes (expected nsym 2).
+acell 3*1.0
+rprim 4.750000000000000 0.000000000000000 0.000000000000000  -2.380000000000000 4.120017475691093 0.000000000000000  0.032000000000000 0.001135917511907 7.600028928214116
+natom 2
+ntypat 1
+znucl 26
+typat 1 1
+xred 0.0 0.0 0.0  0.6666666666666666 0.3333333333333333 0.5
+pseudos "Fe/Fe.GGA_PBE-JTH.xml"
+ecut 15.0
+pawecutdg 30.0
+ngkpt 1 1 1
+nshiftk 1
+shiftk 0 0 0
+occopt 3
+nband 28
+nbdbuf 4
+tsmear 0.01
+nsppol 2
+spinat 0 0 3.5  0 0 3.5
+istwfk 1
+iscf 17
+ixc -497498
+usekden 1
+pawxcdev 0
+ngfft 18 18 30
+ngfftdg 24 24 40
