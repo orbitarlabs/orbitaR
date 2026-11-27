@@ -247,7 +247,10 @@ fn a_product_has_the_same_bits_at_any_thread_count_in<T: Parts>() {
         let seed = 2 * seed as u64 + 31;
         cases.push((random::<T>(n, k, seed), random::<T>(n, q, seed + 1), true));
     }
-    for (seed, (m, k, n)) in [(4097, 17, 131), (4097, 21, 1)].into_iter().enumerate() {
+    for (seed, (m, k, n)) in [(4097, 17, 131), (4097, 21, 1), (120, 8, 16_384)]
+        .into_iter()
+        .enumerate()
+    {
         let seed = 2 * seed as u64 + 71;
         cases.push((random::<T>(m, k, seed), random::<T>(k, n, seed + 1), false));
     }
@@ -272,6 +275,19 @@ fn a_product_has_the_same_bits_at_any_thread_count_in<T: Parts>() {
             );
         }
     }
+}
+
+#[test]
+fn an_empty_target_stays_empty_and_an_empty_inner_dimension_zeroes_the_target() {
+    let empty: Mat<f64> = times(
+        random::<f64>(0, 65, 1).as_ref(),
+        random::<f64>(65, 4096, 2).as_ref(),
+    );
+    assert_eq!((empty.nrows(), empty.ncols()), (0, 4096));
+    let (a, b) = (Mat::<f64>::zeros(3, 0), Mat::<f64>::zeros(0, 4));
+    let mut target = Mat::from_fn(3, 4, |_, _| 7.0);
+    product(target.as_mut(), a.as_ref(), b.as_ref());
+    assert!((0..3).all(|i| (0..4).all(|j| target[(i, j)] == 0.0)));
 }
 
 #[test]

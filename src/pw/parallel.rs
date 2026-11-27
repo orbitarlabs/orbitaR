@@ -261,8 +261,14 @@ fn tiles(rows: usize, columns: usize, inner: usize) -> [Vec<(usize, usize)>; 2] 
     let (row, column, _) = (candidates.map(shape))
         .find(|&(row, _, count)| count >= ENOUGH_TILES || row == SHORT)
         .unwrap_or_else(|| shape(rows.max(1)));
-    if row * column * inner <= NANO {
+    if rows * columns * inner <= NANO {
         return [vec![(0, rows)], vec![(0, columns)]];
+    }
+    if row * column * inner <= NANO {
+        let width = (NANO / (rows * inner) + 1)
+            .next_multiple_of(WIDE)
+            .min(columns);
+        return [vec![(0, rows)], spans(columns, width)];
     }
     [spans(rows, row), spans(columns, column)]
 }
@@ -283,6 +289,9 @@ where
         b.nrows(),
         b.ncols()
     );
+    if target.nrows() == 0 || target.ncols() == 0 {
+        return;
+    }
     let [rows, columns] = tiles(target.nrows(), target.ncols(), a.ncols());
     let mut parts = Vec::with_capacity(rows.len() * columns.len());
     let mut below = target;
