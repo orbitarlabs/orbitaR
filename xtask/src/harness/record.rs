@@ -204,13 +204,14 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                             .filter_map(|h| h["input"].as_str())
                             .collect();
                     for held in record["held_out"].as_array().into_iter().flatten() {
-                        let (Some(name), Some(base)) =
-                            (held["input"].as_str(), held["base"].as_str())
-                        else {
+                        let Some(name) = held["input"].as_str() else {
                             findings.push(format!(
-                                "{}: {id} record holds a held-out variant without the input it varies: {held}",
+                                "{}: {id} record holds a held-out variant without its input name: {held}",
                                 tier.name()
                             ));
+                            continue;
+                        };
+                        let Some(base) = held["base"].as_str() else {
                             continue;
                         };
                         if !names.contains(&base) || variants.contains(base) {

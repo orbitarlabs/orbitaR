@@ -769,7 +769,7 @@ pub fn rival_layout_policies(root: &Path) -> Result<BTreeMap<String, String>, St
 
 struct RivalPaths<'a> {
     id: &'a str,
-    held: &'a BTreeMap<String, String>,
+    held: &'a BTreeMap<String, Option<String>>,
 }
 
 impl RivalPaths<'_> {
@@ -778,7 +778,12 @@ impl RivalPaths<'_> {
     }
 
     fn keyed(&self, name: &str) -> String {
-        rival::input_path(self.id, self.held.get(name).map_or(name, String::as_str))
+        rival::input_path(
+            self.id,
+            (self.held.get(name).cloned().flatten())
+                .as_deref()
+                .unwrap_or(name),
+        )
     }
 }
 
@@ -953,7 +958,7 @@ pub enum Outcome {
 
 struct HeldOut {
     inputs: Vec<(String, String)>,
-    held: BTreeMap<String, String>,
+    held: BTreeMap<String, Option<String>>,
     tuned: Vec<String>,
 }
 
@@ -1655,10 +1660,18 @@ impl Session {
                     path.display()
                 )
             })?;
+            let within = generated_from(&base.1, &text);
+            let geometry = match &within {
+                Ok((strain, shift)) => {
+                    json!({ "cell_strain": strain, "largest_shift_bohr": shift })
+                }
+                Err(why) => json!({ "beyond_the_generators": why }),
+            };
+            let base = within.is_ok().then_some(stem);
             trace
                 .held_out
-                .push(json!({ "input": name, "base": stem, "sha256": hash }));
-            held.insert(name.clone(), stem);
+                .push(json!({ "input": name, "base": base, "geometry": geometry, "sha256": hash }));
+            held.insert(name.clone(), base);
             inputs.push((name, text));
         }
         Ok(HeldOut {
@@ -1746,6 +1759,29 @@ const VARIANT_IDENTITY: [(&str, Option<&str>); 4] = [
     ("occupations", None),
 ];
 
+const RATTLE_MAX_ANGSTROM: f64 = 0.05;
+const VARIANT_SHIFT_MAX_BOHR: f64 = 2.0 * RATTLE_MAX_ANGSTROM / acwf::BOHR_ANGSTROM;
+const CELL_STRAIN_MAX: f64 = 1e-9;
+
+fn generated_from(base: &str, variant: &str) -> Result<(f64, f64), String> {
+    let cell = |text: &str| {
+        let table: toml::Table = toml::from_str(text).map_err(|e| e.to_string())?;
+        rival::Cell::parse(&table)
+    };
+    let (strain, shift) = cell(variant)?.variation_from(&cell(base)?)?;
+    if strain > CELL_STRAIN_MAX {
+        return Err(format!(
+            "its cell is strained by {strain} of the base's, past {CELL_STRAIN_MAX}"
+        ));
+    }
+    if shift > VARIANT_SHIFT_MAX_BOHR {
+        return Err(format!(
+            "an atom moved {shift} Bohr along an axis from its base site, past {VARIANT_SHIFT_MAX_BOHR}"
+        ));
+    }
+    Ok((strain, shift))
+}
+
 fn same_identity(base: &str, variant: &str) -> Result<(), String> {
     let parse = |text: &str| toml::from_str::<toml::Table>(text).map_err(|e| e.to_string());
     let (base, variant) = (parse(base)?, parse(variant)?);
@@ -1781,7 +1817,7 @@ fn preflight(
     dir: &Path,
     inputs: &[(String, String)],
     tables: &[toml::Table],
-    held: &BTreeMap<String, String>,
+    held: &BTreeMap<String, Option<String>>,
     measure: Measure,
 ) -> Option<String> {
     let mut missing = BTreeSet::new();
