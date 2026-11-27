@@ -595,7 +595,7 @@ pub fn estimated_peak(smaller: &[Peak], atoms: usize, in_flight: usize) -> Optio
 }
 
 pub(crate) fn peak_bytes([rss, pss]: [u64; 2]) -> u64 {
-    if pss == 0 { rss } else { pss }
+    rss.max(pss)
 }
 
 pub(crate) type Comparable = (Code, String, Option<NonZeroUsize>, Vec<String>);
