@@ -18,9 +18,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,9 +36,10 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             target/debug
-            target/release
             target/package
-          key: check-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          key: lint-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            lint-${{ runner.os }}-
       - name: Keep scratch private to the working tree
         run: |
           test -z "$(git ls-files -- scratch)"
@@ -58,7 +59,18 @@ jobs:
           uv pip install --no-build -r python/pylock.toml
           python3 -I -c 'import sys, ase, numpy, scipy; print(sys.version.split()[0], ase.__version__, numpy.__version__, scipy.__version__)'
           python3 -I -c 'import ase.calculators.genericfileio, ase.calculators.espresso, ase.optimize, ase.io, ase.build'
-      - run: cargo xtask check
+      - run: cargo xtask check --lint
+      - name: Save the cargo registry and the build directories
+        if: github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/debug
+            target/package
+          key: ${ steps.cargo-cache.outputs.cache-primary-key }
       - name: Each commit of the pull request passes the publish rules
         if: github.event_name == 'pull_request'
         env:
@@ -71,17 +83,122 @@ jobs:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: cargo xtask publish --base "$BEFORE" --head "$AFTER"
-      - name: The unit tests pass under the mutants cap
-        run: |
-          test "$(rustc -vV | sed -n 's/^host: //p')" = x86_64-unknown-linux-gnu
-          cargo test --workspace --all-features --locked --test unit
-        env:
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: ${{ env.TEST_RUNNER }}
       - run: cargo xtask science --base origin/main
         if: github.event_name == 'pull_request'
       - run: cargo xtask docs --base origin/main
         if: github.event_name == 'pull_request'
+      - name: Leave the tree as committed
+        run: test -z "$(git status --porcelain)"
+      - name: Check dependencies with cargo-deny 0.20.2
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          rust-version: "1.99.1"
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain
+      - name: Restore the cargo registry and the build directories
+        id: cargo-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/debug
+          key: unit-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            unit-${{ runner.os }}-
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          python-version: "3.12.16"
+          venv-path: ${{ runner.temp }}/python
+          activate-environment: true
+          enable-cache: true
+          cache-python: true
+          cache-dependency-glob: |
+            python/pylock.toml
+      - name: Install the hash-pinned Python wheels (ase and its whole closure)
+        run: |
+          uv pip install --no-build -r python/pylock.toml
+          python3 -I -c 'import sys, ase, numpy, scipy; print(sys.version.split()[0], ase.__version__, numpy.__version__, scipy.__version__)'
+          python3 -I -c 'import ase.calculators.genericfileio, ase.calculators.espresso, ase.optimize, ase.io, ase.build'
+      - name: Build the test binaries
+        run: cargo test --workspace --all-features --locked --no-run
+      - name: Save the cargo registry and the build directories
+        if: github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true' && matrix.shard == 1
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/debug
+          key: ${ steps.cargo-cache.outputs.cache-primary-key }
+      - run: cargo xtask check --unit ${{ matrix.shard }}
+      - name: Leave the tree as committed
+        run: test -z "$(git status --porcelain)"
+
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain
+      - name: Restore the cargo registry and the build directories
+        id: cargo-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/debug
+            target/release
+          key: bench-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: |
+            bench-${{ runner.os }}-
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          python-version: "3.12.16"
+          venv-path: ${{ runner.temp }}/python
+          activate-environment: true
+          enable-cache: true
+          cache-python: true
+          cache-dependency-glob: |
+            python/pylock.toml
+      - name: Install the hash-pinned Python wheels (ase and its whole closure)
+        run: |
+          uv pip install --no-build -r python/pylock.toml
+          python3 -I -c 'import sys, ase, numpy, scipy; print(sys.version.split()[0], ase.__version__, numpy.__version__, scipy.__version__)'
+          python3 -I -c 'import ase.calculators.genericfileio, ase.calculators.espresso, ase.optimize, ase.io, ase.build'
       - run: cargo xtask smoke
+      - name: Save the cargo registry and the build directories
+        if: github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/debug
+            target/release
+          key: ${ steps.cargo-cache.outputs.cache-primary-key }
       - name: Print the push records
         if: always()
         run: cargo xtask records push
@@ -119,22 +236,22 @@ jobs:
           key: ${{ steps.atompaw-cache.outputs.cache-primary-key }}
       - name: Leave the tree as committed
         run: test -z "$(git status --porcelain)"
-      - name: Check dependencies with cargo-deny 0.20.2
-        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
-        with:
-          rust-version: "1.99.1"
-      - name: Save the cargo registry and the build directories
-        if: github.ref == 'refs/heads/main' && steps.cargo-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-            target/debug
-            target/release
-            target/package
-          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
+
+  check:
+    if: always()
+    needs: [lint, unit, bench]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every part of check passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "check: a part ended '$result', not success: $RESULTS"
+              exit 1
+            fi
+          done
 
   mutants:
     if: github.event_name == 'pull_request' && vars.MUTANTS_LOCAL != 'true'
