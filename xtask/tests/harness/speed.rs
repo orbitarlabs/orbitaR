@@ -522,7 +522,11 @@ fn rss_exponent_sees_an_atoms_squared_term_that_a_fit_over_every_size_would_hide
     assert_eq!(outcome, Outcome::Promote, "{record}");
     assert_eq!(
         record["readouts"],
-        serde_json::json!(["rss_exponent"]),
+        serde_json::json!([
+            "pss_exponent_orbitar",
+            "rss_exponent",
+            "t_delta_exponent_orbitar"
+        ]),
         "{record}"
     );
     let active = memory_claim().replace("\"planned\"", "\"active\"") + "rss_exponent_max = 1.25\n";
@@ -531,7 +535,196 @@ fn rss_exponent_sees_an_atoms_squared_term_that_a_fit_over_every_size_would_hide
         matches!(&outcome, Outcome::Fail(why) if why.contains("rss_exponent = 1.") && why.contains(" > 1.25e0")),
         "{outcome:?}"
     );
-    assert_eq!(record["readouts"], serde_json::json!([]), "{record}");
+    assert_eq!(
+        record["readouts"],
+        serde_json::json!(["pss_exponent_orbitar", "t_delta_exponent_orbitar"]),
+        "{record}"
+    );
+}
+
+#[test]
+fn a_memory_claim_records_each_codes_medians_per_size_and_their_least_squares_exponents() {
+    let bytes = "40000000 + 16000000 * a * a";
+    let (_, record, _) = memory_case("speed-series", "", bytes);
+    let series = record["series"].as_array().unwrap();
+    assert_eq!(series.len(), 1, "{record}");
+    assert_eq!(series[0]["code"], "orbitar", "{record}");
+    let points = series[0]["points"].as_array().unwrap();
+    let atoms: Vec<u64> = points
+        .iter()
+        .map(|p| p["atoms"].as_u64().unwrap())
+        .collect();
+    assert_eq!(atoms, [1, 2, 4], "{record}");
+    for p in points {
+        let block = (record["speed"].as_array().unwrap().iter())
+            .find(|b| b["input"] == p["input"])
+            .unwrap();
+        for key in ["median_t_delta_s", "median_peak_pss_bytes"] {
+            assert_eq!(p[key], block[key], "{key}: {record}");
+        }
+    }
+    for (key, metric) in [
+        ("median_peak_pss_bytes", "pss_exponent"),
+        ("median_t_delta_s", "t_delta_exponent"),
+    ] {
+        let xy: Vec<(f64, f64)> = (points.iter())
+            .map(|p| {
+                (
+                    (p["atoms"].as_f64().unwrap()).ln(),
+                    p[key].as_f64().unwrap().ln(),
+                )
+            })
+            .collect();
+        let (expected, alpha) = (
+            xtask::harness::log_log_slope(&xy),
+            &record["metrics"][format!("{metric}_orbitar")],
+        );
+        match expected.is_finite() {
+            true => {
+                assert!(
+                    close(alpha.as_f64().unwrap(), expected),
+                    "{metric}: {record}"
+                );
+                assert_eq!(&series[0][metric], alpha, "{record}");
+            }
+            false => assert!(
+                alpha.is_null() && series[0][metric].is_string(),
+                "{metric}: {record}"
+            ),
+        }
+    }
+}
+
+#[test]
+fn the_least_squares_slope_weighs_every_point_and_needs_two_sizes() {
+    use xtask::harness::log_log_slope;
+    let power: Vec<(f64, f64)> = [2.0_f64, 8.0, 16.0, 32.0]
+        .iter()
+        .map(|&x| (x.ln(), (3.0 * x.powf(1.7)).ln()))
+        .collect();
+    assert!((log_log_slope(&power) - 1.7).abs() < 1e-12);
+    assert!((log_log_slope(&[(0.0, 0.0), (1.0, 2.0), (3.0, 3.0)]) - 39.0 / 42.0).abs() < 1e-12);
+    assert!(log_log_slope(&[(1.0, 2.0), (1.0, 3.0)]).is_nan());
+    assert!(log_log_slope(&[]).is_nan());
+}
+
+#[test]
+fn the_peak_estimate_scales_the_largest_smaller_size_by_atoms_squared_per_k_point_in_flight() {
+    use xtask::harness::{Peak, estimated_peak};
+    let peak = |atoms, in_flight, gb: f64| Peak {
+        atoms,
+        in_flight,
+        bytes: gb * 1e9,
+    };
+    let near =
+        |estimate: Option<f64>, gb: f64| estimate.is_some_and(|e| (e - gb * 1e9).abs() < 1e-3);
+    assert_eq!(estimated_peak(&[], 128, 1), None);
+    assert_eq!(estimated_peak(&[peak(128, 1, 1.0)], 128, 1), None);
+    assert!(near(estimated_peak(&[peak(64, 2, 3.5)], 128, 1), 7.0));
+    assert!(near(estimated_peak(&[peak(16, 8, 1.0)], 32, 4), 2.0));
+    assert!(near(
+        estimated_peak(&[peak(32, 4, 2.0), peak(64, 2, 3.0)], 128, 1),
+        6.0
+    ));
+    assert!(near(
+        estimated_peak(&[peak(32, 1, 1.0), peak(64, 1, 8.0)], 128, 1),
+        64.0
+    ));
+    assert!(near(
+        estimated_peak(&[peak(64, 2, 4.0), peak(64, 2, 3.0)], 128, 1),
+        8.0
+    ));
+    assert!(near(
+        estimated_peak(&[peak(32, 4, 0.0), peak(64, 2, 3.0)], 128, 1),
+        6.0
+    ));
+    assert!(near(
+        estimated_peak(
+            &[peak(16, 8, 9.0), peak(32, 4, 1.0), peak(64, 2, 2.0)],
+            128,
+            1
+        ),
+        4.0
+    ));
+}
+
+fn chain(atoms: usize) -> String {
+    let rows: Vec<String> = (0..atoms)
+        .map(|i| format!("[{}, 0.0, 0.0]", i as f64 / atoms as f64))
+        .collect();
+    let species = vec!["\"Si\""; atoms].join(", ");
+    format!("{INPUT}\n[scf]\nenergy_tolerance_ha = 0.001\n").replace(
+        "[basis]",
+        &format!(
+            "species = [{species}]\npositions_fractional = [{}]\n[basis]",
+            rows.join(", ")
+        ),
+    )
+}
+
+#[test]
+fn a_size_whose_peak_estimate_passes_the_guard_never_runs_and_is_named() {
+    let log = std::env::temp_dir().join(format!("xtask-speed-guard-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let (one, two, big) = (chain(1), chain(2), chain(32));
+    let files = [
+        ("input.toml", one.as_str()),
+        ("inputs/b.toml", two.as_str()),
+        ("inputs/c.toml", big.as_str()),
+    ];
+    let body = format!(
+        "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' '); echo $a >> '{}'\n\
+         m=$((a == 1 ? 1000000 : 100000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2",
+        log.display()
+    );
+    let (outcome, record, _) = claim_case("speed-guard", &memory_claim(), &files, "", &body);
+    let ran = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert!(ran.lines().any(|a| a == "2"), "{ran}");
+    assert!(!ran.lines().any(|a| a == "32"), "{ran}");
+    let named = "c at 8 threads: refused before it runs: its peak memory estimate";
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains(named) && why.contains("passes the 14 GB guard") && !why.contains("never read")),
+        "{outcome:?}"
+    );
+    let block = (record["speed"].as_array().unwrap().iter())
+        .find(|b| b["input"] == "c")
+        .unwrap();
+    assert!(
+        block["refused"].as_str().unwrap().contains(named),
+        "{block}"
+    );
+    assert_eq!(block["noisy"], false, "{block}");
+    assert!(block["warmup"]["refused"].is_string(), "{block}");
+    let points = record["series"][0]["points"].as_array().unwrap();
+    assert_eq!(points.len(), 2, "{record}");
+    assert!(record["metrics"]["rss_exponent"].is_number(), "{record}");
+}
+
+#[test]
+fn a_claim_without_a_memory_claim_runs_every_size_unguarded() {
+    let log =
+        std::env::temp_dir().join(format!("xtask-speed-unguarded-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let (one, two, big) = (chain(1), chain(2), chain(32));
+    let files = [
+        ("input.toml", one.as_str()),
+        ("inputs/b.toml", two.as_str()),
+        ("inputs/c.toml", big.as_str()),
+    ];
+    let body = format!(
+        "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' '); echo $a >> '{}'\n\
+         m=$((a == 1 ? 1000000 : 100000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2",
+        log.display()
+    );
+    let case = CASE
+        .replace("\"push\"", "\"claim\"")
+        .replace("\"active\"", "\"planned\"");
+    let (_, record, _) = claim_case("speed-unguarded", &case, &files, "", &body);
+    let ran = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert!(ran.lines().any(|a| a == "32"), "{ran}");
+    assert!(record.get("series").is_none(), "{record}");
 }
 
 #[test]

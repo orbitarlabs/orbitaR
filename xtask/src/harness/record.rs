@@ -700,6 +700,23 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
             );
         }
     }
+    for s in record["series"].as_array().into_iter().flatten() {
+        println!(
+            "series {}: T(δ) exponent {}, peak Pss exponent {} (least squares on log-log, readouts)",
+            text(&s["code"]),
+            text(&s["t_delta_exponent"]),
+            text(&s["pss_exponent"])
+        );
+        for p in s["points"].as_array().into_iter().flatten() {
+            println!(
+                "  {} atoms {}: median T(δ) {} s, median peak Pss {} bytes",
+                text(&p["input"]),
+                text(&p["atoms"]),
+                text(&p["median_t_delta_s"]),
+                text(&p["median_peak_pss_bytes"])
+            );
+        }
+    }
     for b in &blocks {
         let median = |key: fn(&speed::Timing) -> f64| {
             (b.timing.as_ref()).map_or_else(|| "none".to_owned(), |t| key(t).to_string())
