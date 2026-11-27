@@ -1,17 +1,13 @@
 [case]
 tier = "claim"
 status = "planned"
-claims = ["memory", "correctness"]
+claims = ["speed", "memory", "correctness"]
 reference = "oracle"
+rivals = ["qe", "abinit"]
 
-# Peak RSS at the claim's 8 threads: diamond Si as 1×1×1, 2×2×1, 2×2×2, and 4×2×2 repeats of case 6's
-# cell (2 to 32 atoms), each on the k mesh that folds onto 4×4×4.
 # Each SCF stops at ‖Δñ‖ < 1e-11, where each energy and E_F lie within 0.54 ‖Δñ‖ of the fixed point (ks/scf.rs).
 # Terms per cell: within 0.54e-11 (1 + 1/f) of the cell's (f: the repeat's cells), below 1e-11 for f ≥ 4.
 # E_F: within 1.1e-11; case 8's 2e-11.
-# rss_exponent (harness/speed.rs `memory`) is a readout: no bound is set, so the record lists it under
-# `readouts`, and with no rivals no R judges this case's memory either. So it stays planned: case.rs refuses an active
-# memory claim with neither. The case gates on the terms and E_F.
 # At si32, 3 SCF steps on 97f30b0 (heaptrack 1.5.0): 1 thread, heap peak 567 MB and RSS 558 MB; 8 threads, 1.50 GB
 # and 1.75 GB. Of the growth, about 930 MB is 3 more of its 4 k-points in flight (W ≈ 311 MB each) and about 250 MB
 # freed memory that glibc's per-thread arenas keep. A smaller W per thread needs blocked bands or kernels that split

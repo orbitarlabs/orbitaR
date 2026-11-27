@@ -696,6 +696,20 @@ impl<'a> Block<'a> {
         .and_then(|n| usize::try_from(n).ok())
     }
 
+    fn in_flight(&self) -> Result<usize, String> {
+        let input = Input(&self.table);
+        let k = match input.mesh() {
+            Ok(mesh) => usize::try_from(mesh.iter().product::<u64>()).map_err(|e| e.to_string())?,
+            Err(_) => input.kpoints()?.len(),
+        };
+        let k = k * if self.table.contains_key("spin") {
+            2
+        } else {
+            1
+        };
+        Ok(k.min(self.threads.map_or(1, NonZeroUsize::get)))
+    }
+
     fn floor_ha(&self) -> f64 {
         (self.rival.as_ref())
             .and_then(|job| job.claim.as_ref()?.floor_ha)
@@ -796,6 +810,9 @@ fn accuracies(
     };
     let mut failures = Vec::new();
     for (i, b) in blocks.iter().enumerate() {
+        if timed[i].record.refused.is_some() {
+            continue;
+        }
         let code = b.rival.as_ref().map_or(abinit, |r| r.code);
         let calibration = match calibrated(code, b) {
             Ok(row) => row,
@@ -1115,7 +1132,7 @@ impl Session {
             Outcome::Shard => "shard",
             _ => "fail",
         };
-        let record = json!({
+        let mut record = json!({
             "schema": record::SCHEMA,
             "case": id,
             "tier": self.tier.name(),
@@ -1156,6 +1173,9 @@ impl Session {
             "rustc": rustc(),
             "node": crate::node::block(&self.root, self.rivals.as_deref()),
         });
+        if !trace.series.is_null() {
+            record["series"] = trace.series.clone();
+        }
         if let Err(e) = record::write(&self.records, id, &record) {
             return Outcome::Fail(format!("record: {e}"));
         }
@@ -1308,6 +1328,7 @@ impl Session {
         let clock = Instant::now();
         let mut reserved = Metrics::new();
         let mut failures = Vec::new();
+        let mut refused: BTreeSet<String> = BTreeSet::new();
         let ran = match &policy.speed {
             Some(speed) => {
                 let pressures: RefCell<BTreeMap<(speed::Code, usize), Result<f64, String>>> =
@@ -1356,16 +1377,33 @@ impl Session {
                 };
                 let gate = (self.load.as_deref())
                     .map(|proc| load::Gate::new(proc, &self.root, !self.pilot));
-                let ran = speed::time(&run, &blocks, speed, repeats, self.seed, gate.as_ref());
+                let guarded = case.claims().contains(&Claim::Memory);
+                let ran = speed::time(
+                    &run,
+                    &blocks,
+                    speed,
+                    repeats,
+                    self.seed,
+                    gate.as_ref(),
+                    guarded,
+                );
                 ran.map(|mut timed| {
+                    for t in &timed {
+                        failures.extend(t.record.refused.clone());
+                        if t.record.code == speed::Code::Orbitar && t.record.refused.is_some() {
+                            refused.insert(t.record.input.clone());
+                        }
+                    }
                     if let Some(rivals) = &rivals {
                         let spin = spin_stress_case(&self.root);
                         let scale = rivals.settings.target.volume_scale;
                         let mut compressed = BTreeMap::new();
-                        for b in &blocks {
+                        for (b, t) in blocks.iter().zip(&timed) {
                             let key = (b.code(), b.index);
                             let wanted = (b.rival.as_ref()).is_none_or(|j| j.code == rival::Rival::Abinit);
-                            if wanted && !compressed.contains_key(&key) {
+                            if let Some(why) = &t.record.refused {
+                                compressed.insert(key, Err(why.clone()));
+                            } else if wanted && !compressed.contains_key(&key) {
                                 compressed.insert(key, self.at_v2(b, scale, rivals, timeout));
                             }
                         }
@@ -1384,6 +1422,9 @@ impl Session {
                     }
                     if case.claims().contains(&Claim::Memory) {
                         reserved = speed::memory(&blocks, &timed);
+                        let (series, exponents) = speed::series(&blocks, &timed);
+                        trace.series = series;
+                        reserved.extend(exponents);
                     }
                     (blocks.iter().zip(timed))
                         .filter_map(|(b, t)| {
@@ -1439,7 +1480,7 @@ impl Session {
             for (i, (name, _)) in inputs
                 .iter()
                 .enumerate()
-                .filter(|(_, (n, _))| !held.contains(n))
+                .filter(|(_, (n, _))| !held.contains(n) && !refused.contains(n))
             {
                 let b = match Block::new(name, i, sweep[0], tables[i].clone(), &files[i], atoms[i])
                 {
@@ -1459,12 +1500,12 @@ impl Session {
             true => blocks
                 .iter()
                 .zip(ran.iter().map(|(stdout, _)| stdout))
-                .filter(|(b, _)| !held.contains(b.input))
+                .filter(|(b, _)| !held.contains(b.input) && !refused.contains(b.input))
                 .collect(),
             false => own.iter().map(|(b, stdout)| (b, stdout)).collect(),
         };
         let measured_inputs: Vec<String> = (trace.inputs.iter())
-            .filter(|n| !held.contains(*n))
+            .filter(|n| !held.contains(*n) && !refused.contains(*n))
             .cloned()
             .collect();
         let mut worst = engine::Change::default();
@@ -1642,7 +1683,7 @@ impl Session {
                 }
                 for name in metrics
                     .keys()
-                    .filter(|name| crate::case::RESERVED.contains(&name.as_str()))
+                    .filter(|name| crate::case::reserved_metric(name))
                 {
                     failures.push(format!(
                         "measure: metric `{name}` is reserved; only the harness times the engine and reads its peak RSS"
@@ -1742,6 +1783,7 @@ struct Trace {
     peak_pss_bytes: Vec<u64>,
     rotation_s: Vec<f64>,
     rotation: Option<engine::Change>,
+    series: Value,
     speed: Vec<Value>,
     skipped: Vec<Value>,
     versus: Vec<Value>,
@@ -1993,7 +2035,10 @@ impl Discretization {
 }
 
 pub use record::{readout, union, verify};
-pub use speed::{G_MIN, G_RESAMPLES, G_SEED, g_interval};
+pub use speed::{
+    G_MIN, G_RESAMPLES, G_SEED, PEAK_PSS_GUARD_BYTES, Peak, estimated_peak, g_interval,
+    log_log_slope,
+};
 
 pub fn main(cases: &[(&'static str, Measure)]) -> ! {
     let args = Arguments::from_args();

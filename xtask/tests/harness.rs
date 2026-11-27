@@ -20,7 +20,7 @@ use std::{
     sync::Mutex,
     time::SystemTime,
 };
-use xtask::harness::{Evidence, Metrics, Outcome, Session, Tier};
+use xtask::harness::{Evidence, Measure, Metrics, Outcome, Session, Tier};
 
 pub const CASE: &str = "[case]\ntier = \"push\"\nstatus = \"active\"\nclaims = [\"correctness\"]\nreference = \"analytic\"\n\n[tolerance]\nerror_max = 1e-12\n";
 pub const INPUT: &str = "schema = 1\n\n[structure]\ncell_bohr = [[6.0, 0.0, 0.0], [0.0, 6.0, 0.0], [0.0, 0.0, 6.0]]\n\n[basis]\ncutoff_ha = 1.0\n\n[kpoints]\nlist = [[0.0, 0.0, 0.0]]\n\n[bands]\ncount = 1\n";
@@ -289,6 +289,34 @@ fn a_measure_may_not_report_a_timing_metric() {
         matches!(&outcome, Outcome::Fail(why) if why.contains("metric `speedup` is reserved")),
         "{outcome:?}"
     );
+}
+
+#[test]
+fn a_measure_may_not_report_a_series_exponent_of_a_code() {
+    fn with(evidence: &Evidence, name: &str) -> Result<Metrics, String> {
+        let mut metrics = honest(evidence)?;
+        metrics.insert(name.to_owned(), 1.0);
+        Ok(metrics)
+    }
+    fn t_delta(evidence: &Evidence) -> Result<Metrics, String> {
+        with(evidence, "t_delta_exponent_abinit")
+    }
+    fn pss(evidence: &Evidence) -> Result<Metrics, String> {
+        with(evidence, "pss_exponent_orbitar")
+    }
+    fn lookalike(evidence: &Evidence) -> Result<Metrics, String> {
+        with(evidence, "pss_exponentiation")
+    }
+    let measures: [(&str, Measure, bool); 3] = [
+        ("t_delta_exponent_abinit", t_delta, true),
+        ("pss_exponent_orbitar", pss, true),
+        ("pss_exponentiation", lookalike, false),
+    ];
+    for (name, measure, reserved) in measures {
+        let (outcome, _) = run_case("harness-series-name", CASE, INPUT, GOOD, measure);
+        let refused = matches!(&outcome, Outcome::Fail(why) if why.contains(&format!("metric `{name}` is reserved")));
+        assert_eq!(refused, reserved, "{name}: {outcome:?}");
+    }
 }
 
 #[test]
