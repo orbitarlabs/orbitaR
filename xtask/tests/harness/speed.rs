@@ -1087,6 +1087,9 @@ fn a_pilot_times_each_block_once_after_its_warm_up_and_e_ref_and_never_passes() 
         let load = b["load"].as_array().unwrap();
         assert_eq!(load.len(), 2, "{b}");
         assert!(load.iter().all(|r| r["unread"].is_string()), "{b}");
+        let during = b["during"].as_array().unwrap();
+        assert_eq!(during.len(), 2, "{b}");
+        assert!(during.iter().all(|r| r["unread"].is_string()), "{b}");
     }
 }
 
@@ -1105,6 +1108,16 @@ pub(crate) fn procfs(root: &Tree, runnable: u32) -> std::path::PathBuf {
         root,
         "proc/pressure/cpu",
         "some avg10=20.00 avg60=10.00 avg300=5.00 total=1000\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+    );
+    write(
+        root,
+        "proc/stat",
+        "cpu  1000 0 1000 100000 0 0 0 0 0 0\ncpu0 1000 0 1000 100000 0 0 0 0 0 0\n",
+    );
+    write(
+        root,
+        "proc/self/stat",
+        "4242 (xtask (unit)) R 1 4242 4242 0 -1 0 0 0 0 0 300 100 0 0 20 0 9 0 1 1 1\n",
     );
     root.join("proc")
 }

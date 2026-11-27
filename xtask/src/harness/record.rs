@@ -295,6 +295,15 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                                 t.len() + lost
                             ));
                         }
+                        let scored = usize::from(block.warmup.get("loss").is_none()) + t.len();
+                        let alone = block.during.iter().filter(|d| d.quiet()).count();
+                        if block.during.len() != 1 + t.len() + lost || alone != scored {
+                            findings.push(format!(
+                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its {scored} warm-up and judged runs",
+                                tier.name(),
+                                block.code,
+                            ));
+                        }
                         if block.code == speed::Code::Orbitar {
                             sum += t.len();
                         }
@@ -725,7 +734,7 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
         println!(
             "block {} {} p={}: timed runs {} losses {}; medians of the runs alone: T(δ) {} s, wall {} s, peak Pss {} \
              bytes; noisy {} E_ref {} accuracy {}; SCF steps {:?}, E_ref's {:?}, cap {:?}; a quiet node before {} of {} \
-             runs, the warm-up first: {:?}",
+             runs, the warm-up first: {:?}; no other load through {} of them: {:?}",
             b.code,
             b.input,
             b.threads,
@@ -749,7 +758,9 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
             b.step_cap,
             b.load.iter().filter(|r| r.quiet()).count(),
             b.load.len(),
-            b.load
+            b.load,
+            b.during.iter().filter(|d| d.quiet()).count(),
+            b.during
         );
     }
     let mut lost: Vec<&str> = (blocks.iter())

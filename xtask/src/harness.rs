@@ -1138,6 +1138,7 @@ impl Session {
             "skipped": trace.skipped,
             "versus": trace.versus,
             "held_out": trace.held_out,
+            "load": trace.load,
             "tuned": trace.tuned,
             "relaxations": trace.relaxations,
             "rotation_s": trace.rotation_s,
@@ -1357,6 +1358,7 @@ impl Session {
                 let gate = (self.load.as_deref())
                     .map(|proc| load::Gate::new(proc, &self.root, !self.pilot));
                 let ran = speed::time(&run, &blocks, speed, repeats, self.seed, gate.as_ref());
+                trace.load = gate.as_ref().map(load::Gate::log).unwrap_or_default();
                 ran.map(|mut timed| {
                     if let Some(rivals) = &rivals {
                         let spin = spin_stress_case(&self.root);
@@ -1396,9 +1398,12 @@ impl Session {
                                 ));
                             }
                             let loaded = t.record.load.iter().filter(|r| !r.quiet()).count();
-                            if loaded > 0 {
+                            let contended = (t.record.during.iter())
+                                .filter(|d| !d.quiet() && **d != load::During::Lost)
+                                .count();
+                            if loaded + contended > 0 {
                                 failures.push(format!(
-                                    "{}: {loaded} of its {} runs, the warm-up first, began on a node that was not quiet",
+                                    "{}: of its {} runs, the warm-up first, {loaded} began on a node that was not quiet and {contended} shared it with other tasks",
                                     b.at(),
                                     t.record.load.len()
                                 ));
@@ -1746,6 +1751,7 @@ struct Trace {
     skipped: Vec<Value>,
     versus: Vec<Value>,
     held_out: Vec<Value>,
+    load: Vec<Value>,
     tuned: Vec<String>,
     relaxations: Vec<Value>,
     table: Option<Value>,
