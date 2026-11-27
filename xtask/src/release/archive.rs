@@ -177,7 +177,8 @@ fn layout(bytes: &[u8]) -> Result<Vec<Region>, String> {
     let mut at = directory;
     for _ in 0..entries {
         let central = read(&CENTRAL, bytes, at, "")?;
-        let name = String::from_utf8_lossy(field(bytes, &central, "name")).into_owned();
+        let name =
+            (String::from_utf8_lossy(field(bytes, &central, "name")).escape_debug()).to_string();
         let size = number(bytes, at + 20)?;
         let local = read(&LOCAL, bytes, number(bytes, at + 42)?, &name)?;
         let flags = [at + 8, local.at.start + 6].map(|i| u16_in(bytes, i).unwrap_or_default());
@@ -367,8 +368,11 @@ fn contents(wheel: &Path) -> Result<Vec<(String, String)>, String> {
             line.replace(&wheel.display().to_string(), &label(wheel))
         ));
     }
-    serde_json::from_slice(&out.stdout)
-        .map_err(|e| format!("python3 zipfile printed no member list: {e}"))
+    let members: Vec<(String, String)> = serde_json::from_slice(&out.stdout)
+        .map_err(|e| format!("python3 zipfile printed no member list: {e}"))?;
+    Ok((members.into_iter())
+        .map(|(name, sha)| (name.escape_debug().to_string(), sha))
+        .collect())
 }
 
 fn label(wheel: &Path) -> String {

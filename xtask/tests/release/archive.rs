@@ -310,23 +310,53 @@ fn two_wheels_that_differ_name_each_differing_member_and_header() {
 fn a_wheel_whose_members_use_a_data_descriptor_or_zip64_is_refused_at_the_command() {
     let root = tree("same-descriptor", &[]);
     zipped(&root, "plain.whl", &PLAIN);
-    for (variant, want) in [
+    let newline = [("orbitar/a\nb.py", "a = 1\n")];
+    for (stem, variant, members, member, want) in [
         (
             "signed",
-            "uses a data descriptor; the release wheels never do",
+            "signed",
+            &SAME[..],
+            "orbitar/a.py",
+            "a data descriptor",
         ),
         (
             "unsigned",
-            "uses a data descriptor; the release wheels never do",
+            "unsigned",
+            &SAME[..],
+            "orbitar/a.py",
+            "a data descriptor",
         ),
         (
             "zip64",
-            "uses a ZIP64 extra field; the release wheels never do",
+            "zip64",
+            &SAME[..],
+            "orbitar/a.py",
+            "a ZIP64 extra field",
+        ),
+        (
+            "signed-newline",
+            "signed",
+            &newline[..],
+            "orbitar/a\\nb.py",
+            "a data descriptor",
+        ),
+        (
+            "zip64-newline",
+            "zip64",
+            &newline[..],
+            "orbitar/a\\nb.py",
+            "a ZIP64 extra field",
         ),
     ] {
-        let name = format!("{variant}.whl");
-        let wheel = zipped(&root, &name, &Spec { variant, ..PLAIN });
-        let want = format!("wheel {name}: member orbitar/a.py {want}");
+        let name = format!("{stem}.whl");
+        let spec = Spec {
+            members,
+            variant,
+            ..PLAIN
+        };
+        let wheel = zipped(&root, &name, &spec);
+        let want =
+            format!("wheel {name}: member {member} uses {want}; the release wheels never do");
         let found = lever(&["wheel", "--same", &name, &name], &root);
         assert_eq!(
             found,
@@ -336,11 +366,12 @@ fn a_wheel_whose_members_use_a_data_descriptor_or_zip64_is_refused_at_the_comman
                     "wheel --same: {name} and {name} are one byte stream, but no release wheel"
                 ),
             ],
-            "{variant}"
+            "{name}"
         );
         let found = lever(&["wheel", "--same", "plain.whl", &name], &root);
-        assert!(has(&found, &want), "{variant}: {found:?}");
-        assert_eq!(xtask::hashes(&wheel), Err(want), "{variant}");
+        assert!(has(&found, &want), "{name}: {found:?}");
+        assert!(!found.iter().any(|f| f.contains('\n')), "{name}: {found:?}");
+        assert_eq!(xtask::hashes(&wheel), Err(want), "{name}");
     }
 }
 
