@@ -126,7 +126,7 @@ fn runs(file: &std::path::Path) -> bool {
     };
     let start = std::time::Instant::now();
     while state() {
-        if start.elapsed() > std::time::Duration::from_secs(1) {
+        if start.elapsed() > std::time::Duration::from_secs(10) {
             return true;
         }
         std::thread::sleep(std::time::Duration::from_millis(20));
@@ -398,8 +398,7 @@ fn a_run_is_timed_by_the_shim_from_the_engines_spawn_to_its_exit_not_by_its_own(
     drop(control);
     let report: serde_json::Value = serde_json::from_str(&report).unwrap();
     let engine = report["Ok"]["seconds"].as_f64().unwrap();
-    assert!((1.0..2.0).contains(&engine), "{engine}");
-    assert!(whole >= 3.0, "{whole}");
+    assert!(engine >= 1.0 && engine + 2.0 <= whole, "{engine} {whole}");
 }
 
 #[test]

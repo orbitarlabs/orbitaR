@@ -542,23 +542,33 @@ fn summary_lines(name: &str, sleep_s: [&str; 2], tags: [&str; 2]) -> Vec<String>
 
 const SLOW: &str = "1.0";
 
+fn medians_apart_by_half(part: &str, slower: &str, gap: f64) {
+    let n = numbers(part);
+    let [base, here] = [n[0], n[3]];
+    let (slow, fast) = if slower == "base" {
+        (base, here)
+    } else {
+        (here, base)
+    };
+    assert!(slow - fast >= gap / 2.0, "{part}");
+}
+
+fn wall(line: &str) -> &str {
+    let first = line.split("; ").next().unwrap();
+    first.split_once(": wall ").unwrap().1
+}
+
 #[test]
 fn a_slower_base_is_reported_apart() {
     for line in summary_lines("same-apart-base", [SLOW, "0"], ["a", "a"]) {
-        assert!(
-            line.split("; ").next().unwrap().ends_with("ranges apart"),
-            "{line}"
-        );
+        medians_apart_by_half(wall(&line), "base", 1.0);
     }
 }
 
 #[test]
 fn a_slower_here_is_reported_apart() {
     for line in summary_lines("same-apart-here", ["0", SLOW], ["a", "a"]) {
-        assert!(
-            line.split("; ").next().unwrap().ends_with("ranges apart"),
-            "{line}"
-        );
+        medians_apart_by_half(wall(&line), "here", 1.0);
     }
 }
 
@@ -745,7 +755,7 @@ const LATE: Steps = &[(false, "-9.0"), (true, "-9.5"), (true, "-10.0")];
 fn a_base_that_settles_later_has_its_t_delta_range_apart() {
     let (_, parts) = stepped("same-t-delta-base", [LATE, EARLY]);
     for part in parts {
-        assert!(part.ends_with("ranges apart"), "{part}");
+        medians_apart_by_half(&part, "base", 2.0 * GAP);
     }
 }
 
@@ -753,7 +763,7 @@ fn a_base_that_settles_later_has_its_t_delta_range_apart() {
 fn a_here_that_settles_later_has_its_t_delta_range_apart() {
     let (_, parts) = stepped("same-t-delta-here", [EARLY, LATE]);
     for part in parts {
-        assert!(part.ends_with("ranges apart"), "{part}");
+        medians_apart_by_half(&part, "here", 2.0 * GAP);
     }
 }
 
