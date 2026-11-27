@@ -11,17 +11,20 @@ const METADATA: &str = "Metadata-Version: 2.4\nName: orbitar\nVersion: 0.1.0\nAu
      License-Expression: LicenseRef-x\nRequires-Dist: ase==3.29.0\nRequires-Dist: orbitar-jth==2.0.0\n";
 const JTH_PROJECT: &str = "[project]\nname = \"orbitar-jth\"\nversion = \"2.0.0\"\n";
 
-fn wheel(root: &Path, name: &str, members: &[(&str, String)]) {
+fn wheel(root: &Path, name: &str, members: &[(&str, String)], listed: &[&str]) {
     let pairs: Vec<[&str; 2]> = members.iter().map(|(p, t)| [*p, t.as_str()]).collect();
     let status = Command::new("python3")
         .args([
             "-I",
             "-c",
-            "import json, sys, zipfile\nwith zipfile.ZipFile(sys.argv[1], 'w') as z:\n    \
-             [z.writestr(p, t) for p, t in json.loads(sys.argv[2])]",
+            "import json, sys, zipfile\nlisted = json.loads(sys.argv[3])\n\
+             with zipfile.ZipFile(sys.argv[1], 'w') as z:\n    \
+             [z.writestr(p, t) for p, t in json.loads(sys.argv[2])]\n    \
+             z.filelist.sort(key=lambda i: listed.index(i.filename) if listed else 0)",
         ])
         .arg(root.join(name))
         .arg(serde_json::to_string(&pairs).unwrap())
+        .arg(serde_json::to_string(listed).unwrap())
         .status()
         .unwrap();
     assert!(status.success());
@@ -39,6 +42,16 @@ fn checked_beside(
     beside: &[(&str, &str)],
     change: impl Fn(&mut Vec<(&str, String)>),
 ) -> Vec<String> {
+    checked_stored(name, file, beside, change, |_| {})
+}
+
+fn checked_stored(
+    name: &str,
+    file: &str,
+    beside: &[(&str, &str)],
+    change: impl Fn(&mut Vec<(&str, String)>),
+    store: impl Fn(&mut Vec<(&str, String)>),
+) -> Vec<String> {
     let mut files = vec![
         ("Cargo.toml", CARGO),
         ("LICENSE", LICENSE),
@@ -52,6 +65,7 @@ fn checked_beside(
         ("orbitar/__init__.py", ""),
         ("orbitar/ase.py", ""),
         ("orbitar/datasets.py", ""),
+        ("orbitar/families/jth-2.0.toml", FAMILY),
         ("orbitar-0.1.0.data/scripts/orbitar", ""),
         ("orbitar-0.1.0.dist-info/METADATA", METADATA),
         ("orbitar-0.1.0.dist-info/licenses/LICENSE", LICENSE),
@@ -59,12 +73,13 @@ fn checked_beside(
             "orbitar-0.1.0.dist-info/licenses/THIRD-PARTY-NOTICES",
             NOTICES,
         ),
-        ("orbitar/families/jth-2.0.toml", FAMILY),
     ]
     .map(|(p, t)| (p, t.to_owned()))
     .into();
     change(&mut members);
-    wheel(&root, file, &members);
+    let listed: Vec<&str> = members.iter().map(|(p, _)| *p).collect();
+    store(&mut members);
+    wheel(&root, file, &members, &listed);
     write(
         &root,
         "tree",
@@ -95,7 +110,7 @@ fn a_wheel_whose_family_tables_are_not_datasets_toml_fails() {
         m.retain(|(p, _)| !p.starts_with("orbitar/families/"))
     });
     assert!(has(&found, want), "{found:?}");
-    let found = checked("stale-family", NAME, |m| m[7].1 = "url = \"x\"\n".into());
+    let found = checked("stale-family", NAME, |m| m[3].1 = "url = \"x\"\n".into());
     assert!(has(&found, want), "{found:?}");
     let found = checked("extra-family", NAME, |m| {
         m.push(("orbitar/families/x.toml", String::new()))
@@ -141,6 +156,61 @@ fn a_wheel_member_with_a_paw_xml_root_after_a_prolog_longer_than_the_image_windo
 }
 
 #[test]
+fn a_wheel_lists_its_members_by_path_components_with_dist_info_after_the_rest_and_record_last() {
+    let shaped = |m: &mut Vec<(&str, String)>| {
+        let info = at(m, "orbitar-0.1.0.dist-info/METADATA");
+        m.insert(info, ("orbitar_extra/x.py", String::new()));
+        m.push(("orbitar-0.1.0.dist-info/RECORD", String::new()));
+    };
+    assert_eq!(checked("record-last", NAME, shaped), Vec::<String>::new());
+    let swaps = [
+        ("orbitar-0.1.0.dist-info/METADATA", "orbitar_extra/x.py"),
+        ("orbitar/families/jth-2.0.toml", "orbitar/datasets.py"),
+        (
+            "orbitar-0.1.0.data/scripts/orbitar",
+            "orbitar/families/jth-2.0.toml",
+        ),
+        (
+            "orbitar-0.1.0.dist-info/METADATA",
+            "orbitar-0.1.0.data/scripts/orbitar",
+        ),
+        (
+            "orbitar-0.1.0.dist-info/RECORD",
+            "orbitar-0.1.0.dist-info/METADATA",
+        ),
+    ];
+    for (early, late) in swaps {
+        let found = checked("order", NAME, |m| {
+            shaped(m);
+            let (a, b) = (at(m, early), at(m, late));
+            m.swap(a, b);
+        });
+        for part in ["central directory", "stored entries"] {
+            assert!(
+                has(
+                    &found,
+                    &format!("in the {part}, {early} stands where {late} belongs")
+                ),
+                "{found:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_wheel_whose_stored_entries_leave_the_path_order_fails_though_its_central_directory_keeps_it() {
+    let found = checked_stored("stored-order", NAME, &[], |_| {}, |m| m.swap(0, 1));
+    assert!(
+        has(
+            &found,
+            "in the stored entries, orbitar/ase.py stands where orbitar/__init__.py belongs"
+        ),
+        "{found:?}"
+    );
+    assert!(!has(&found, "in the central directory"), "{found:?}");
+}
+
+#[test]
 fn a_wheel_with_a_member_path_twice_fails() {
     let found = checked("twice", NAME, |m| m.push(("orbitar/ase.py", "x".into())));
     assert!(
@@ -166,22 +236,22 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         ),
     ] {
         let metadata = format!("{METADATA}{field}");
-        let found = checked("personal", NAME, |m| m[4].1 = metadata.clone());
+        let found = checked("personal", NAME, |m| m[5].1 = metadata.clone());
         assert!(has(&found, needle), "{found:?}");
     }
     let found = checked("version", NAME, |m| {
-        m[4].1 = METADATA.replace("Version: 0.1.0", "Version: 0.2.0")
+        m[5].1 = METADATA.replace("Version: 0.1.0", "Version: 0.2.0")
     });
     assert!(has(&found, "Version: 0.1.0 (Cargo.toml)"), "{found:?}");
     let found = checked("requires", NAME, |m| {
-        m[4].1 = METADATA.replace("ase==3.29.0", "ase==3.28.0")
+        m[5].1 = METADATA.replace("ase==3.29.0", "ase==3.28.0")
     });
     assert!(has(&found, "differs from python/pylock.toml"), "{found:?}");
     for metadata in [
         METADATA.replace("Requires-Dist: orbitar-jth==2.0.0\n", ""),
         METADATA.replace("orbitar-jth==2.0.0", "orbitar-jth==1.0.0"),
     ] {
-        let found = checked("requires-jth", NAME, |m| m[4].1 = metadata.clone());
+        let found = checked("requires-jth", NAME, |m| m[5].1 = metadata.clone());
         assert!(has(&found, "and packages/orbitar-jth"), "{found:?}");
     }
     for (field, needle) in [
@@ -192,7 +262,7 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         ),
     ] {
         let metadata = format!("{METADATA}{field}");
-        let found = checked("extra", NAME, |m| m[4].1 = metadata.clone());
+        let found = checked("extra", NAME, |m| m[5].1 = metadata.clone());
         assert!(has(&found, needle), "{field}: {found:?}");
     }
 }
@@ -222,7 +292,7 @@ fn a_wheel_member_that_names_a_person_an_account_or_a_home_fails() {
     .enumerate()
     {
         let found = checked(&format!("member-{i}"), NAME, |m| {
-            m[3].1 = format!("\0\x7fELF\x01\x02{word}\0\x03");
+            m[4].1 = format!("\0\x7fELF\x01\x02{word}\0\x03");
         });
         let engine = "wheel orbitar-0.1.0.data/scripts/orbitar: ";
         assert!(
@@ -237,7 +307,7 @@ fn a_wheel_member_that_names_a_person_an_account_or_a_home_fails() {
 #[test]
 fn a_wheel_member_with_build_paths_of_the_container_and_no_home_passes() {
     let found = checked("container-paths", NAME, |m| {
-        m[3].1 = "\0/opt/cargo/registry/src/index.crates.io-1/faer-0.24.4/src/lib.rs\0\x01/rustc/0a1b/library/std/src/io.rs\0\
+        m[4].1 = "\0/opt/cargo/registry/src/index.crates.io-1/faer-0.24.4/src/lib.rs\0\x01/rustc/0a1b/library/std/src/io.rs\0\
                   /home/\0/Users//x\0src/main.rs\0"
             .to_owned();
     });
@@ -254,7 +324,7 @@ fn a_wheel_for_another_platform_fails() {
 #[test]
 fn a_wheel_without_the_license_or_a_notice_for_a_linked_crate_fails() {
     let found = checked("no-notice", NAME, |m| {
-        m[6].1 = "Third-party notices\n".into()
+        m[7].1 = "Third-party notices\n".into()
     });
     assert!(
         has(
@@ -265,13 +335,13 @@ fn a_wheel_without_the_license_or_a_notice_for_a_linked_crate_fails() {
     );
     let found = checked("no-notices", NAME, |m| m.truncate(6));
     assert!(has(&found, "THIRD-PARTY-NOTICES is missing"), "{found:?}");
-    let found = checked("other-license", NAME, |m| m[5].1 = "MIT\n".into());
+    let found = checked("other-license", NAME, |m| m[6].1 = "MIT\n".into());
     assert!(
         has(&found, "licenses/LICENSE is not LICENSE byte for byte"),
         "{found:?}"
     );
     let found = checked("expression", NAME, |m| {
-        m[4].1 = METADATA.replace("LicenseRef-x", "MIT")
+        m[5].1 = METADATA.replace("LicenseRef-x", "MIT")
     });
     assert!(
         has(&found, "License-Expression: LicenseRef-x (Cargo.toml)"),
@@ -819,7 +889,7 @@ fn jth_checked_in(
         ),
     ];
     change(&mut members);
-    wheel(&root, file, &members);
+    wheel(&root, file, &members, &[]);
     xtask::run(&["wheel", "--check", file], &root, &crate::env(false))
 }
 
@@ -999,6 +1069,7 @@ fn installable(name: &str, data: bool) -> crate::Tree {
         &root,
         "target/wheel/wheel/orbitar-0.1.0-py3-none-any.whl",
         &orbitar,
+        &[],
     );
     if data {
         let jth: Vec<(&str, String)> = vec![
@@ -1018,6 +1089,7 @@ fn installable(name: &str, data: bool) -> crate::Tree {
             &root,
             "target/wheel/jth-wheel/orbitar_jth-2.0.0-py3-none-any.whl",
             &jth,
+            &[],
         );
     }
     root
