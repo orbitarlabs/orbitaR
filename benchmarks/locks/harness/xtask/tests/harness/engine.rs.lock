@@ -1,3 +1,3 @@
 sha256 = "e9c9440ab1e47bce65eec0d63f97e1a1477dbba5b06d5ca6be6de811e8243ff8"
-reviewer = "PENDING"
+reviewer = "captain after codex-review3-31-35"
 reason = "harness: the shim traces where its holds end and begin, and the hold test bounds the engine time by that gap"

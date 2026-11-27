@@ -1,3 +1,3 @@
 sha256 = "9cba016e1415bd2e37591412c27849d4811c1d0387c438ed4fee89026faac941"
-reviewer = "PENDING"
+reviewer = "captain after codex-review3-31-35"
 reason = "ci: round 1 fixes: named shards on the unit target, cache save keys, the rival clock rule, same's verdict and the shim hold pinned by fixed inputs"
