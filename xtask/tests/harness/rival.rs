@@ -1855,30 +1855,34 @@ fn a_rival_run_that_misses_t_delta_is_a_loss_that_keeps_its_peak() {
 
 #[test]
 fn a_run_that_fails_before_its_engine_starts_is_never_refused_on_an_earlier_runs_peak() {
-    let abinit = format!(
-        "grep -q '5.0 5.0' run.abi || dd if=/dev/zero of=/dev/null bs=100000000 count=1 2>/dev/null\n{ABINIT}"
-    );
-    let root = memory_rivals("rival-stale-peak", INPUT, TUNED, PW, &abinit);
+    let root = memory_rivals("rival-stale-peak", INPUT, TUNED, PW, ABINIT);
+    let two = INPUT
+        .replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]")
+        .replace("[[0.0, 0.0, 0.25]]", "[[0.0, 0.0, 0.25], [0.5, 0.5, 0.75]]");
+    write(&root, "benchmarks/1_a/inputs/b.toml", &two);
     let bin = root.join("fake-engine");
     let body = format!(
-        "grep -q '5.0' input.toml || rm -f '{}'\nstep -2",
+        "if grep -qx 'cutoff_ha = 1.0' input.toml && [ \"$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' ')\" = 1 ]; then\n\
+         dd if=/dev/zero of=/dev/null bs=100000000 count=1 2>/dev/null; rm -f '{}'\nfi\nstep -2",
         bin.display()
     );
     let record = guarded(&root, &body, 50e6);
-    let theirs = blocks(&record, "abinit");
+    let ours = |input: &str| {
+        (blocks(&record, "orbitar").into_iter())
+            .find(|b| b["input"] == input)
+            .unwrap_or_else(|| panic!("no orbitar {input}: {record}"))
+            .clone()
+    };
     assert!(
-        theirs[0]["refused"]
+        ours("input")["refused"]
             .as_str()
             .unwrap_or_default()
-            .contains("refused after its V₂ run"),
+            .contains("refused after its correctness run"),
         "{record}"
     );
+    assert!(ours("b").get("refused").is_none(), "{record}");
     let failures = record["failures"].to_string();
     assert!(failures.contains("No such file"), "{record}");
-    assert!(
-        !failures.contains("refused after its correctness run"),
-        "{record}"
-    );
 }
 
 fn own_cutoff_runs(name: &str, heavy: &str) -> (Value, usize) {
@@ -2106,9 +2110,11 @@ fn a_repeat_with_a_calibration_row_of_its_own_takes_that_row_and_not_the_anchors
 
 #[test]
 fn a_held_out_variant_is_never_its_inputs_fold_equivalent_repeat() {
-    let root = memory_rivals("rival-held-repeat", INPUT, TUNED, PW, ABINIT);
+    let base = INPUT.replace("shift = [0.5, 0.5, 0.5]\n", "");
+    assert_ne!(base, INPUT);
+    let root = memory_rivals("rival-held-repeat", &base, TUNED, PW, ABINIT);
     let held = std::env::temp_dir().join(format!("xtask-held-repeat-{}", std::process::id()));
-    write(&held, "1_a/input.toml", &format!("{INPUT}\n"));
+    write(&held, "1_a/input.toml", &format!("{base}\n"));
     let bin = fake(&root, "step -2");
     let _ = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
         .with_rivals(&root.join("rivals"))
