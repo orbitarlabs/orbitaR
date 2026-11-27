@@ -410,6 +410,8 @@ pub const SHIM: &str = "--peak-rss-shim";
 
 const HOLD: &str = "ORBITAR_SHIM_HOLD_MS";
 
+const HOLD_TRACE: &str = "ORBITAR_SHIM_HOLD_TRACE";
+
 const LATE: Duration = Duration::from_secs(5);
 
 pub fn shim(args: &[OsString]) -> ExitCode {
@@ -437,7 +439,9 @@ pub fn shim(args: &[OsString]) -> ExitCode {
     });
     let hold = (std::env::var(HOLD).ok()).and_then(|ms| ms.parse().ok());
     let hold = hold.map_or(Duration::ZERO, Duration::from_millis);
+    let started = Instant::now();
     std::thread::sleep(hold);
+    let held = started.elapsed();
     let watch = std::env::current_dir()
         .map_err(|e| Failure::Harness(format!("{SHIM}: the directory: {e}")))
         .and_then(|dir| {
@@ -445,6 +449,17 @@ pub fn shim(args: &[OsString]) -> ExitCode {
             command.args(rest);
             watched(&mut command, &dir, stream, Duration::from_millis(timeout))
         });
+    if let Some(trace) = std::env::var_os(HOLD_TRACE) {
+        let between = format!(
+            "{} {}\n",
+            held.as_secs_f64(),
+            started.elapsed().as_secs_f64()
+        );
+        if let Err(e) = std::fs::write(&trace, between) {
+            eprintln!("{SHIM}: {HOLD_TRACE}: {e}");
+            return ExitCode::FAILURE;
+        }
+    }
     std::thread::sleep(hold);
     let mut out = std::io::stdout().lock();
     let report = (serde_json::to_writer(&mut out, &watch).map_err(std::io::Error::from))
