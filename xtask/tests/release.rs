@@ -311,7 +311,7 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         ),
         (
             "Author: A Person\n".into(),
-            "not `Author: The orbitaR developers`",
+            "does not hold `Author: The orbitaR developers` once",
         ),
     ] {
         let metadata = format!("{METADATA}{field}");
@@ -321,7 +321,10 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
     let found = checked("version", NAME, |m| {
         m[5].1 = METADATA.replace("Version: 0.1.0", "Version: 0.2.0")
     });
-    assert!(has(&found, "Version: 0.1.0 (Cargo.toml)"), "{found:?}");
+    assert!(
+        has(&found, "does not hold `Version: 0.1.0` once"),
+        "{found:?}"
+    );
     let found = checked("requires", NAME, |m| {
         m[5].1 = METADATA.replace("ase==3.29.0", "ase==3.28.0")
     });
@@ -363,6 +366,52 @@ fn a_wheel_whose_metadata_lacks_a_project_link_or_holds_one_twice_fails() {
     let twice = format!("{METADATA}{SOURCE_LINK}");
     let found = checked("link-twice", NAME, |m| m[5].1 = twice.clone());
     assert!(has(&found, "orbitaR` 2 times, not once"), "{found:?}");
+}
+
+const LOWER_CASE: [(&str, &str); 4] = [
+    (
+        "project-url: Docs, https://example.invalid\n",
+        "holds `project-url: Docs, https://example.invalid`",
+    ),
+    (
+        "home-page: https://orbitarlabs.org\n",
+        "holds `home-page: https://orbitarlabs.org`",
+    ),
+    ("MAINTAINER: A Person\n", "holds `MAINTAINER: A Person`"),
+    (
+        "author: A Person\n",
+        "it holds [\"The orbitaR developers\", \"A Person\"]",
+    ),
+];
+
+#[test]
+fn a_wheel_whose_metadata_names_a_url_or_a_person_in_any_case_or_on_a_folded_line_fails() {
+    for (field, needle) in LOWER_CASE {
+        let metadata = format!("{METADATA}{field}");
+        let found = checked("any-case", NAME, |m| m[5].1 = metadata.clone());
+        assert!(has(&found, needle), "{field}: {found:?}");
+    }
+    let folded = METADATA.replace(
+        "Author: The orbitaR developers\n",
+        "Author: The orbitaR developers\n and A Person\n",
+    );
+    let found = checked("folded", NAME, |m| m[5].1 = folded.clone());
+    assert!(
+        has(
+            &found,
+            "it holds [\"The orbitaR developers\\nand A Person\"]"
+        ),
+        "{found:?}"
+    );
+    let anonymous = METADATA.replace("Author: The orbitaR developers\n", "");
+    let found = checked("no-author", NAME, |m| m[5].1 = anonymous.clone());
+    assert!(
+        has(
+            &found,
+            "does not hold `Author: The orbitaR developers` once"
+        ),
+        "{found:?}"
+    );
 }
 
 fn engine_holding(name: &str, word: &str) -> Vec<String> {
@@ -629,7 +678,10 @@ fn a_wheel_without_the_license_or_a_notice_for_a_linked_crate_fails() {
         m[5].1 = METADATA.replace("LicenseRef-x", "MIT")
     });
     assert!(
-        has(&found, "License-Expression: LicenseRef-x (Cargo.toml)"),
+        has(
+            &found,
+            "does not hold `License-Expression: LicenseRef-x` once"
+        ),
         "{found:?}"
     );
 }
@@ -1310,7 +1362,7 @@ fn a_data_wheel_whose_metadata_names_another_license_a_person_or_a_dependency_fa
         (
             "Author: The orbitaR developers",
             "Author: A Person",
-            "holds `Author: A Person`",
+            "it holds [\"A Person\"]",
         ),
         (
             "Version: 2.0.0\n",
@@ -1323,6 +1375,18 @@ fn a_data_wheel_whose_metadata_names_another_license_a_person_or_a_dependency_fa
             m[i].1 = JTH_METADATA.replace(from, to);
         });
         assert!(has(&found, needle), "{needle}: {found:?}");
+    }
+}
+
+#[test]
+fn a_data_wheel_whose_metadata_names_a_url_or_a_person_in_any_case_fails() {
+    for (field, needle) in LOWER_CASE {
+        let metadata = format!("{JTH_METADATA}{field}");
+        let found = jth_checked("jth-any-case", JTH_NAME, |m| {
+            let i = at(m, "orbitar_jth-2.0.0.dist-info/METADATA");
+            m[i].1 = metadata.clone();
+        });
+        assert!(has(&found, needle), "{field}: {found:?}");
     }
 }
 

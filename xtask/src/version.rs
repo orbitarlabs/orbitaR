@@ -79,7 +79,7 @@ pub(crate) fn check(root: &Path) -> Findings {
             );
         }
     }
-    findings.extend(crate::release::project_links(root));
+    findings.extend(crate::release::project_tables(root));
     findings
 }
 

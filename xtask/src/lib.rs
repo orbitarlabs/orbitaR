@@ -159,7 +159,7 @@ enum Cli {
     },
     /// Cargo.toml's version equals origin/main's or its patch + 1; xtask/version-steps.toml names any other step;
     /// CITATION.cff cites Cargo.toml's version and license; CITATION.cff and both pyproject files name release.rs's
-    /// project links alone
+    /// project links alone; both pyproject files name the collective author alone and no maintainer
     Version,
     /// A local manifest names a provider, proof, and the options tried for every dependency and code file
     Native,

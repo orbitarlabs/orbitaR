@@ -12,6 +12,7 @@ const LINKED: &str =
 const URLS: &str = "[project.urls]\nHomepage = \"https://orbitarlabs.org\"\n\
      Source = \"https://github.com/orbitarlabs/orbitaR\"\nIssues = \"https://github.com/orbitarlabs/orbitaR/issues\"\n";
 const JTH: &str = "packages/orbitar-jth/pyproject.toml";
+const AUTHORS: &str = "authors = [{ name = \"The orbitaR developers\" }]\n";
 const JTH_URLS: &str = "[project.urls]\nHomepage = \"https://orbitarlabs.org\"\n\
      Source = \"https://github.com/orbitarlabs/orbitaR\"\n";
 
@@ -123,14 +124,19 @@ fn a_pyproject_with_its_own_version_fails() {
     write(
         at,
         "pyproject.toml",
-        &format!("[project]\nname = \"orbitar\"\ndynamic = [\"version\"]\n\n{URLS}"),
+        &format!("[project]\nname = \"orbitar\"\ndynamic = [\"version\"]\n{AUTHORS}\n{URLS}"),
     );
     assert_eq!(lever(&["version"], &root), Vec::<String>::new());
 }
 
 fn linked(name: &str, pyproject: &str, jth: &str) -> Vec<String> {
-    let project = format!("[project]\nname = \"orbitar\"\ndynamic = [\"version\"]\n\n{pyproject}");
-    let jth = format!("[project]\nname = \"orbitar-jth\"\nversion = \"2.0.0\"\n\n{jth}");
+    authored(name, AUTHORS, pyproject, jth)
+}
+
+fn authored(name: &str, authors: &str, pyproject: &str, jth: &str) -> Vec<String> {
+    let project =
+        format!("[project]\nname = \"orbitar\"\ndynamic = [\"version\"]\n{authors}\n{pyproject}");
+    let jth = format!("[project]\nname = \"orbitar-jth\"\nversion = \"2.0.0\"\n{authors}\n{jth}");
     let root = tree(
         &format!("version-links-{name}"),
         &[
@@ -238,4 +244,46 @@ fn a_citation_that_cites_another_version_or_license_than_cargo_toml_fails() {
     assert!(has(&found, "CITATION.cff version"), "{found:?}");
     assert!(has(&found, "CITATION.cff license"), "{found:?}");
     assert!(has(&found, "CITATION.cff repository-code"), "{found:?}");
+}
+
+#[test]
+fn a_pyproject_with_another_author_an_author_address_or_a_maintainer_fails() {
+    for (name, authors) in [
+        (
+            "author-person",
+            &"authors = [{ name = \"A Person\" }]\n".to_owned(),
+        ),
+        (
+            "author-second",
+            &"authors = [{ name = \"The orbitaR developers\" }, { name = \"A Person\" }]\n"
+                .to_owned(),
+        ),
+        (
+            "author-address",
+            &format!(
+                "authors = [{{ name = \"The orbitaR developers\", email = \"x{}example.invalid\" }}]\n",
+                '@'
+            ),
+        ),
+        ("author-none", &String::new()),
+    ] {
+        let found = authored(name, authors, URLS, JTH_URLS);
+        for path in ["pyproject.toml", JTH] {
+            assert!(
+                has(&found, &format!("release: {path} [project] authors is")),
+                "{name} {path}: {found:?}"
+            );
+        }
+    }
+    let maintained = format!("{AUTHORS}maintainers = [{{ name = \"A Person\" }}]\n");
+    let found = authored("author-maintainer", &maintained, URLS, JTH_URLS);
+    for path in ["pyproject.toml", JTH] {
+        assert!(
+            has(
+                &found,
+                &format!("release: {path} [project] names maintainers")
+            ),
+            "{path}: {found:?}"
+        );
+    }
 }

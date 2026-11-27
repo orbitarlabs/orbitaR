@@ -424,60 +424,136 @@ fn html(root: &Path, line: &str) -> bool {
 }
 
 fn readme_block(readme: &str, heading: &str) -> Option<String> {
-    let section = readme.split(&format!("\n## {heading}\n")).nth(1)?;
-    let example = section.split("```").nth(1)?;
-    Some(example.lines().skip(1).collect::<Vec<_>>().join("\n"))
+    let title = format!("## {heading}");
+    let mut lines = (readme.lines())
+        .skip_while(|l| l.trim_end() != title)
+        .skip(1)
+        .take_while(|l| !l.starts_with("## "));
+    lines.find(|l| l.trim_end() == "```python")?;
+    let closing = |l: &str| {
+        let fence = l.trim_end();
+        fence.len() >= 3 && fence.bytes().all(|b| b == b'`')
+    };
+    let mut body = Vec::new();
+    for line in lines {
+        if closing(line) {
+            return Some(body.join("\n"));
+        }
+        body.push(line);
+    }
+    None
+}
+
+struct Cell {
+    code: bool,
+    stored: bool,
+    source: String,
+}
+
+fn cells(book: &serde_json::Value) -> Result<Vec<Cell>, String> {
+    use serde_json::Value;
+    let book = book.as_object().ok_or("its top level is no object")?;
+    if book.get("nbformat") != Some(&Value::from(4)) {
+        return Err("nbformat is not 4".into());
+    }
+    let minor = (book.get("nbformat_minor").and_then(Value::as_u64))
+        .ok_or("nbformat_minor is no integer")?;
+    if !book.get("metadata").is_some_and(Value::is_object) {
+        return Err("metadata is no object".into());
+    }
+    let cells = (book.get("cells").and_then(Value::as_array)).ok_or("cells is no array")?;
+    let mut found = Vec::new();
+    for (n, cell) in (1..).zip(cells) {
+        let cell = cell.as_object().ok_or(format!("cell {n} is no object"))?;
+        let kind = (cell.get("cell_type").and_then(Value::as_str))
+            .filter(|k| ["code", "markdown", "raw"].contains(k))
+            .ok_or(format!("cell {n} has no cell_type code, markdown, or raw"))?;
+        if !cell.get("metadata").is_some_and(Value::is_object) {
+            return Err(format!("cell {n} metadata is no object"));
+        }
+        if minor >= 5 && !cell.get("id").is_some_and(Value::is_string) {
+            return Err(format!("cell {n} has no string id"));
+        }
+        let source = match cell.get("source") {
+            Some(Value::String(text)) => text.clone(),
+            Some(Value::Array(lines)) => (lines.iter())
+                .map(|line| {
+                    line.as_str()
+                        .ok_or(format!("cell {n} source holds a non-string element"))
+                })
+                .collect::<Result<String, String>>()?,
+            _ => return Err(format!("cell {n} source is no string or list of strings")),
+        };
+        let code = kind == "code";
+        let outputs = cell.get("outputs").and_then(Value::as_array);
+        let count = cell.get("execution_count");
+        if code && (outputs.is_none() || !count.is_some_and(|c| c.is_null() || c.is_u64())) {
+            return Err(format!(
+                "code cell {n} lacks an outputs list or an execution_count"
+            ));
+        }
+        found.push(Cell {
+            code,
+            stored: outputs.is_some_and(|o| !o.is_empty()) || count.is_some_and(|c| !c.is_null()),
+            source,
+        });
+    }
+    Ok(found)
 }
 
 fn notebook(root: &Path, readme: &str) -> Findings {
-    let text = walk::read(root, NOTEBOOK);
-    if text.is_empty() {
+    let path = root.join(NOTEBOOK);
+    if std::fs::symlink_metadata(&path).is_err() {
         return Vec::new();
+    }
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(e) => return vec![format!("docs: {NOTEBOOK} cannot be read: {e}")],
+    };
+    if text.trim().is_empty() {
+        return vec![format!("docs: {NOTEBOOK} is empty")];
     }
     let book: serde_json::Value = match serde_json::from_str(&text) {
         Ok(book) => book,
         Err(e) => return vec![format!("docs: {NOTEBOOK} does not parse: {e}")],
     };
+    let cells = match cells(&book) {
+        Ok(cells) => cells,
+        Err(e) => {
+            return vec![format!(
+                "docs: {NOTEBOOK} is no valid nbformat 4 notebook: {e}"
+            )];
+        }
+    };
     let mut findings = Vec::new();
-    if book["nbformat"] != 4 {
-        findings.push(format!("docs: {NOTEBOOK} is no nbformat 4 notebook"));
-    }
-    let cells = book["cells"].as_array().map_or(&[][..], Vec::as_slice);
-    let mut sources = Vec::new();
-    for (n, cell) in (1..).zip(cells) {
-        if cell["cell_type"] != "code" {
+    for (n, cell) in (1..).zip(&cells) {
+        if !cell.code {
             findings.push(format!(
                 "docs: {NOTEBOOK} cell {n} is no code cell; the notebook holds code alone"
             ));
         }
-        let outputs = cell["outputs"].as_array().is_some_and(Vec::is_empty);
-        if !outputs || !cell["execution_count"].is_null() {
+        if cell.stored {
             findings.push(format!(
                 "docs: {NOTEBOOK} cell {n} stores outputs or an execution count; clear them"
             ));
         }
-        sources.push(match &cell["source"] {
-            serde_json::Value::String(line) => line.clone(),
-            serde_json::Value::Array(lines) => (lines.iter())
-                .filter_map(serde_json::Value::as_str)
-                .collect(),
-            _ => String::new(),
-        });
     }
-    if sources.len() != NOTEBOOK_CELLS.len() {
+    if cells.len() != NOTEBOOK_CELLS.len() {
         findings.push(format!(
             "docs: {NOTEBOOK} holds {} cells, not {}: {NOTEBOOK_CELLS:?}",
-            sources.len(),
+            cells.len(),
             NOTEBOOK_CELLS.len()
         ));
     }
-    if sources.first().map(String::as_str) != Some(NOTEBOOK_CELLS[0]) {
+    let source = |k: usize| cells.get(k).map(|c| c.source.as_str());
+    if source(0) != Some(NOTEBOOK_CELLS[0]) {
         findings.push(format!(
             "docs: {NOTEBOOK} cell 1 is not `{}`",
             NOTEBOOK_CELLS[0]
         ));
     }
-    if sources.get(1).is_none() || sources.get(1) != readme_block(readme, NOTEBOOK_BLOCK).as_ref() {
+    let block = readme_block(readme, NOTEBOOK_BLOCK);
+    if block.is_none() || source(1) != block.as_deref() {
         findings.push(format!(
             "docs: {NOTEBOOK} cell 2 is not {}, byte for byte",
             NOTEBOOK_CELLS[1]

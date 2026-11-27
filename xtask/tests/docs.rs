@@ -1707,3 +1707,80 @@ fn a_notebook_that_does_not_parse_or_another_notebook_fails() {
     assert!(has(&f, "notebooks/other.ipynb is extra prose"), "{f:?}");
     assert!(!has(&f, &format!("{NOTEBOOK} is extra prose")), "{f:?}");
 }
+
+fn invalid(name: &str, text: &str) -> Vec<String> {
+    readme_findings(
+        name,
+        &["## ASE", "", "```python", ASE, "```"],
+        &[
+            (NOTEBOOK, text),
+            ("tests/ase.rs", "readme_block(\"ASE\")\n"),
+        ],
+    )
+}
+
+#[test]
+fn an_empty_quickstart_or_one_of_no_valid_nbformat_4_structure_fails_before_any_comparison() {
+    for text in ["", " \n"] {
+        let f = invalid("notebook-empty", text);
+        assert!(has(&f, &format!("{NOTEBOOK} is empty")), "{text:?}: {f:?}");
+    }
+    let good = serde_json::json!({"cells": quickstart(), "metadata": {}, "nbformat": 4, "nbformat_minor": 5});
+    let mut mixed = good.clone();
+    mixed["cells"][1]["source"] =
+        serde_json::json!(["from ase.build import bulk\n", 7, "atoms = bulk(\"Si\")"]);
+    let mut old = good.clone();
+    old["nbformat"] = serde_json::json!(3);
+    let mut bare = good.clone();
+    bare.as_object_mut().unwrap().remove("metadata");
+    let mut no_outputs = good.clone();
+    no_outputs["cells"][2]
+        .as_object_mut()
+        .unwrap()
+        .remove("outputs");
+    let mut no_id = good.clone();
+    no_id["cells"][0].as_object_mut().unwrap().remove("id");
+    for (book, reason) in [
+        (mixed, "cell 2 source holds a non-string element"),
+        (old, "nbformat is not 4"),
+        (bare, "metadata is no object"),
+        (no_outputs, "code cell 3 lacks an outputs list"),
+        (no_id, "cell 1 has no string id"),
+        (serde_json::json!([]), "its top level is no object"),
+    ] {
+        let f = invalid("notebook-invalid", &book.to_string());
+        let want = format!("docs: {NOTEBOOK} is no valid nbformat 4 notebook: {reason}");
+        assert!(f.len() == 1 && f[0].starts_with(&want), "{reason}: {f:?}");
+    }
+}
+
+#[test]
+fn the_readme_ase_block_runs_from_its_python_fence_to_the_closing_fence_whatever_backticks_it_holds()
+ {
+    let ase = "atoms = 1  # a ``` inside\nenergy = 2";
+    let block = ["## ASE", "", "```python", ase, "```"];
+    let findings = |name: &str, code: &str| {
+        let mut cells = quickstart();
+        cells[1] = cell(code);
+        let book =
+            serde_json::json!({"cells": cells, "metadata": {}, "nbformat": 4, "nbformat_minor": 5});
+        readme_findings(
+            name,
+            &block,
+            &[
+                (NOTEBOOK, &book.to_string()),
+                ("tests/ase.rs", "readme_block(\"ASE\")\n"),
+            ],
+        )
+    };
+    let f = findings("notebook-fence-full", ase);
+    assert!(f.is_empty(), "{f:?}");
+    let f = findings("notebook-fence-cut", "atoms = 1  # a ");
+    assert!(
+        has(
+            &f,
+            &format!("{NOTEBOOK} cell 2 is not README.md's `## ASE` block")
+        ),
+        "{f:?}"
+    );
+}

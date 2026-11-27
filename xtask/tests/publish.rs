@@ -284,6 +284,55 @@ fn a_file_that_names_someone_or_holds_a_home_or_an_owners_file_fails() {
             named,
         ),
         (
+            format!(
+                "see https://github.com/{}/orbitaR/../../someone/x",
+                "orbitarlabs"
+            ),
+            format!(
+                "https://github.com/{}/orbitaR/../../someone/x",
+                "orbitarlabs"
+            ),
+            named,
+        ),
+        (
+            format!(
+                "see https://github.com/{}/orbitaR/%2e%2E/%2E%2e/someone",
+                "orbitarlabs"
+            ),
+            format!(
+                "https://github.com/{}/orbitaR/%2e%2E/%2E%2e/someone",
+                "orbitarlabs"
+            ),
+            named,
+        ),
+        (
+            format!(
+                "see https://github.com/{}/orbitaR%2F..%2F..%2Fsomeone",
+                "orbitarlabs"
+            ),
+            format!(
+                "https://github.com/{}/orbitaR%2F..%2F..%2Fsomeone",
+                "orbitarlabs"
+            ),
+            named,
+        ),
+        (
+            format!(
+                "see https://github.com/{}/orbitaR/%252e%252e/x",
+                "orbitarlabs"
+            ),
+            format!("https://github.com/{}/orbitaR/%252e%252e/x", "orbitarlabs"),
+            named,
+        ),
+        (
+            format!(
+                "see https://github.com/{}/orbitaR/./../orbitaR2",
+                "orbitarlabs"
+            ),
+            format!("https://github.com/{}/orbitaR/./../orbitaR2", "orbitarlabs"),
+            named,
+        ),
+        (
             format!("see https://{}/code/session_0123", "claude.ai"),
             format!("https://{}/code/session_0123", "claude.ai"),
             named,
@@ -332,6 +381,8 @@ fn a_file_with_the_maintainer_noreply_a_source_the_project_repository_plain_urls
          locator = \"https://github.com/molmod/DeltaCodesDFT/tree/f9b6693763dea92d43ee48f172c02bc506876f06\"\n\
          see https://docs.rs/ndarray and /work/case/input.toml\n\
          Source = \"https://github.com/orbitarlabs/orbitaR\"; see github.com/orbitarlabs/orbitar/issues\n\
+         https://github.com/orbitarlabs/orbitaR/issues?q=is%3Aopen#top and \
+         https://github.com/orbitarlabs/orbitaR/tree/main/../main/./notebooks/\n\
          HOME=/{0}/ and /{1}//x and /{0} and --home-dir /{0}/orbitar\n",
         "home", "Users"
     );
