@@ -252,51 +252,139 @@ fn files(root: &Path) -> Findings {
     findings
 }
 
-fn commits(root: &Path) -> Findings {
-    if git(root, &["rev-parse", "--verify", "--quiet", "origin/main"]).is_err() {
-        return Vec::new();
+pub(crate) const BASE: &str = "origin/main";
+
+struct Who<'a> {
+    name: &'a str,
+    address: &'a str,
+}
+
+struct Header<'a> {
+    parents: usize,
+    author: Who<'a>,
+    committer: Who<'a>,
+}
+
+fn who(value: &str) -> Option<Who<'_>> {
+    let (name, rest) = value.split_once('<')?;
+    let (address, when) = rest.split_once('>')?;
+    let mut when = when.split_whitespace();
+    let seconds = when.next()?;
+    let zone = when.next()?;
+    let zone_ok = zone.len() == 5
+        && zone.starts_with(['+', '-'])
+        && zone[1..].bytes().all(|b| b.is_ascii_digit());
+    (seconds.bytes().all(|b| b.is_ascii_digit()) && zone_ok && when.next().is_none()).then(|| Who {
+        name: name.trim(),
+        address,
+    })
+}
+
+fn one<'a>(role: &str, values: &[&'a str]) -> Result<Who<'a>, String> {
+    match values {
+        [value] => {
+            who(value).ok_or_else(|| format!("its {role} line is no `name <address> time zone`"))
+        }
+        _ => Err(format!("it holds {} {role} lines, not one", values.len())),
     }
-    let format = "--format=%h%x1f%P%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%B%x1e";
-    let log = match git(root, &["log", format, "origin/main..HEAD"]) {
-        Ok(log) => log,
-        Err(e) => return vec![format!("publish: git log origin/main..HEAD: {e}")],
-    };
+}
+
+fn header(headers: &str) -> Result<Header<'_>, String> {
+    let mut parents = 0;
+    let (mut authors, mut committers) = (Vec::new(), Vec::new());
+    for line in headers.lines().filter(|l| !l.starts_with(' ')) {
+        let (key, value) = line.split_once(' ').unwrap_or((line, ""));
+        match key {
+            "parent" => parents += 1,
+            "author" => authors.push(value),
+            "committer" => committers.push(value),
+            _ => {}
+        }
+    }
+    let author = one("author", &authors)?;
+    let committer = one("committer", &committers)?;
+    Ok(Header {
+        parents,
+        author,
+        committer,
+    })
+}
+
+fn borrowed(who: &Who<'_>) -> bool {
+    (release::NOREPLY.iter()).any(|(name, address)| {
+        let (same_name, same_address) = (
+            who.name.eq_ignore_ascii_case(name),
+            who.address.eq_ignore_ascii_case(address),
+        );
+        same_name != same_address
+    })
+}
+
+fn commit(short: &str, object: &str, headers: &str, message: &str) -> Findings {
+    let what = format!("publish: commit {short}");
     let mut findings = Vec::new();
-    for record in log.split('\x1e').map(|r| r.trim_start_matches('\n')) {
-        let fields: Vec<&str> = record.splitn(7, '\x1f').collect();
-        let &[sha, parents, an, ae, cn, ce, message] = fields.as_slice() else {
-            continue;
-        };
-        if [an, ae, cn, ce, message]
-            .iter()
-            .any(|text| claude_identity(text))
-        {
+    if claude_identity(object) {
+        findings.push(format!(
+            "{what}: it holds the Claude identity; commit under your own name or as the maintainer"
+        ));
+    }
+    let header = match header(headers) {
+        Ok(header) => header,
+        Err(e) => {
+            findings.push(format!("{what}: {e}; git writes no such commit"));
+            return findings;
+        }
+    };
+    let ((maintainer, by), (github, merges)) = (release::MAINTAINER, release::GITHUB);
+    for (role, who) in [("author", &header.author), ("committer", &header.committer)] {
+        if borrowed(who) {
             findings.push(format!(
-                "publish: commit {sha}: it holds the Claude identity; commit as the maintainer"
+                "{what}: its {role} takes the name or the address of {maintainer} <{by}> or {github} <{merges}>, \
+                 not both; commit under your own name and address"
             ));
         }
-        if (cn, ce) == release::GITHUB && parents.split_whitespace().count() > 1 {
-            continue;
-        }
-        let ((maintainer, by), (github, merges)) = (release::MAINTAINER, release::GITHUB);
-        for (role, who) in [("author", (an, ae)), ("committer", (cn, ce))] {
-            if !release::NOREPLY.contains(&who) {
-                findings.push(format!(
-                    "publish: commit {sha}: its {role} is neither {maintainer} <{by}> nor {github} <{merges}>; \
-                     commit as {maintainer} <{by}>"
-                ));
-            }
-        }
-        let what = format!("publish: commit {sha}");
+    }
+    let github_merge =
+        (header.committer.name, header.committer.address) == release::GITHUB && header.parents > 1;
+    if !github_merge {
         findings.extend(release::named(&what, message));
         findings.extend(release::homes(&what, message, "reword the commit"));
     }
     findings
 }
 
-pub(crate) fn check(root: &Path) -> Findings {
+fn commits(root: &Path, base: &str) -> Findings {
+    if git(
+        root,
+        &[
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            &format!("{base}^{{commit}}"),
+        ],
+    )
+    .is_err()
+    {
+        return vec![format!(
+            "publish: `{base}` names no commit, so no commit of the branch was read; \
+             fetch it (`git fetch origin main`) or name the base with `--base <rev>`"
+        )];
+    }
+    let range = format!("{base}..HEAD");
+    match crate::commits(root, &range) {
+        Ok(all) => (all.iter())
+            .flat_map(|c| {
+                let (headers, message) = c.headers_and_message();
+                commit(&c.short, c.object(), headers, message)
+            })
+            .collect(),
+        Err(e) => vec![format!("publish: git log {range}: {e}")],
+    }
+}
+
+pub(crate) fn check(root: &Path, base: &str) -> Findings {
     let mut findings = files(root);
-    findings.extend(commits(root));
+    findings.extend(commits(root, base));
     for file in walk::files(root, WORKFLOWS) {
         let text = walk::read(root, &file);
         let lines: Vec<&str> = text.lines().map(uncommented).collect();

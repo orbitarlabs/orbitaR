@@ -59,6 +59,11 @@ jobs:
           python3 -I -c 'import sys, ase, numpy, scipy; print(sys.version.split()[0], ase.__version__, numpy.__version__, scipy.__version__)'
           python3 -I -c 'import ase.calculators.genericfileio, ase.calculators.espresso, ase.optimize, ase.io, ase.build'
       - run: cargo xtask check
+      - name: Each commit that the push brings to main passes the publish rules
+        if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: cargo xtask publish --base "$BEFORE"
       - name: The unit tests pass under the mutants cap
         run: |
           test "$(rustc -vV | sed -n 's/^host: //p')" = x86_64-unknown-linux-gnu

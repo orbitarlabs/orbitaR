@@ -1,4 +1,4 @@
-use crate::{Findings, git};
+use crate::{Findings, commits};
 use std::path::Path;
 
 const MARKS: [&str; 5] = [
@@ -56,18 +56,6 @@ fn lines(what: &str, text: &str) -> Findings {
         .collect()
 }
 
-fn messages(root: &Path, range: &str) -> Result<Vec<(String, String)>, String> {
-    let ids = git(root, &["log", "--format=%H %h", range])?;
-    (ids.lines())
-        .map(|line| {
-            let (id, short) =
-                (line.split_once(' ')).ok_or_else(|| format!("git log printed `{line}`"))?;
-            let message = git(root, &["show", "-s", "--format=%B", id])?;
-            Ok((short.to_owned(), message))
-        })
-        .collect()
-}
-
 pub(crate) fn check(root: &Path, body: Option<&Path>, base: &str, head: &str) -> Findings {
     let mut findings = Vec::new();
     if let Some(file) = body {
@@ -77,10 +65,11 @@ pub(crate) fn check(root: &Path, body: Option<&Path>, base: &str, head: &str) ->
         }
     }
     let range = format!("{base}..{head}");
-    match messages(root, &range) {
+    match commits(root, &range) {
         Ok(commits) => {
-            for (short, message) in commits {
-                findings.extend(lines(&format!("commit {short}"), &message));
+            for commit in commits {
+                let (_, message) = commit.headers_and_message();
+                findings.extend(lines(&format!("commit {}", commit.short), message));
             }
         }
         Err(e) => findings.push(format!("pr-text: git log {range}: {e}")),

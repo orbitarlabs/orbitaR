@@ -10,7 +10,18 @@ fn published(name: &str, files: &[(&str, &str)]) -> Vec<String> {
         ("xtask/src/release.rs", RELEASE),
     ];
     all.extend_from_slice(files);
-    lever(&["publish"], &tree(&format!("publish-{name}"), &all))
+    let root = tree(&format!("publish-{name}"), &all);
+    on_main(&root);
+    lever(&["publish"], &root)
+}
+
+fn on_main(root: &Path) -> String {
+    let git = |args: &[&str]| git_as(root, MAINTAINER, MAINTAINER, args);
+    git(&["init", "-q"]);
+    git(&["add", "-A"]);
+    git(&["commit", "-qm", "base"]);
+    git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    git(&["rev-parse", "HEAD"])
 }
 
 #[test]
@@ -338,8 +349,22 @@ fn git_as(root: &Path, author: Who, committer: Who, args: &[&str]) -> String {
     String::from_utf8(out.stdout).unwrap().trim().to_owned()
 }
 
+fn commit_as(root: &Path, author: Who, committer: Who, parents: &[&str], message: &str) -> String {
+    let mut args = vec!["commit-tree", "HEAD^{tree}", "-m", message];
+    for parent in parents {
+        args.extend(["-p", parent]);
+    }
+    git_as(root, author, committer, &args)
+}
+
+fn publish_at(root: &Path, head: &str) -> Vec<String> {
+    git_as(root, MAINTAINER, MAINTAINER, &["update-ref", "HEAD", head]);
+    lever(&["publish"], root)
+}
+
 #[test]
-fn a_branch_commit_by_a_person_or_whose_message_names_one_fails_and_a_github_merge_is_skipped() {
+fn a_branch_commit_by_anyone_passes_but_the_claude_identity_a_borrowed_identity_or_a_named_message_fails()
+ {
     let root = tree(
         "publish-commits",
         &[
@@ -347,61 +372,50 @@ fn a_branch_commit_by_a_person_or_whose_message_names_one_fails_and_a_github_mer
             ("xtask/src/release.rs", RELEASE),
         ],
     );
-    let git = |author: Who, committer: Who, args: &[&str]| git_as(&root, author, committer, args);
-    let commit = |author: Who, committer: Who, parents: &[&str], message: &str| {
-        let mut args = vec!["commit-tree", "HEAD^{tree}", "-m", message];
-        for parent in parents {
-            args.extend(["-p", parent]);
-        }
-        git(author, committer, &args)
-    };
-    git(MAINTAINER, MAINTAINER, &["init", "-q"]);
-    git(MAINTAINER, MAINTAINER, &["add", "-A"]);
-    git(MAINTAINER, MAINTAINER, &["commit", "-qm", "base"]);
-    let main = ["update-ref", "refs/remotes/origin/main", "HEAD"];
-    git(MAINTAINER, MAINTAINER, &main);
-    let base = git(MAINTAINER, MAINTAINER, &["rev-parse", "HEAD"]);
-    let side = commit(MAINTAINER, MAINTAINER, &[&base], "side");
+    let base = on_main(&root);
+    let side = commit_as(&root, MAINTAINER, MAINTAINER, &[&base], "side");
     let email = format!("someone{AT}example.org");
     let person: Who = ("Some One", &email);
     let renamed: Who = ("Some One", MAINTAINER.1);
+    let readdressed: Who = (MAINTAINER.0, &email);
+    let loud = format!("NoReply{AT}Anthropic.COM");
+    let shouted: Who = ("Someone Else", &loud);
     let trailer = format!("a step\n\nCo-Authored-By: Claude Opus 5.5 <noreply{AT}anthropic.com>");
     let link = format!(
         "a step\n\nClaude-Session: https://{}/code/session_0123",
         "claude.ai"
     );
     let home = format!("a step built in /{}/someone/orbitar", "home");
-    let (author, committer) = ("its author is neither", "its committer is neither");
+    let claude = "holds the Claude identity";
+    let borrowed = |role: &str| format!("its {role} takes the name or the address of");
+    let (author, committer) = (borrowed("author"), borrowed("committer"));
+    let (author, committer) = (author.as_str(), committer.as_str());
     for (by, to, message, merge, needles) in [
+        (person, person, "a step", false, vec![]),
+        (person, MAINTAINER, "a step", false, vec![]),
+        (MAINTAINER, person, "a step", false, vec![]),
+        (person, GITHUB, "an edit on the web", false, vec![]),
+        (person, GITHUB, "Merge side into base", true, vec![]),
         (
             MAINTAINER,
             MAINTAINER,
             trailer.as_str(),
             false,
-            vec!["anthropic.com` names a person"],
+            vec![claude],
         ),
-        (CLAUDE, MAINTAINER, "a step", false, vec![author]),
-        (MAINTAINER, CLAUDE, "a step", false, vec![committer]),
-        (person, MAINTAINER, "a step", false, vec![author]),
-        (MAINTAINER, person, "a step", false, vec![committer]),
+        (CLAUDE, MAINTAINER, "a step", false, vec![claude]),
+        (MAINTAINER, CLAUDE, "a step", false, vec![claude]),
+        (shouted, person, "a step", false, vec![claude]),
+        (CLAUDE, GITHUB, "Merge side into base", true, vec![claude]),
         (renamed, MAINTAINER, "a step", false, vec![author]),
-        (MAINTAINER, renamed, "a step", false, vec![committer]),
-        (person, GITHUB, "Merge side into base", true, vec![]),
-        (
-            CLAUDE,
-            GITHUB,
-            "Merge side into base",
-            true,
-            vec!["holds the Claude identity"],
-        ),
+        (MAINTAINER, readdressed, "a step", false, vec![committer]),
         (
             person,
             renamed,
             "Merge side into base",
             true,
-            vec![author, committer],
+            vec![committer],
         ),
-        (person, GITHUB, "an edit on the web", false, vec![author]),
         (
             MAINTAINER,
             MAINTAINER,
@@ -410,8 +424,15 @@ fn a_branch_commit_by_a_person_or_whose_message_names_one_fails_and_a_github_mer
             vec!["names a person, an account"],
         ),
         (
-            MAINTAINER,
-            MAINTAINER,
+            person,
+            person,
+            &link,
+            false,
+            vec!["names a person, an account"],
+        ),
+        (
+            person,
+            person,
             &home,
             false,
             vec!["holds a home directory; reword the commit"],
@@ -422,9 +443,8 @@ fn a_branch_commit_by_a_person_or_whose_message_names_one_fails_and_a_github_mer
         } else {
             vec![&base]
         };
-        let head = commit(by, to, &parents, message);
-        git(MAINTAINER, MAINTAINER, &["update-ref", "HEAD", &head]);
-        let found = lever(&["publish"], &root);
+        let head = commit_as(&root, by, to, &parents, message);
+        let found = publish_at(&root, &head);
         for needle in &needles {
             assert!(has(&found, needle), "{message}: {found:?}");
         }
@@ -432,28 +452,140 @@ fn a_branch_commit_by_a_person_or_whose_message_names_one_fails_and_a_github_mer
             assert_eq!(found, Vec::<String>::new(), "{message}");
         }
         assert!(
-            !has(&found, &email) && !has(&found, "Some One"),
+            !has(&found, &email) && !has(&found, "Some One") && !has(&found, "Someone Else"),
             "{message}: a finding echoes who: {found:?}"
         );
     }
-    let bad = commit(person, MAINTAINER, &[&base], "bad");
-    let good = commit(MAINTAINER, MAINTAINER, &[&bad], "good");
-    git(MAINTAINER, MAINTAINER, &["update-ref", "HEAD", &good]);
-    let short = |sha: &str| git(MAINTAINER, MAINTAINER, &["rev-parse", "--short", sha]);
+    let bad = commit_as(&root, renamed, MAINTAINER, &[&base], "bad");
+    let good = commit_as(&root, person, person, &[&bad], "good");
+    let short = git_as(
+        &root,
+        MAINTAINER,
+        MAINTAINER,
+        &["rev-parse", "--short", &bad],
+    );
     assert_eq!(
-        lever(&["publish"], &root),
+        publish_at(&root, &good),
         [format!(
-            "publish: commit {}: its author is neither orbitar-admin <360476282+orbitar-admin@users.noreply.github.com> \
-             nor GitHub <noreply@github.com>; commit as orbitar-admin <360476282+orbitar-admin@users.noreply.github.com>",
-            short(&bad)
+            "publish: commit {short}: its author takes the name or the address of orbitar-admin \
+             <360476282+orbitar-admin@users.noreply.github.com> or GitHub <noreply@github.com>, not both; \
+             commit under your own name and address"
         )]
     );
-    git(
+}
+
+#[test]
+fn without_its_base_the_lever_reports_it_and_a_named_base_checks_a_push_range() {
+    let root = tree("publish-base", &[("xtask/src/release.rs", RELEASE)]);
+    let base = on_main(&root);
+    let pushed = commit_as(&root, CLAUDE, MAINTAINER, &[&base], "pushed");
+    let later = commit_as(&root, MAINTAINER, MAINTAINER, &[&pushed], "later");
+    git_as(
+        &root,
+        MAINTAINER,
+        MAINTAINER,
+        &["update-ref", "refs/remotes/origin/main", &later],
+    );
+    assert_eq!(publish_at(&root, &later), Vec::<String>::new());
+    let range = lever(&["publish", "--base", &base], &root);
+    assert_eq!(range.len(), 1, "{range:?}");
+    assert!(has(&range, "holds the Claude identity"), "{range:?}");
+    assert_eq!(
+        lever(&["publish", "--base", &pushed], &root),
+        Vec::<String>::new()
+    );
+    git_as(
+        &root,
         MAINTAINER,
         MAINTAINER,
         &["update-ref", "-d", "refs/remotes/origin/main"],
     );
-    assert_eq!(lever(&["publish"], &root), Vec::<String>::new());
+    assert_eq!(
+        lever(&["publish"], &root),
+        [
+            "publish: `origin/main` names no commit, so no commit of the branch was read; \
+          fetch it (`git fetch origin main`) or name the base with `--base <rev>`"
+        ]
+    );
+}
+
+#[test]
+fn a_commit_object_with_malformed_metadata_or_the_claude_identity_in_any_header_fails() {
+    let root = tree("publish-objects", &[("xtask/src/release.rs", RELEASE)]);
+    let base = on_main(&root);
+    let tree_id = git_as(&root, MAINTAINER, MAINTAINER, &["rev-parse", "HEAD^{tree}"]);
+    let who = format!("orbitar-admin <{}> 1764100000 +0000", MAINTAINER.1);
+    let header = |author: &str, extra: &str| {
+        format!(
+            "tree {tree_id}\nparent {base}\nauthor {author}\ncommitter {who}\n{extra}\na step\n"
+        )
+    };
+    let loud = format!("NoReply{AT}Anthropic.COM");
+    for (object, needle) in [
+        (
+            header("orbitar-admin 1764100000 +0000", "\n"),
+            "its author line is no `name <address> time zone`",
+        ),
+        (
+            header(&format!("x <{}> soon +0000", MAINTAINER.1), "\n"),
+            "its author line is no",
+        ),
+        (
+            header(&format!("x <{}> 1764100000 UTC", MAINTAINER.1), "\n"),
+            "its author line is no",
+        ),
+        (
+            header(&format!("x <{}> 1764100000 +00a0", MAINTAINER.1), "\n"),
+            "its author line is no",
+        ),
+        (
+            header(&format!("x <{}> 1764100000 +0000 x", MAINTAINER.1), "\n"),
+            "its author line is no",
+        ),
+        (
+            header(&format!("x <{}> 1764100000", MAINTAINER.1), "\n"),
+            "its author line is no",
+        ),
+        (
+            header(&format!("x <{}", MAINTAINER.1), "\n"),
+            "its author line is no",
+        ),
+        (
+            header(&who, &format!("author {who}\n\n")),
+            "it holds 2 author lines, not one",
+        ),
+        (
+            header(&who, &format!("x-note {loud}\n\n")),
+            "holds the Claude identity",
+        ),
+        (
+            header(
+                &who,
+                &format!("gpgsig -----BEGIN-----\n {loud}\n -----END-----\n\n"),
+            ),
+            "holds the Claude identity",
+        ),
+    ] {
+        let path = root.join("object.txt");
+        std::fs::write(&path, &object).unwrap();
+        let id = git_as(
+            &root,
+            MAINTAINER,
+            MAINTAINER,
+            &[
+                "hash-object",
+                "-t",
+                "commit",
+                "-w",
+                "--literally",
+                "object.txt",
+            ],
+        );
+        std::fs::remove_file(&path).unwrap();
+        let found = publish_at(&root, &id);
+        assert_eq!(found.len(), 1, "{object}: {found:?}");
+        assert!(has(&found, needle), "{object}: {found:?}");
+    }
 }
 
 #[test]

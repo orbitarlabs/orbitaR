@@ -4,6 +4,7 @@ use crate::{
     walk,
 };
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
+use pulldown_cmark::{BrokenLink, CowStr, Event, LinkType, Options, Parser, Tag};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -13,7 +14,7 @@ use std::{
 
 const PROSE: [(&str, usize); 5] = [
     ("AGENTS.md", 22),
-    ("CONTRIBUTING.md", 52),
+    ("CONTRIBUTING.md", 53),
     ("container/README.md", 73),
     ("README.md", 126),
     ("SECURITY.md", 4),
@@ -394,18 +395,6 @@ fn readme(root: &Path) -> Findings {
                     "{at}: put HTML on its own line, from the allowlist"
                 ));
             }
-            if reference_link(line) {
-                findings.push(format!(
-                    "{at}: write each link inline as [text](path); a reference link escapes the tree check"
-                ));
-            }
-            for target in links(line) {
-                if !(plain(&target) && resolves_inside(root, &target)) {
-                    findings.push(format!(
-                        "{at}: the link `{target}` names no file of the tree"
-                    ));
-                }
-            }
             continue;
         }
         let body: Vec<&str> = lines[n + 1..]
@@ -433,6 +422,7 @@ fn readme(root: &Path) -> Findings {
         }
         rows.by_ref().take(body.len() + 1).for_each(drop);
     }
+    findings.extend(readme_links(root, &text));
     findings
 }
 
@@ -449,46 +439,47 @@ fn inline_html(line: &str) -> bool {
     })
 }
 
-fn links(line: &str) -> Vec<String> {
-    outside_code(line)
-        .flat_map(|part| part.split("](").skip(1))
-        .filter_map(|rest| {
-            rest.split_once(')')
-                .map(|(target, _)| target.trim().to_owned())
+const REFERENCE: &str =
+    "write each link inline as [text](path); a reference link escapes the tree check";
+
+fn readme_links(root: &Path, text: &str) -> Findings {
+    let line = |at: usize| text[..at].matches('\n').count() + 1;
+    let unresolved = |_: BrokenLink<'_>| Some((CowStr::from(""), CowStr::from("")));
+    let parser = Parser::new_with_broken_link_callback(text, Options::empty(), Some(unresolved));
+    let mut found: Vec<(usize, String)> = (parser.reference_definitions().iter())
+        .map(|(_, definition)| (line(definition.span.start), REFERENCE.to_owned()))
+        .collect();
+    for (event, span) in parser.into_offset_iter() {
+        let (Event::Start(Tag::Link {
+            link_type,
+            dest_url,
+            ..
         })
-        .collect()
-}
-
-fn reference_link(line: &str) -> bool {
-    let definition = without_containers(line)
-        .strip_prefix('[')
-        .and_then(|rest| rest.split_once("]:"));
-    definition.is_some_and(|(label, _)| !label.is_empty() && !label.contains(']'))
-        || outside_code(line).any(|part| part.contains("]["))
-}
-
-fn without_containers(line: &str) -> &str {
-    let mut rest = line.trim_start();
-    loop {
-        let digits = rest.len() - rest.trim_start_matches(|c: char| c.is_ascii_digit()).len();
-        let marker = if let Some(after) = rest.strip_prefix('>') {
-            after
-        } else if let Some(after) = rest
-            .strip_prefix(['-', '*', '+'])
-            .filter(|after| after.starts_with([' ', '\t']))
-        {
-            after
-        } else if let Some(after) = (digits > 0)
-            .then(|| rest[digits..].strip_prefix(['.', ')']))
-            .flatten()
-            .filter(|after| after.starts_with([' ', '\t']))
-        {
-            after
-        } else {
-            return rest;
+        | Event::Start(Tag::Image {
+            link_type,
+            dest_url,
+            ..
+        })) = event
+        else {
+            continue;
         };
-        rest = marker.trim_start();
+        match link_type {
+            LinkType::ShortcutUnknown => {}
+            LinkType::Inline | LinkType::Autolink | LinkType::Email => {
+                if !(plain(&dest_url) && resolves_inside(root, &dest_url)) {
+                    found.push((
+                        line(span.start),
+                        format!("the link `{dest_url}` names no file of the tree"),
+                    ));
+                }
+            }
+            _ => found.push((line(span.start), REFERENCE.to_owned())),
+        }
     }
+    found.sort();
+    (found.into_iter())
+        .map(|(n, what)| format!("docs: README.md:{n}: {what}"))
+        .collect()
 }
 
 fn holds(file: &str, example: &[&str]) -> bool {

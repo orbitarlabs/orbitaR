@@ -125,9 +125,13 @@ enum Cli {
         #[arg(long)]
         base: Option<String>,
     },
-    /// No workflow, container file, or packaging lever publishes; no workflow asks for more than contents: read;
-    /// no file or commit of the branch names a person, an account, a private link, or a home directory
-    Publish,
+    /// publish [--base <rev>]: no workflow, container file, or packaging lever publishes; no workflow asks for more
+    /// than contents: read; no file names a person, an account, a private link, or a home directory; each commit of
+    /// <base>..HEAD (base: origin/main) holds no Claude identity, and its message names no one and no home directory
+    Publish {
+        #[arg(long, default_value = publish::BASE)]
+        base: String,
+    },
     /// pr-text [--body <file>] --base <rev> [--head <rev>]: the pull request text and each commit message of
     /// <base>..<head> (head: HEAD) hold no tool's generated-by line and no co-author trailer
     PrText {
@@ -298,7 +302,7 @@ const LEVERS: [Lever; 8] = [
     |root| science::check(root, None),
     native::check,
     version::check,
-    publish::check,
+    |root| publish::check(root, publish::BASE),
 ];
 
 pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
@@ -341,7 +345,7 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
         Cli::Science { base } => science::check(root, base.as_deref()),
         Cli::Native => native::check(root),
         Cli::Version => version::check(root),
-        Cli::Publish => publish::check(root),
+        Cli::Publish { base } => publish::check(root, &base),
         Cli::PrText { body, base, head } => pr_text::check(root, body.as_deref(), &base, &head),
         Cli::Same {
             base,
@@ -531,6 +535,36 @@ pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String, String> {
     } else {
         Err(text(&out.stderr))
     }
+}
+
+pub(crate) struct Commit {
+    pub(crate) short: String,
+    raw: String,
+}
+
+impl Commit {
+    pub(crate) fn object(&self) -> &str {
+        &self.raw
+    }
+
+    pub(crate) fn headers_and_message(&self) -> (&str, &str) {
+        self.raw.split_once("\n\n").unwrap_or((&self.raw, ""))
+    }
+}
+
+pub(crate) fn commits(root: &Path, range: &str) -> Result<Vec<Commit>, String> {
+    let ids = git(root, &["log", "--format=%H %h", range])?;
+    (ids.lines())
+        .map(|line| {
+            let (id, short) =
+                (line.split_once(' ')).ok_or_else(|| format!("git log printed `{line}`"))?;
+            let raw = git(root, &["cat-file", "commit", id])?;
+            Ok(Commit {
+                short: short.to_owned(),
+                raw,
+            })
+        })
+        .collect()
 }
 
 pub(crate) fn cargo(env: &Env, root: &Path, args: &[&str], vars: &[(&str, OsString)]) -> Findings {

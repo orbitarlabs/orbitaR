@@ -527,6 +527,7 @@ fn a_readme_link_names_a_file_of_the_tree() {
         "- [Up](../LICENSE)",
         "- [Absolute](/etc/hosts)",
         "![Chart](assets/missing.svg)",
+        "- An autolink: <https://example.com/x>",
     ];
     let readme = format!("{README}\n{}\n", lines.join("\n"));
     let f = docs(
@@ -550,11 +551,16 @@ fn a_readme_link_names_a_file_of_the_tree() {
     assert_eq!(
         f,
         [
+            format!(
+                "docs: README.md:{}: put HTML on its own line, from the allowlist",
+                first + 8
+            ),
             gone(3, "packages/gone/LICENSE"),
             gone(4, "https://example.com"),
             gone(5, "../LICENSE"),
             gone(6, "/etc/hosts"),
             gone(7, "assets/missing.svg"),
+            gone(8, "https://example.com/x"),
         ]
     );
 }
@@ -882,11 +888,21 @@ fn readme_refuses_reference_links_and_their_definitions_inside_containers_too() 
         "- [Inline](LICENSE)",
         "- [Full][license]",
         "- [Collapsed][]",
+        "",
         "[license]: ../outside",
         "> [quoted]: ../outside",
+        "",
         "- > 1. [nested]: ../outside",
+        "",
+        "> [split]:",
+        "> ../outside",
+        "",
+        "- [listed]:",
+        "  ../outside",
+        "- [Quoted]",
         "- Code `[a][b]` and a task `[ ]` are no links.",
         "- [ ] A task: no link.",
+        "- [unknown] is no link: no definition holds it.",
     ];
     let readme = format!("{README}\n{}\n", lines.join("\n"));
     let f = docs(
@@ -903,9 +919,35 @@ fn readme_refuses_reference_links_and_their_definitions_inside_containers_too() 
             first + n
         )
     };
+    assert_eq!(f, [1, 2, 4, 5, 7, 9, 12, 14].map(refused), "{f:?}");
+}
+
+#[test]
+fn readme_refuses_an_inline_link_whose_target_is_split_over_lines() {
+    let lines = [
+        "- [Split](",
+        "  ../outside)",
+        "> ![Quoted](",
+        "> assets/gone.svg)",
+    ];
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let f = docs(
+        "docs-readme-split-links",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &[("README.md", &readme)],
+    );
+    let first = README.lines().count() + 2;
     assert_eq!(
         f,
-        [refused(1), refused(2), refused(3), refused(4), refused(5)]
+        [
+            format!("docs: README.md:{first}: the link `../outside` names no file of the tree"),
+            format!(
+                "docs: README.md:{}: the link `assets/gone.svg` names no file of the tree",
+                first + 2
+            ),
+        ]
     );
 }
 
