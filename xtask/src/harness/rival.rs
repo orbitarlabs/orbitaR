@@ -295,6 +295,7 @@ pub(crate) struct Job {
     pub(crate) cell: Cell,
     pub(crate) cutoff_ha: f64,
     pub(crate) layout: Layout,
+    pub(crate) frozen: Layout,
     pub(crate) mixing: Vec<String>,
     pub(crate) mpiexec: Vec<String>,
     pub(crate) claim: Option<ClaimPart>,
@@ -924,6 +925,7 @@ impl Rivals {
         layout: Layout,
         jth: &[(String, Vec<u8>)],
     ) -> Result<Job, String> {
+        let frozen = layout.clone();
         let layout = code.adapter().fitted(layout, cell, jth)?;
         let mpiexec = match layout.ranks > 1 {
             true => self.settings.setup(code).mpiexec.clone(),
@@ -934,6 +936,7 @@ impl Rivals {
             cell: cell.clone(),
             cutoff_ha,
             layout,
+            frozen,
             mixing: self.tuned.of(code).mixing.input.clone(),
             mpiexec,
             claim: None,

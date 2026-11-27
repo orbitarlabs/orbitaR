@@ -1462,3 +1462,85 @@ fn a_shard_of_a_candidate_dataset_table_never_proves_the_case() {
         "{found:?}"
     );
 }
+
+fn series_findings(name: &str, series: &str) -> Vec<String> {
+    let claim = ACTIVE.replace("\"push\"", "\"claim\"").replace(
+        "[\"correctness\"]",
+        "[\"speed\", \"memory\", \"correctness\"]\nrivals = [\"qe\"]",
+    );
+    let skips = crate::harness::rival::RIVALS.replace(
+        "density_ratio = 8.0\n",
+        "density_ratio = 8.0\nskip_cells = [{ cell = \"benchmarks/1_a/input.toml\", reason = \"no dataset\" }]\n",
+    );
+    let speed = block(&QUIET);
+    let record = GOOD
+        .replace(
+            "\"runs_s\": [0.1]",
+            &format!("\"runs_s\": {:?}", vec![0.1; 5]),
+        )
+        .replace(
+            "\"peak_rss_bytes\": [1]",
+            &format!("\"peak_rss_bytes\": {:?}", vec![1; 5]),
+        )
+        .replace(
+            "\"spent_s\": 0.2",
+            &format!("\"spent_s\": 1.0, \"speed\": [{speed}], \"series\": {series}"),
+        );
+    let root = tree(
+        name,
+        &[
+            ("benchmarks/1_a/case.toml", &claim),
+            ("benchmarks/RIVALS.toml", &skips),
+            ("records/1_a.json", &record),
+        ],
+    );
+    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH, None)
+}
+
+fn point(input: &str, status: &str, pss: f64) -> String {
+    format!(
+        "{{\"input\": \"{input}\", \"atoms\": 1, \"status\": \"{status}\", \"median_t_delta_s\": 0.1, \"median_peak_pss_bytes\": {pss}}}"
+    )
+}
+
+#[test]
+fn a_memory_claim_record_needs_every_code_at_every_declared_size_though_a_rival_skips_one() {
+    let ours = format!(
+        "{{\"code\": \"orbitar\", \"points\": [{}]}}",
+        point("input", "measured", 1e6)
+    );
+    let skipped = format!(
+        "[{ours}, {{\"code\": \"qe\", \"points\": [{}]}}]",
+        point("input", "skipped: no dataset", 0.0)
+    );
+    let f = series_findings("record-series-skip", &skipped);
+    assert!(
+        has(
+            &f,
+            "passes a memory claim, but its series lacks qe at input (skipped: no dataset)"
+        ),
+        "{f:?}"
+    );
+    let absent = format!("[{ours}]");
+    let f = series_findings("record-series-absent", &absent);
+    assert!(
+        has(&f, "its series lacks qe at input (no series point)"),
+        "{f:?}"
+    );
+    let unpolled = format!(
+        "[{{\"code\": \"orbitar\", \"points\": [{}]}}, {{\"code\": \"qe\", \"points\": [{}]}}]",
+        point("input", "measured", 0.0),
+        point("input", "measured", 1e6)
+    );
+    let f = series_findings("record-series-unpolled", &unpolled);
+    assert!(
+        has(&f, "its series lacks orbitar at input (measured)"),
+        "{f:?}"
+    );
+    let full = format!(
+        "[{ours}, {{\"code\": \"qe\", \"points\": [{}]}}]",
+        point("input", "measured", 1e6)
+    );
+    let f = series_findings("record-series-full", &full);
+    assert!(!has(&f, "passes a memory claim"), "{f:?}");
+}

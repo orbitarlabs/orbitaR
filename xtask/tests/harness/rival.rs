@@ -1719,3 +1719,132 @@ fn numbers_of(value: &Value) -> Vec<u64> {
         .filter_map(Value::as_u64)
         .collect()
 }
+
+fn memory_rivals(name: &str, input: &str, tuned: &str, pw: &str, abinit: &str) -> Tree {
+    let root = rivals_tree(name, input, tuned, pw, abinit);
+    let case = CASE
+        .replace("\"active\"", "\"planned\"")
+        .replace("\"correctness\"", "\"correctness\", \"memory\"");
+    write(&root, "benchmarks/1_a/case.toml", &case);
+    root
+}
+
+fn guarded(root: &Tree, body: &str, guard: f64) -> Value {
+    let bin = fake(root, body);
+    let _ = Session::new(root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_memory_guard(guard)
+        .evaluate("1_a", both);
+    serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap()).unwrap()
+}
+
+#[test]
+fn a_rival_run_that_misses_t_delta_is_a_loss_that_keeps_its_peak() {
+    let count =
+        std::env::temp_dir().join(format!("xtask-rival-drift-{}.count", std::process::id()));
+    let _ = std::fs::remove_file(&count);
+    let pw = format!(
+        "n=$(cat '{0}' 2>/dev/null || echo 0); echo $((n + 1)) > '{0}'\n\
+         dd if=/dev/zero of=/dev/null bs=30000000 count=1 2>/dev/null\n\
+         [ \"$n\" -ge 2 ] && e=-3.0\n{PW}",
+        count.display()
+    );
+    let root = memory_rivals("rival-drift", INPUT, TUNED, &pw, ABINIT);
+    let record = guarded(&root, "step -2", 14e9);
+    let _ = std::fs::remove_file(&count);
+    let qe = blocks(&record, "qe");
+    assert!(!qe[0]["losses"].as_array().unwrap().is_empty(), "{record}");
+    let kept = numbers_of(&qe[0]["failed_peak_bytes"]);
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{}",
+        qe[0]
+    );
+}
+
+fn own_cutoff_runs(name: &str, heavy: &str) -> (Value, usize) {
+    let log = std::env::temp_dir().join(format!("xtask-{name}-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let root = memory_rivals(name, INPUT, TUNED, PW, ABINIT);
+    let body = format!(
+        "grep -qx 'cutoff_ha = 1.0' input.toml && echo own >> '{}'\n\
+         if {heavy}; then dd if=/dev/zero of=/dev/null bs=100000000 count=1 2>/dev/null; fi\nstep -2",
+        log.display()
+    );
+    let record = guarded(&root, &body, 50e6);
+    let own = std::fs::read_to_string(&log)
+        .unwrap_or_default()
+        .lines()
+        .count();
+    let _ = std::fs::remove_file(&log);
+    (record, own)
+}
+
+#[test]
+fn a_measured_peak_past_the_guard_at_v2_or_correctness_stops_the_later_orbitar_launches() {
+    let (record, own) = own_cutoff_runs("rival-v2-over", "! grep -q '5.0' input.toml");
+    let ours = blocks(&record, "orbitar");
+    assert!(
+        ours[0]["refused"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("refused after its V₂ run"),
+        "{record}"
+    );
+    assert_eq!(own, 0, "{record}");
+    let (record, own) = own_cutoff_runs("rival-own-over", "grep -qx 'cutoff_ha = 1.0' input.toml");
+    let ours = blocks(&record, "orbitar");
+    assert!(
+        ours[0]["refused"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("refused after its correctness run"),
+        "{record}"
+    );
+    assert_eq!(own, 1, "{record}");
+    assert!(
+        record["failures"]
+            .to_string()
+            .contains("refused after its correctness run"),
+        "{record}"
+    );
+}
+
+#[test]
+fn a_fitted_abinit_layout_keeps_its_smaller_sizes_history_and_records_its_fitted_lines() {
+    let input = INPUT.replace("\n[bands]\ncount = 8\n", "");
+    let tuned = TUNED.replace(
+        "[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 1, threads = 8 }",
+        "[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 8, threads = 1, input = [\"paral_kgb 1\", \"np_spkpt 1\", \"npband 8\", \"npfft 1\"] }",
+    );
+    let abinit = format!(
+        "grep -qx 'nband 8' run.abi && dd if=/dev/zero of=/dev/null bs=40000000 count=1 2>/dev/null\n{ABINIT}"
+    );
+    let root = memory_rivals("rival-fitted", &input, &tuned, PW, &abinit);
+    let four = input
+        .replace(
+            "species = [\"Si\"]",
+            "species = [\"Si\", \"Si\", \"Si\", \"Si\"]",
+        )
+        .replace(
+            "[[0.0, 0.0, 0.25]]",
+            "[[0.0, 0.0, 0.25], [0.25, 0.25, 0.5], [0.5, 0.5, 0.75], [0.75, 0.75, 0.0]]",
+        );
+    write(&root, "benchmarks/1_a/inputs/b.toml", &four);
+    let record = guarded(&root, "step -2", 300e6);
+    let abinit = blocks(&record, "abinit");
+    let of = |input: &str| abinit.iter().find(|b| b["input"] == input).unwrap();
+    assert_eq!(
+        of("input")["rival"]["fitted"],
+        json!(["nband 8"]),
+        "{record}"
+    );
+    assert_eq!(of("b")["rival"]["fitted"], json!(["nband 16"]), "{record}");
+    assert!(
+        of("b")["refused"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("abinit: b at 8 threads: refused before it runs"),
+        "{record}"
+    );
+}

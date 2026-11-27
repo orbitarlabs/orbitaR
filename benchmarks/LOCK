@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=claim-tools-2 at ca74812 (bench <tier> [case]; the load check before and during runs; rival OpenBLAS on one thread; ABINIT's default istwfk; the TUNED layout policy; held-out base identity; thread_env) merged with size-series-2 at 9277a5c (case 12 is the size series Si 2 to 128 against QE and ABINIT; series readouts with coverage; the 14 GB guard from comparable measured peaks; the Γ mode per block)
+# harness reviewer=PENDING reason=claim-tools-2 at ca74812 merged with size-series-2 (case 12 is the size series Si 2 to 128 against QE and ABINIT), with review round 2: a failed or timed-out run keeps its peak and every block's record; the guard's measured refusal holds at the V2, correctness and rotation launches; comparable history keys by the frozen layout and the record names each cell's fitted lines; the verifier needs every declared code and size measured; each timed process tree runs under a systemd-run scope or prlimit memory limit, recorded, and a claim without one is refused
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -6,18 +6,18 @@ b131a43552983679750e7571125717a273ef8f0ed15eda3ad30b4ffebb786e3b  xtask/src/benc
 ef5e8e406eb8be282e58c8f3ea96b67e276bb3bfe681a7cafcf968855c4de441  xtask/src/case.rs
 acc25a9a7a6f0f575332050c2763702da4b313cc3e8160eea822521c77e21935  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
-21a3c622ed10f0fd4f5577508e4fda3266829eb6b976252875c56859089d9f1a  xtask/src/harness.rs
+1b01f7de72e7c740475d744bd6a676ce1862efcf5d544791e0535ee93c7b936c  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 03878ff9cd97a82b22af1417c9b7497191d232877176b85c1daf8378b2174578  xtask/src/harness/datasets.rs
-90a1980f053fa17f62788c44daac4aae65d7683bea12d522f4f5df93b6f3936b  xtask/src/harness/engine.rs
+a9f9fa0f723b5cf60f10da34e4f53cb2ae830e8e15520f8374b40fd2373826ec  xtask/src/harness/engine.rs
 e4ff8dac6c5883566f42a2fd836c4f53f8c5e99d6ccf30a19ed3e95957f3757c  xtask/src/harness/eos.rs
 db3f0358c12b540daf5d5353f0a519146fa213d768031ee0e929195a8ac7dc51  xtask/src/harness/load.rs
-5ef33a486f6abace0a8649ebb777aca44ff5ee609d397297c9887366795f2b2f  xtask/src/harness/record.rs
+0b0a86f6f0ba707a67332aecc6a96e2c47c5f347470539515143b010abffc1f6  xtask/src/harness/record.rs
 c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harness/relax.rs
-0fd32193e9a34bc19a7fd7129409261d8b4a1fa6c5c507fb90179519a7cd0777  xtask/src/harness/rival.rs
+6c12f8e6614b80ae02e059cf8b8c2df9e18379d4b8a4b812acbb02baf42c4a55  xtask/src/harness/rival.rs
 832e4d829b61ed81c03204e298754a9ca5f7b6f88385d4d477aedda04ec751bb  xtask/src/harness/rival/abinit.rs
 22e53eda5ff78cec6077c4becbd15ada0b53efe844cd27e3eea96b522039fc24  xtask/src/harness/rival/qe.rs
-97eb9a7098f1e90bb11c6be753830a7985bb8edb558a1ef4b9acfd032e922a70  xtask/src/harness/speed.rs
+252043bb207ff1c85976fe73a87cea615c2f042a1e47a00b9b96b1d74615bc0c  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
 8d6e609fdf18a359f5ede6a89f9c3ecebd342ac4963bfb49fd920dfc652ab6cd  xtask/src/lib.rs
@@ -52,12 +52,12 @@ a0142c31a23038f942bdb19532a4a614693ba0be60995c31e3ce934e4fe88748  xtask/tests/ha
 3a76633569c2153ae6114e2157563e635df9c12c3204da6d4cbcab29a0118629  xtask/tests/harness/engine.rs
 ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/harness/eos.rs
 bf0314cbf55e544694b0bdaabfe57927cc9d49fc2e826da24e0176e0dd643d4a  xtask/tests/harness/load.rs
-f3c0957b2dce6a3522ed0860e33750347f5b360921b197b7631712c8fe88280e  xtask/tests/harness/record.rs
+b98d6ea271bd37e8a4bb15737d89a8a863090f5f885375be3962e3d736080164  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
-89ae90f4853bbc1acf1b18e3ffe11fe41e227b0755fb439c4ec250453005a5c4  xtask/tests/harness/rival.rs
+b31419d0cd84296a1bc3dee6e91ad8149b6d0657f69c0cd6985d1b794d1fe16a  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
-92cd4434b9ef165e01f44b9f4417f586da87b5473da534ce20717b70f30cb928  xtask/tests/harness/speed.rs
+e1dc9c3f7c3cdf3553aae8b2ec2bfef907614dd8986e598be74d35ed3539fb17  xtask/tests/harness/speed.rs
 33467b75f6e238946868cd25d6d62922bbb10c6d99ee156bab47117d798cbae5  xtask/tests/layers.rs
 749f8ec5618c7c1d46dda9faec5dc7fc4a987489d187a4c5b57f1654439a58dc  xtask/tests/layout.rs
 9623a0ce43ca494bdbb524b5c69b3173c4d9ef8238b93768c2cb2bdce46a20b0  xtask/tests/lib.rs
@@ -94,7 +94,7 @@ d6be09d9c32bdd299b9deccfbc75bc04d39ae963dec5166aec77fe8419e2bb9b  .github/workfl
 1c64aab23b9bc43e83ed64a50d2b871ffaa32f7ccbf3f3e4b78bc83ac117d95b  Cargo.lock
 2e6420f7a8d85f8f2e01c1246b63d0ef756d81948ad0c8d1f82687e16127d7d2  benchmarks/NODE.toml
 40802dfb2389005c0264bdfe41e25ada7280c42b87c472a515870a467c5d0334  benchmarks/DATASETS.toml
-ae77574e777b1ca89b96267d264f939efb86cff05d65a37719e79c70c718ec40  benchmarks/RIVALS.toml
+2bb0c87ca4752f75f33300bace91f551262b7ce1e17fc3ba34a169b6354ea015  benchmarks/RIVALS.toml
 4077c548e420bb3900cd82059f332416db21a8e6f173eac1068f7efc55e1cf14  benchmarks/TUNED.toml
 307acf155bb662a248adafb0cc46c6527aa0de850f6fe952d29739e890b75ade  benchmarks/ACWF.toml
 1b917f41e68f633e9d7a5e45f68e68c565253276541da9029db43aadc3edfad4  datasets/jth-2.0.toml

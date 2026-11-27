@@ -714,11 +714,12 @@ impl<'a> Block<'a> {
     }
 
     fn comparable(&self) -> speed::Comparable {
-        let lines = (self.rival.as_ref()).map_or_else(Vec::new, |job| job.layout.lines().to_vec());
+        let frozen =
+            (self.rival.as_ref()).map_or_else(String::new, |job| format!("{:?}", job.frozen));
         let mut elements = Input(&self.table).species().unwrap_or_default();
         elements.sort();
         elements.dedup();
-        (self.code(), lines, self.threads, elements)
+        (self.code(), frozen, self.threads, elements)
     }
 
     fn gamma(&self) -> Option<String> {
@@ -1021,6 +1022,8 @@ pub struct Session {
     pilot: bool,
     load: Option<PathBuf>,
     guard_bytes: f64,
+    containment: Option<engine::Containment>,
+    contain_required: bool,
 }
 
 impl Session {
@@ -1076,6 +1079,19 @@ impl Session {
             pilot: false,
             load: None,
             guard_bytes: speed::PEAK_PSS_GUARD_BYTES,
+            containment: None,
+            contain_required: false,
+        }
+    }
+
+    pub fn contained(&self) -> Result<(), String> {
+        match (self.contain_required, &self.containment) {
+            (true, None) => Err(format!(
+                "a claim runs each timed process tree under a {} GB memory limit, and neither `systemd-run --user \
+                 --scope` nor `prlimit` works from this PATH; install one, or run a pilot (ORBITAR_PILOT=1)",
+                self.guard_bytes / 1e9
+            )),
+            _ => Ok(()),
         }
     }
 
@@ -1159,6 +1175,10 @@ impl Session {
             }
             session.table = Some(PathBuf::from(table));
         }
+        if tier.policy().speed.is_some() {
+            session.containment = engine::Containment::probe(&var, session.guard_bytes as u64);
+            session.contain_required = tier == Tier::Claim && !session.pilot;
+        }
         Ok(Some(session))
     }
 
@@ -1172,7 +1192,9 @@ impl Session {
         }
         let started = unix_ms();
         let mut trace = Trace::default();
-        let mut failures = self.attempt(id, &case, measure, &mut trace);
+        let mut failures = engine::contained(self.containment.clone(), || {
+            self.attempt(id, &case, measure, &mut trace)
+        });
         if self.pilot {
             failures.push(PILOT.to_owned());
         }
@@ -1232,6 +1254,7 @@ impl Session {
             "dirty": !git(&self.root, &["status", "--porcelain"]).is_empty(),
             "rustc": rustc(),
             "node": crate::node::block(&self.root, self.rivals.as_deref()),
+            "containment": self.containment.as_ref().map(engine::Containment::describe),
         });
         if !trace.series.is_null() {
             record["series"] = trace.series.clone();
@@ -1390,6 +1413,7 @@ impl Session {
         let mut reserved = Metrics::new();
         let mut failures = Vec::new();
         let mut refused: BTreeSet<String> = BTreeSet::new();
+        let guard = (case.claims().contains(&Claim::Memory)).then_some(self.guard_bytes);
         let ran = match &policy.speed {
             Some(speed) => {
                 let pressures: RefCell<BTreeMap<(speed::Code, usize), Result<f64, String>>> =
@@ -1438,7 +1462,6 @@ impl Session {
                 };
                 let gate = (self.load.as_deref())
                     .map(|proc| load::Gate::new(proc, &self.root, !self.pilot));
-                let guard = (case.claims().contains(&Claim::Memory)).then_some(self.guard_bytes);
                 let ran = speed::time(
                     &run,
                     &blocks,
@@ -1449,6 +1472,15 @@ impl Session {
                     guard,
                 );
                 trace.load = gate.as_ref().map(load::Gate::log).unwrap_or_default();
+                let ran = ran.and_then(|(timed, fatal)| match fatal {
+                    None => Ok(timed),
+                    Some(failure) => {
+                        if matches!(failure, engine::Failure::Engine(_)) {
+                            trace.speed.extend(timed.iter().map(|t| json!(t.record)));
+                        }
+                        Err(failure)
+                    }
+                });
                 ran.map(|mut timed| {
                     for t in &timed {
                         failures.extend(t.record.refused.clone());
@@ -1460,13 +1492,21 @@ impl Session {
                         let spin = spin_stress_case(&self.root);
                         let scale = rivals.settings.target.volume_scale;
                         let mut compressed = BTreeMap::new();
-                        for (b, t) in blocks.iter().zip(&timed) {
+                        for (b, t) in blocks.iter().zip(timed.iter_mut()) {
                             let key = (b.code(), b.index);
                             let wanted = (b.rival.as_ref()).is_none_or(|j| j.code == rival::Rival::Abinit);
                             if let Some(why) = &t.record.refused {
                                 compressed.insert(key, Err(why.clone()));
                             } else if wanted && !compressed.contains_key(&key) {
+                                engine::forget_peaks();
                                 compressed.insert(key, self.at_v2(b, scale, rivals, timeout));
+                                if let Some(why) = past_guard(&b.at(), "V₂", guard) {
+                                    t.record.refused = Some(why.clone());
+                                    failures.push(why);
+                                    if b.rival.is_none() {
+                                        refused.insert(b.input.to_owned());
+                                    }
+                                }
                             }
                         }
                         failures.extend(accuracies(
@@ -1570,19 +1610,25 @@ impl Session {
         }
         let mut own = Vec::new();
         if rivals.is_some() {
-            for (i, (name, _)) in inputs
-                .iter()
-                .enumerate()
-                .filter(|(_, (n, _))| !held.contains_key(n) && !refused.contains(n))
-            {
+            let due: Vec<usize> = (0..inputs.len())
+                .filter(|&i| !held.contains_key(&inputs[i].0) && !refused.contains(&inputs[i].0))
+                .collect();
+            for (i, name) in due.into_iter().map(|i| (i, &inputs[i].0)) {
                 let b = match Block::new(name, i, sweep[0], tables[i].clone(), &files[i], atoms[i])
                 {
                     Ok(b) => b,
                     Err(e) => return vec![trace.failed(name, engine::Failure::Harness(e))],
                 };
                 let clock = Instant::now();
+                engine::forget_peaks();
                 let run = engine::once(&self.bin, &b.text, b.datasets, timeout);
                 trace.spend(clock);
+                if let Some(why) = past_guard(&b.at(), "correctness", guard) {
+                    mark_refused(&mut trace.speed, name, &why);
+                    failures.push(why);
+                    refused.insert(name.clone());
+                    continue;
+                }
                 match run {
                     Ok(run) => own.push((b, run.stdout)),
                     Err(failure) => return vec![trace.failed(name, failure)],
@@ -1609,8 +1655,13 @@ impl Session {
                 Err(e) => return vec![trace.failed(b.input, engine::Failure::Harness(e))],
             };
             let clock = Instant::now();
+            engine::forget_peaks();
             let rotated = engine::once(&self.bin, &turned, b.datasets, timeout);
             trace.spend(clock);
+            if let Some(why) = past_guard(&b.at(), "rotation", guard) {
+                mark_refused(&mut trace.speed, b.input, &why);
+                failures.push(why);
+            }
             let out = match rotated {
                 Ok(run) => {
                     trace.rotation_s.push(run.seconds);
@@ -1831,6 +1882,27 @@ impl Session {
             }
         }
         (failures, measured)
+    }
+}
+
+fn past_guard(at: &str, run: &str, guard: Option<f64>) -> Option<String> {
+    let limit = guard?;
+    let [rss, pss] = engine::last_peaks()?;
+    let bytes = if pss == 0 { rss } else { pss } as f64;
+    (bytes > limit).then(|| {
+        format!(
+            "{at}: refused after its {run} run: its measured peak {:.2} GB passes the {} GB guard",
+            bytes / 1e9,
+            limit / 1e9
+        )
+    })
+}
+
+fn mark_refused(speed: &mut [Value], input: &str, why: &str) {
+    for block in (speed.iter_mut())
+        .filter(|b| b["code"] == "orbitar" && b["input"] == input && b["refused"].is_null())
+    {
+        block["refused"] = json!(why);
     }
 }
 
@@ -2191,6 +2263,10 @@ pub fn main(cases: &[(&'static str, Measure)]) -> ! {
     let session =
         crate::root().and_then(|root| Session::from_vars(&root, |key: &str| std::env::var_os(key)));
     let trials = match session {
+        Ok(Some(session)) if session.contained().is_err() => {
+            let refused = session.contained().err().unwrap_or_default();
+            vec![Trial::test("session", move || Err(Failed::from(refused.clone())))]
+        }
         Ok(Some(session)) => cases
             .iter()
             .map(|&(id, measure)| {

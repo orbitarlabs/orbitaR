@@ -342,6 +342,13 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                                 tier.name()
                             ));
                     }
+                    if case.claims().contains(&crate::case::Claim::Memory) {
+                        findings.extend(series_holes(record, case.rivals()).into_iter().map(
+                            |hole| {
+                                format!("{}: {id} passes a memory claim, but {hole}", tier.name())
+                            },
+                        ));
+                    }
                     let milestone = case.milestone();
                     for code in case
                         .rivals()
@@ -655,6 +662,42 @@ pub fn union(root: &Path, id: &str, dir: &Path) -> Findings {
         }
     }
     findings
+}
+
+fn series_holes(record: &Value, rivals: &[rival::Rival]) -> Vec<String> {
+    let held: Vec<&str> = (record["held_out"].as_array().into_iter().flatten())
+        .filter_map(|h| h["input"].as_str())
+        .collect();
+    let declared = (record["inputs"].as_array().into_iter().flatten())
+        .filter_map(Value::as_str)
+        .filter(|name| !held.contains(name));
+    let codes: Vec<String> = std::iter::once(speed::Code::Orbitar)
+        .chain(rivals.iter().map(|&r| speed::Code::Rival(r)))
+        .map(|code| code.to_string())
+        .collect();
+    let mut holes = Vec::new();
+    for input in declared {
+        for code in &codes {
+            let point = (record["series"].as_array().into_iter().flatten())
+                .filter(|entry| entry["code"].as_str() == Some(code.as_str()))
+                .flat_map(|entry| entry["points"].as_array().into_iter().flatten())
+                .find(|p| p["input"].as_str() == Some(input));
+            let positive = |key: &str| {
+                point
+                    .and_then(|p| p[key].as_f64())
+                    .is_some_and(|x| x.is_finite() && x > 0.0)
+            };
+            let measured = point.is_some_and(|p| p["status"] == "measured")
+                && positive("median_t_delta_s")
+                && positive("median_peak_pss_bytes");
+            if !measured {
+                let status =
+                    point.map_or_else(|| "no series point".to_owned(), |p| text(&p["status"]));
+                holes.push(format!("its series lacks {code} at {input} ({status})"));
+            }
+        }
+    }
+    holes
 }
 
 fn load(path: &Path) -> Result<Value, String> {

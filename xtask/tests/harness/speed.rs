@@ -1446,3 +1446,138 @@ pub(crate) fn procfs(root: &Tree, runnable: u32) -> std::path::PathBuf {
     );
     root.join("proc")
 }
+
+fn fatal_orbitar(name: &str, case: &str, timed: &str) -> (Outcome, Value) {
+    let (one, two) = (chain(1), chain(2));
+    let files = [
+        ("input.toml", one.as_str()),
+        ("inputs/b.toml", two.as_str()),
+    ];
+    let body = format!(
+        "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' ')\n\
+         if [ \"$a\" = 2 ] && ! tight; then dd if=/dev/zero of=/dev/null bs=30000000 count=1 2>/dev/null; {timed}; fi\nstep -2"
+    );
+    let (outcome, record, _) = claim_case(name, case, &files, "", &body);
+    (outcome, record)
+}
+
+fn kept_peak(record: &Value, input: &str) -> Vec<u64> {
+    let block = (record["speed"].as_array().unwrap().iter())
+        .find(|b| b["code"] == "orbitar" && b["input"] == input)
+        .unwrap_or_else(|| panic!("no {input} block: {record}"));
+    (block["failed_peak_bytes"].as_array().into_iter().flatten())
+        .filter_map(Value::as_u64)
+        .collect()
+}
+
+#[test]
+fn a_failed_orbitar_timed_run_keeps_every_blocks_record_and_its_own_peak() {
+    let (outcome, record) = fatal_orbitar("speed-fatal", &memory_claim(), "exit 3");
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains("timing: b at 8 threads: engine exited")),
+        "{outcome:?}"
+    );
+    assert_eq!(record["speed"].as_array().unwrap().len(), 2, "{record}");
+    let kept = kept_peak(&record, "b");
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{kept:?}: {record}"
+    );
+}
+
+#[test]
+fn a_timed_out_orbitar_run_keeps_the_peak_it_reached_before_the_kill() {
+    let case = memory_claim().replace("\n[tolerance]", "timeout_s = 2\n\n[tolerance]");
+    assert!(case.contains("timeout_s = 2"));
+    let (outcome, record) = fatal_orbitar("speed-timeout", &case, "sleep 5");
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains("timing: b at 8 threads: timeout after 2 s")),
+        "{outcome:?}"
+    );
+    let kept = kept_peak(&record, "b");
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{kept:?}: {record}"
+    );
+}
+
+fn contained_vars(
+    root: &Tree,
+    bin: &std::path::Path,
+    path: &std::path::Path,
+    pilot: bool,
+) -> impl Fn(&str) -> Option<std::ffi::OsString> {
+    let pairs: Vec<(&'static str, std::ffi::OsString)> = vec![
+        ("ORBITAR_BIN", bin.into()),
+        ("ORBITAR_TIER", "claim".into()),
+        ("ORBITAR_RECORD_DIR", root.join("records").into()),
+        ("PATH", path.into()),
+    ]
+    .into_iter()
+    .chain(pilot.then(|| ("ORBITAR_PILOT", "1".into())))
+    .collect();
+    move |key: &str| {
+        (pairs.iter())
+            .find(|(k, _)| *k == key)
+            .map(|(_, v)| v.clone())
+    }
+}
+
+#[test]
+fn a_claim_without_a_process_tree_memory_limit_is_refused_and_a_pilot_is_not() {
+    let (_, _, root) = claim("speed-uncontained", "step -2");
+    let bin = fake(&root, "step -2");
+    let empty = root.join("no-tools");
+    std::fs::create_dir_all(&empty).unwrap();
+    let claim = Session::from_vars(&root, contained_vars(&root, &bin, &empty, false))
+        .unwrap()
+        .unwrap();
+    let refused = claim.contained().err().unwrap_or_default();
+    assert!(refused.contains("under a 14 GB memory limit"), "{refused}");
+    let pilot = Session::from_vars(&root, contained_vars(&root, &bin, &empty, true))
+        .unwrap()
+        .unwrap();
+    assert!(pilot.contained().is_ok());
+}
+
+#[test]
+fn a_claim_runs_each_timed_process_tree_inside_a_memory_scope_and_records_it() {
+    let (_, _, root) = claim("speed-contained", "step -2");
+    let bin = fake(&root, "step -2");
+    let tools = root.join("tools");
+    let log = root.join("scope.log");
+    super::rival::script(
+        &tools.join("systemd-run"),
+        &format!(
+            "echo \"$@\" >> '{}'\nwhile [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"",
+            log.display()
+        ),
+    );
+    let session = Session::from_vars(&root, contained_vars(&root, &bin, &tools, false))
+        .unwrap()
+        .unwrap()
+        .with_load(&procfs(&root, 1));
+    assert!(session.contained().is_ok());
+    let _ = session.evaluate("1_a", both);
+    let record: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    let scopes = std::fs::read_to_string(&log).unwrap_or_default();
+    let engine_runs = scopes
+        .lines()
+        .filter(|l| l.contains("orbitar run input.toml"))
+        .count();
+    assert!(engine_runs >= 3, "{scopes}");
+    assert!(
+        scopes.lines().all(|l| l
+            .starts_with("--user --scope --quiet -p MemoryMax=14000000000 -p MemorySwapMax=0 --")),
+        "{scopes}"
+    );
+    assert!(
+        record["containment"]["limit"]
+            .as_str()
+            .unwrap()
+            .starts_with("systemd-run"),
+        "{record}"
+    );
+}
