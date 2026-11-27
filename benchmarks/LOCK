@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=claim-tools-2 (bench <tier> [case] runs and judges one case; a claim refuses a timed run on a loaded node (loadavg, PSI) and records each reading; rival ranks run OpenBLAS on one thread; ABINIT's layout candidates keep its default istwfk; a held-out variant takes its base input) merged with size-series (case 12 becomes the size series Si 2 to 128 against QE and ABINIT; series readouts per size and code with least-squares exponents; a 14 GB peak-memory guard for memory-claim cases)
+# harness reviewer=PENDING reason=claim-tools-2 (bench <tier> [case]; the load check; rival OpenBLAS on one thread; ABINIT's default istwfk; held-out base inputs) merged with size-series (case 12 is the size series Si 2 to 128 against QE and ABINIT), with round 1 of its review: the 14 GB guard estimates from comparable measured peaks per code (orbitaR at most two solves in flight, rivals without a concurrency discount), stops a block after an over-budget measured run and keeps failed runs' peaks; case 12's Si2 is a rival calibration cell; each block records its Γ mode; the series fit reads the declared inputs alone, names a status per code and size, and a full claim needs full coverage
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -6,18 +6,18 @@ cfbd995eb8dcd16c1985e8ecd20e0626b763599cbc212a8f69110a466ba26681  xtask/src/benc
 ef5e8e406eb8be282e58c8f3ea96b67e276bb3bfe681a7cafcf968855c4de441  xtask/src/case.rs
 acc25a9a7a6f0f575332050c2763702da4b313cc3e8160eea822521c77e21935  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
-d999301148a0c98538c5053177cbbc2d211d4d1843c2da3f73cb9c28a8461109  xtask/src/harness.rs
+3a456e8d0610f8b0767852c7d1ed168a551827d191562013a29e898ff8e6927c  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 03878ff9cd97a82b22af1417c9b7497191d232877176b85c1daf8378b2174578  xtask/src/harness/datasets.rs
-9c2c75e70f8b5ec234a6e1e00b4701489bcb517a46f03b9d2452ea026a70b9a0  xtask/src/harness/engine.rs
+835575f09bfdca16b99182f58194587844adadc59b11932579298fda4ba66a45  xtask/src/harness/engine.rs
 e4ff8dac6c5883566f42a2fd836c4f53f8c5e99d6ccf30a19ed3e95957f3757c  xtask/src/harness/eos.rs
 81eeef8005a3e74f62f119414de5f729ab220b67c3249f8fbb39dee3b3b67a6a  xtask/src/harness/load.rs
-41c3103edbece11d0c91b7dd838c12cd6d6e2afb7237c995138b462120c1a68f  xtask/src/harness/record.rs
+97a944bdce163a3a58635a1ab12bd83df22b10479aa2550b63321fb8b0b8931e  xtask/src/harness/record.rs
 c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harness/relax.rs
-ef838d27843dac13902cee19c2e37f8b4aa2b7cc95324cb6ba13e47a04fe22b1  xtask/src/harness/rival.rs
+6ed8fa0609255b77143b849f8f88517b17222f1f5979b6a2fe0215901278e5b5  xtask/src/harness/rival.rs
 832e4d829b61ed81c03204e298754a9ca5f7b6f88385d4d477aedda04ec751bb  xtask/src/harness/rival/abinit.rs
-f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harness/rival/qe.rs
-ffa3e0850932ecba9859afab793cacb905df69704aa1f00ad617765a0ee3aaf6  xtask/src/harness/speed.rs
+22e53eda5ff78cec6077c4becbd15ada0b53efe844cd27e3eea96b522039fc24  xtask/src/harness/rival/qe.rs
+aa0f2a40f8a339c440689871cc5bb368554dc8eaa9cb574a26f3dbb18c567612  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
 8d6e609fdf18a359f5ede6a89f9c3ecebd342ac4963bfb49fd920dfc652ab6cd  xtask/src/lib.rs
@@ -54,10 +54,10 @@ ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/ha
 dd986b26eb7fde3c94c3ca899b61b56a96d949180eb23950bafbaa522b8afdfa  xtask/tests/harness/load.rs
 34d71ac7644751dbfbb389d52b8843db63ca7b02c9c0234947fcb930daa83143  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
-30371038acfbf7a92efd303c27abcd609e94f346b24f01f63068a4020f4edc7b  xtask/tests/harness/rival.rs
+7b0b01d16c5bf25c6cacf1f2cb577bcdf1b92a52c101f821d5e86bab1af76aaf  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
-35eb054008e25c01fb44537ef2176b8779494efe120d5ece004f38762ae6fdf9  xtask/tests/harness/speed.rs
+991db14ab9fc1b8853a38330acf648fb60bf072b9b051c0193b056bb2a0bc76f  xtask/tests/harness/speed.rs
 33467b75f6e238946868cd25d6d62922bbb10c6d99ee156bab47117d798cbae5  xtask/tests/layers.rs
 749f8ec5618c7c1d46dda9faec5dc7fc4a987489d187a4c5b57f1654439a58dc  xtask/tests/layout.rs
 9623a0ce43ca494bdbb524b5c69b3173c4d9ef8238b93768c2cb2bdce46a20b0  xtask/tests/lib.rs
@@ -94,7 +94,7 @@ d6be09d9c32bdd299b9deccfbc75bc04d39ae963dec5166aec77fe8419e2bb9b  .github/workfl
 1c64aab23b9bc43e83ed64a50d2b871ffaa32f7ccbf3f3e4b78bc83ac117d95b  Cargo.lock
 2e6420f7a8d85f8f2e01c1246b63d0ef756d81948ad0c8d1f82687e16127d7d2  benchmarks/NODE.toml
 40802dfb2389005c0264bdfe41e25ada7280c42b87c472a515870a467c5d0334  benchmarks/DATASETS.toml
-d374ec09407af254988f1de17457a3b245ff279064e191cff72d9d5cf538fa4d  benchmarks/RIVALS.toml
+ae77574e777b1ca89b96267d264f939efb86cff05d65a37719e79c70c718ec40  benchmarks/RIVALS.toml
 4077c548e420bb3900cd82059f332416db21a8e6f173eac1068f7efc55e1cf14  benchmarks/TUNED.toml
 307acf155bb662a248adafb0cc46c6527aa0de850f6fe952d29739e890b75ade  benchmarks/ACWF.toml
 1b917f41e68f633e9d7a5e45f68e68c565253276541da9029db43aadc3edfad4  datasets/jth-2.0.toml
@@ -210,9 +210,9 @@ f7d6b38bb77323246b016a35290833fdf804fda030bf5e9d076b776691ed6863  benchmarks/11_
 aa23af9e5576cfd7f03f6e2e9f51eff87b1e675bd0318e4c9e1eee47ad7a3fd4  benchmarks/11_speed_scaling/reference/si32.abi
 f88d90b4234019adce78b2f80e12adeb1047baea20ae245b212c201305353d9d  benchmarks/11_speed_scaling/reference/si32.json
 30acc85e5e94ee4af1e5a545f5285ca47e6004e94fc0bd17dde707ded0d24a47  tests/benchmarks/11_speed_scaling/case.rs
-# 12_memory_scaling reviewer=PENDING reason=claim-tools-2 (bench <tier> [case] runs and judges one case; a claim refuses a timed run on a loaded node (loadavg, PSI) and records each reading; rival ranks run OpenBLAS on one thread; ABINIT's layout candidates keep its default istwfk; a held-out variant takes its base input) merged with size-series (case 12 becomes the size series Si 2 to 128 against QE and ABINIT; series readouts per size and code with least-squares exponents; a 14 GB peak-memory guard for memory-claim cases)
+# 12_memory_scaling reviewer=PENDING reason=claim-tools-2 (bench <tier> [case]; the load check; rival OpenBLAS on one thread; ABINIT's default istwfk; held-out base inputs) merged with size-series (case 12 is the size series Si 2 to 128 against QE and ABINIT), with round 1 of its review: the 14 GB guard estimates from comparable measured peaks per code (orbitaR at most two solves in flight, rivals without a concurrency discount), stops a block after an over-budget measured run and keeps failed runs' peaks; case 12's Si2 is a rival calibration cell; each block records its Γ mode; the series fit reads the declared inputs alone, names a status per code and size, and a full claim needs full coverage
 6042c26be76e709161280b7418d76bc0a7e5dd6279294efe919bf1ca1b1bd185  benchmarks/12_memory_scaling/case.toml
-14ed9fbdded302ce2831f6f7f608d9a2da415c8af0b350b700086b5318959d8c  benchmarks/12_memory_scaling/cells.py
+2a16e6e416ba9dbb050c31895a212bc64b2868ffb2af7b7e0d9a7cadf8d30a93  benchmarks/12_memory_scaling/cells.py
 0c53e07e56068c09e5c1605fbeeeb606425af5ceef58fb3b7feac9a6be9b35a9  benchmarks/12_memory_scaling/input.toml
 496ed4afa4fc535eaf3c348e0bfa38a687944832c1bce7d410eee8b80ce1eb92  benchmarks/12_memory_scaling/inputs/si128.toml
 eff2a786a361c68bad968623e491b17cb760e9cf5a4e3daa0ae0944b7fefd079  benchmarks/12_memory_scaling/inputs/si16.toml
