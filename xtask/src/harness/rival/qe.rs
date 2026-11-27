@@ -130,7 +130,7 @@ impl Adapter for Qe {
             let [x, y, z] = p;
             let _ = writeln!(s, "  {} {x:?} {y:?} {z:?}", types[t].0);
         }
-        if cell.mesh == [1, 1, 1] && cell.shifted == [false; 3] {
+        if cell.gamma_only() {
             s.push_str("K_POINTS gamma\n");
         } else {
             let [a, b, c] = cell.mesh;

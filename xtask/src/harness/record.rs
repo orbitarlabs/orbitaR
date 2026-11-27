@@ -53,7 +53,13 @@ pub(crate) fn write(dir: &Path, id: &str, record: &Value) -> Result<(), String> 
     fs::write(&path, record.to_string()).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-pub fn verify(root: &Path, tier: Tier, dir: &Path, since: SystemTime) -> Findings {
+pub fn verify(
+    root: &Path,
+    tier: Tier,
+    dir: &Path,
+    since: SystemTime,
+    case: Option<&str>,
+) -> Findings {
     let since_ms = since
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis()) as f64;
@@ -65,7 +71,10 @@ pub fn verify(root: &Path, tier: Tier, dir: &Path, since: SystemTime) -> Finding
     let mut seconds = 0.0;
     let (mut active, mut proved) = (0, 0);
     findings.extend(unreviewed(root, lock::HARNESS).map(|why| format!("{}: {why}", tier.name())));
-    for id in &ids {
+    for id in ids
+        .iter()
+        .filter(|id| case.is_none_or(|c| c == id.as_str()))
+    {
         let case = match Case::load(root, id) {
             Ok(case) => case,
             Err(e) => {
@@ -118,7 +127,7 @@ pub fn verify(root: &Path, tier: Tier, dir: &Path, since: SystemTime) -> Finding
     findings
 }
 
-fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Findings {
+pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Findings {
     let mut findings = Vec::new();
     let times = |key: &str| -> Vec<f64> {
         record[key]
@@ -186,10 +195,37 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                     };
                     let [p] = speed.threads;
                     let timed = settings.as_ref().is_none_or(|s| s.times(p.get()));
+                    let names: Vec<&str> = (record["inputs"].as_array().into_iter().flatten())
+                        .filter_map(Value::as_str)
+                        .collect();
+                    let mut bases = BTreeMap::new();
+                    let variants: BTreeSet<&str> =
+                        (record["held_out"].as_array().into_iter().flatten())
+                            .filter_map(|h| h["input"].as_str())
+                            .collect();
+                    for held in record["held_out"].as_array().into_iter().flatten() {
+                        let Some(name) = held["input"].as_str() else {
+                            findings.push(format!(
+                                "{}: {id} record holds a held-out variant without its input name: {held}",
+                                tier.name()
+                            ));
+                            continue;
+                        };
+                        let Some(base) = held["base"].as_str() else {
+                            continue;
+                        };
+                        if !names.contains(&base) || variants.contains(base) {
+                            findings.push(format!(
+                                "{}: {id} record's held-out {name} varies {base}, which is no input of the record",
+                                tier.name()
+                            ));
+                        }
+                        bases.insert(name, base);
+                    }
                     let due: usize = (record["inputs"].as_array().into_iter().flatten())
                         .filter_map(Value::as_str)
                         .map(|name| {
-                            let path = rival::input_path(id, name);
+                            let path = rival::input_path(id, bases.get(name).unwrap_or(&name));
                             let theirs = (case.rivals().iter())
                                 .filter(|&&code| {
                                     !settings
@@ -277,6 +313,24 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                                 block.code
                             ));
                         }
+                        let quiet = block.load.iter().filter(|r| r.quiet()).count();
+                        if quiet != 1 + t.len() + lost {
+                            findings.push(format!(
+                                "{}: {id} record shows a quiet node before {quiet} runs of {} at {at} threads, not before its warm-up and each of its {} runs",
+                                tier.name(),
+                                block.code,
+                                t.len() + lost
+                            ));
+                        }
+                        let alone = block.during.iter().filter(|d| d.quiet()).count();
+                        if block.during.len() != 1 + t.len() + lost || alone != 1 + t.len() + lost {
+                            findings.push(format!(
+                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its warm-up and each of its {} runs, judged or lost",
+                                tier.name(),
+                                block.code,
+                                t.len() + lost
+                            ));
+                        }
                         if block.code == speed::Code::Orbitar {
                             sum += t.len();
                         }
@@ -288,6 +342,18 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                                 "{}: {id} passes beside rivals with no held-out variant (ORBITAR_HELDOUT)",
                                 tier.name()
                             ));
+                    }
+                    if case.claims().contains(&crate::case::Claim::Memory) {
+                        findings.extend(
+                            series_holes(root, id, record, case.rivals())
+                                .into_iter()
+                                .map(|hole| {
+                                    format!(
+                                        "{}: {id} passes a memory claim, but {hole}",
+                                        tier.name()
+                                    )
+                                }),
+                        );
                     }
                     let milestone = case.milestone();
                     for code in case
@@ -604,6 +670,55 @@ pub fn union(root: &Path, id: &str, dir: &Path) -> Findings {
     findings
 }
 
+fn series_holes(root: &Path, id: &str, record: &Value, rivals: &[rival::Rival]) -> Vec<String> {
+    let dir = root.join("benchmarks").join(id);
+    let declared: Vec<String> = match super::inputs(root, &dir, None) {
+        Ok((inputs, _)) => inputs.into_iter().map(|(name, _)| name).collect(),
+        Err(e) => return vec![format!("its declared inputs do not load: {e}")],
+    };
+    if declared.is_empty() {
+        return vec![format!("benchmarks/{id} declares no input")];
+    }
+    let codes: Vec<String> = std::iter::once(speed::Code::Orbitar)
+        .chain(rivals.iter().map(|&r| speed::Code::Rival(r)))
+        .map(|code| code.to_string())
+        .collect();
+    let mut holes = Vec::new();
+    for input in declared.iter().map(String::as_str) {
+        for code in &codes {
+            let polled = (record["speed"].as_array().into_iter().flatten())
+                .filter(|b| {
+                    b["code"].as_str() == Some(code.as_str()) && b["input"].as_str() == Some(input)
+                })
+                .flat_map(|b| b["peak_pss_bytes"].as_array().into_iter().flatten())
+                .any(|bytes| bytes.as_u64().is_some_and(|b| b > 0));
+            if !polled {
+                holes.push(format!(
+                    "no {code} block at {input} holds a timed run with a positive Pss"
+                ));
+            }
+            let point = (record["series"].as_array().into_iter().flatten())
+                .filter(|entry| entry["code"].as_str() == Some(code.as_str()))
+                .flat_map(|entry| entry["points"].as_array().into_iter().flatten())
+                .find(|p| p["input"].as_str() == Some(input));
+            let positive = |key: &str| {
+                point
+                    .and_then(|p| p[key].as_f64())
+                    .is_some_and(|x| x.is_finite() && x > 0.0)
+            };
+            let measured = point.is_some_and(|p| p["status"] == "measured")
+                && positive("median_t_delta_s")
+                && positive("median_peak_pss_bytes");
+            if !measured {
+                let status =
+                    point.map_or_else(|| "no series point".to_owned(), |p| text(&p["status"]));
+                holes.push(format!("its series lacks {code} at {input} ({status})"));
+            }
+        }
+    }
+    holes
+}
+
 fn load(path: &Path) -> Result<Value, String> {
     fs::read_to_string(path)
         .map_err(|e| e.to_string())
@@ -700,13 +815,33 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
             );
         }
     }
+    for s in record["series"].as_array().into_iter().flatten() {
+        println!(
+            "series {} ({} coverage): T(δ) exponent {}, peak Pss exponent {} (least squares on log-log, readouts)",
+            text(&s["code"]),
+            text(&s["coverage"]),
+            text(&s["t_delta_exponent"]),
+            text(&s["pss_exponent"])
+        );
+        for p in s["points"].as_array().into_iter().flatten() {
+            println!(
+                "  {} atoms {} {}: median T(δ) {} s, median peak Pss {} bytes",
+                text(&p["input"]),
+                text(&p["atoms"]),
+                text(&p["status"]),
+                text(&p["median_t_delta_s"]),
+                text(&p["median_peak_pss_bytes"])
+            );
+        }
+    }
     for b in &blocks {
         let median = |key: fn(&speed::Timing) -> f64| {
             (b.timing.as_ref()).map_or_else(|| "none".to_owned(), |t| key(t).to_string())
         };
         println!(
             "block {} {} p={}: timed runs {} losses {}; medians of the runs alone: T(δ) {} s, wall {} s, peak Pss {} \
-             bytes; noisy {} E_ref {} accuracy {}; SCF steps {:?}, E_ref's {:?}, cap {:?}",
+             bytes; noisy {} E_ref {} accuracy {}; SCF steps {:?}, E_ref's {:?}, cap {:?}; a quiet node before {} of {} \
+             runs, the warm-up first: {:?}; no other load through {} of them: {:?}",
             b.code,
             b.input,
             b.threads,
@@ -727,7 +862,12 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
                 .map_or_else(|| "none".to_owned(), Value::to_string),
             b.steps,
             b.e_ref_steps,
-            b.step_cap
+            b.step_cap,
+            b.load.iter().filter(|r| r.quiet()).count(),
+            b.load.len(),
+            b.load,
+            b.during.iter().filter(|d| d.quiet()).count(),
+            b.during
         );
     }
     let mut lost: Vec<&str> = (blocks.iter())

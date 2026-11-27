@@ -89,8 +89,8 @@ enum Cli {
     Check,
     /// Prove It Works: build the release engine, run the push cases, check their records
     Smoke,
-    /// bench <tier>: the same for one tier; `cargo xtask help` lists the tiers
-    Bench { tier: String },
+    /// bench <tier> [case]: the same for one tier, or for one case of it; `cargo xtask help` lists the tiers
+    Bench { tier: String, case: Option<String> },
     /// new-case <slug> <reference>: scaffold the next <N>_<slug>; regenerate the case table
     NewCase { slug: String, reference: String },
     /// lock --reviewer <name> --reason <text>: hash into benchmarks/LOCK; each changed block gets a new review line
@@ -182,7 +182,17 @@ enum Cli {
     /// collect reads <dir>/<tier>/*.json (default target/benchmarks; every tier there when none is named) and writes
     /// a row per active case: what it checks and its headline metric (benchmarks/results-what.toml), each bound's
     /// measured value and ratio, the outcome, the record's commit and engine. It refuses a dirty record or one whose
-    /// commit is no ancestor of HEAD. render writes benchmarks/README.md and assets/benchmarks/results-{light,dark}.svg from RESULTS.toml alone (results.rs).
+    /// commit is no ancestor of HEAD, a pilot, a pass with failures, a filter or a bound its case does not hold, and a
+    /// claim record that harness/record.rs refuses. It pins each row's record, byte for byte, as one line of
+    /// benchmarks/RECORDS.jsonl (record_sha256). A passing claim row also keeps [case.claim]: per rival G, its 95% CI, R
+    /// and the pairs, the size series and the skips, each made again from the samples of the speed blocks by
+    /// harness::claim_summaries, the producer's own functions; the record's summaries must equal them bit for bit, and its
+    /// blocks must be the case's manifest (declared inputs and held-out names, the thread sweep, the configured skips)
+    /// at the atoms of each declared cell; also each input that a code did not time, with the reason, and the node block. render writes
+    /// benchmarks/README.md and assets/benchmarks/results-{light,dark}.svg from RESULTS.toml alone, and
+    /// assets/benchmarks/card-{speed,memory,scaling,verification}-{light,dark}.svg: speed, memory and scaling only from a
+    /// claim row, verification only while each case it shows passes; it removes a card that no row backs. Science S11
+    /// derives each row again from its pinned record (results.rs, results/claim.rs, results/card.rs).
     Results {
         #[command(subcommand)]
         step: Step,
@@ -338,8 +348,8 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
     match command {
         Cli::Help => help(),
         Cli::Check => check(root, env),
-        Cli::Smoke => bench::tier(root, "push", env),
-        Cli::Bench { tier } => bench::tier(root, &tier, env),
+        Cli::Smoke => bench::tier(root, "push", None, env),
+        Cli::Bench { tier, case } => bench::tier(root, &tier, case.as_deref(), env),
         Cli::NewCase { slug, reference } => layout::new_case(root, &slug, &reference),
         Cli::Lock { reviewer, reason } => lock::write(root, &reviewer, &reason),
         Cli::Wheel { check, target } => {

@@ -172,7 +172,7 @@ impl Adapter for Abinit {
             out.push(Layout::new(ranks, p / ranks, Vec::new(), Vec::new()));
             if ranks > 1 {
                 let npband = format!("npband {ranks}");
-                let auto: &[&str] = &["paral_kgb 1", "autoparal 1", "istwfk *1"];
+                let auto: &[&str] = &["paral_kgb 1", "autoparal 1"];
                 let bands: &[&str] = &["paral_kgb 1", "np_spkpt 1", &npband, "npfft 1"];
                 for kgb in [auto, bands] {
                     let input = kgb.iter().map(|&line| line.to_owned()).collect();

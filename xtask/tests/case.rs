@@ -342,3 +342,27 @@ fn the_contributing_example_of_why_names_values_of_its_case() {
     let f = why_findings("case-why-contributing", &case, Some(INPUT_TOML));
     assert!(f.is_empty(), "{f:?}");
 }
+
+#[test]
+fn the_size_series_case_may_turn_active_once_a_claim_run_passes() {
+    let series = include_str!("../../benchmarks/12_memory_scaling/case.toml");
+    let active = series.replace("status = \"planned\"", "status = \"active\"");
+    assert_ne!(active, series);
+    let with_input = |name: &str, case_toml: &str| {
+        let files = [
+            ("benchmarks/1_a/case.toml", case_toml),
+            (INPUT_TOML, "schema = 1\n"),
+        ];
+        lever(&["layout"], &tree(name, &files))
+    };
+    let found = with_input("case-series", &active);
+    let scaffold = |f: &String| {
+        f.contains("tests/benchmarks/1_a/case.rs") || f.contains("tests/benchmarks.rs lacks")
+    };
+    assert!(found.iter().all(scaffold), "{found:?}");
+    let without = active.replace("rivals = [\"qe\", \"abinit\"]\n", "");
+    assert!(has(
+        &with_input("case-series-alone", &without),
+        "an active memory claim needs rivals"
+    ));
+}
