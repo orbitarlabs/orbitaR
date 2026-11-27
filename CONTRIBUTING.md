@@ -18,7 +18,7 @@ cargo xtask new-case <slug> <reference>
 ```text
 you write
   benchmarks/<N>_<slug>/input.toml       the engine input; more inputs go in inputs/<stem>.toml
-  benchmarks/<N>_<slug>/case.toml        [tolerance]: <metric>_max or <metric>_min; the harness judges, not measure()
+  benchmarks/<N>_<slug>/case.toml        [tolerance]: <metric>_max or _min, judged by the harness; [why]: README.md
   tests/benchmarks/<N>_<slug>/case.rs    measure(): the metrics of the engine output
   benchmarks/<N>_<slug>/reference/       the reference files, with SOURCE.toml
 ```

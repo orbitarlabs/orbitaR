@@ -32,11 +32,11 @@ def last_cartesian_forces_and_removed_mean(abo):
 
 
 args = sys.argv[1:]
+if len(args) < (5 if args[:1] == ["--abo"] else 3):
+    sys.exit(USAGE)
 abo = None
 if args[:1] == ["--abo"]:
     abo, args = args[1], args[2:]
-if len(args) < 3:
-    sys.exit(USAGE)
 source = json.loads(Path(args[0]).read_text())
 bands = int(args[1])
 counts = [tuple(int(x) for x in a.split(":")) for a in args[2:]]

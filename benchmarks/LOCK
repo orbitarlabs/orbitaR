@@ -1,10 +1,10 @@
-# harness reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# harness reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, omissions tested, Case built only by its parser); case 12 and 16 reasons state the 0.54 fit as empirical with its scope, case 16 keeps its endpoint records; reduce.py checks its operands first; README shows [why]; no bound, input, or reference value changed
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
 b801d44f73e3e9107711b16fb32be4c5964d9bc68cd0e41528e73321d08a7f32  xtask/src/bench.rs
-f921d565baeac8964b4b8a2c0eb776123123173aa875d80600fd6d2581b94474  xtask/src/case.rs
-acc25a9a7a6f0f575332050c2763702da4b313cc3e8160eea822521c77e21935  xtask/src/docs.rs
+585b3a33fa9a08fade3ce2695b171ed86bf7e58e055cb2c6f49809b05d4f361d  xtask/src/case.rs
+74e54cf67e0dbec2837e30c43bc2371a993b57f71fde0c9205a1fd5a0a0c5c8f  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
 00dc9e370629c4c522b85e3c56870cf61ec9f897890a530f87a0b35b08f6b9cc  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
@@ -42,10 +42,10 @@ af1167b4049c37599a8056a69776738384d5343da8d0f33252f69dc98c3630db  xtask/src/tune
 b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk.rs
 6ab6b9fbdacafa2d2973bdc4f0a7ef366da2d5b9af21a5516a80e379e3219b26  xtask/tests/atompaw.rs
 90316a2227e058f9413f28877d49657bdc0418990a0659cb552888827797b2fd  xtask/tests/bench.rs
-7d8c43fc681e0431bee3bf2b7b07fb784f79ee3f448db3a53c9e9cbea4ec9ec0  xtask/tests/case.rs
-26dbcac50eaf0e847fc058f3a469de39dbfcfd204d8068a9008537feb634c687  xtask/tests/docs.rs
+8548422084eae9b34a707c6ae632ed8f2ff2536e14bc3aca4839941f40c52e9b  xtask/tests/case.rs
+5a1caa406c3065da3c1d7339f1f36a617a19203b5d317e47f804176e41068551  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
-5e815b6eccf5bb3aa5fab7ea4288d9e05d64dd75827d6dc34af242e59b329f0a  xtask/tests/harness.rs
+3ef0fe8fb3a979fa7ce75cb1c066bc94df94c3e6d3249541ae03b8647ce0c72d  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
 34bb356c822a8e35907af2fdbd5033f4fb84d7525f941599a30694a0995cf02e  xtask/tests/harness/datasets.rs
 0739faee7795181f7c37e750f90392369e783475d39ee5aa685108506f5bd3f7  xtask/tests/harness/engine.rs
@@ -58,7 +58,7 @@ fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/ha
 164a2198a3f120433365858b1c3a6d291e7c89919c818ed73444cd9e8c409898  xtask/tests/harness/speed.rs
 33467b75f6e238946868cd25d6d62922bbb10c6d99ee156bab47117d798cbae5  xtask/tests/layers.rs
 749f8ec5618c7c1d46dda9faec5dc7fc4a987489d187a4c5b57f1654439a58dc  xtask/tests/layout.rs
-9623a0ce43ca494bdbb524b5c69b3173c4d9ef8238b93768c2cb2bdce46a20b0  xtask/tests/lib.rs
+019ce016d6c05f225bd1ab13aed00a1e7a7c0778fec5637104a13b648c6a825e  xtask/tests/lib.rs
 78cc662c6553e99274fece32b948b3b677d47050d6d2c420816b515e248d4274  xtask/tests/lock.rs
 0861973ee38c653fad11c1fc4616d892e83660b4a72b38b77ac224a0083176c4  xtask/tests/main.rs
 3c8ed3ae61bb2ef2aa2617da2d978b114e58861988bce0d9bf22d5530be9e050  xtask/tests/manifest.rs
@@ -208,8 +208,8 @@ f7d6b38bb77323246b016a35290833fdf804fda030bf5e9d076b776691ed6863  benchmarks/11_
 aa23af9e5576cfd7f03f6e2e9f51eff87b1e675bd0318e4c9e1eee47ad7a3fd4  benchmarks/11_speed_scaling/reference/si32.abi
 f88d90b4234019adce78b2f80e12adeb1047baea20ae245b212c201305353d9d  benchmarks/11_speed_scaling/reference/si32.json
 30acc85e5e94ee4af1e5a545f5285ca47e6004e94fc0bd17dde707ded0d24a47  tests/benchmarks/11_speed_scaling/case.rs
-# 12_memory_scaling reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
-a9c2db8224da7cab6cf262647a0f760dab1eae9302a2c3d91d646e7633b79b30  benchmarks/12_memory_scaling/case.toml
+# 12_memory_scaling reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, omissions tested, Case built only by its parser); case 12 and 16 reasons state the 0.54 fit as empirical with its scope, case 16 keeps its endpoint records; reduce.py checks its operands first; README shows [why]; no bound, input, or reference value changed
+584bedccfa809cb3d11d621c04d7566992e06c5d2d73cda5836cc481ee619919  benchmarks/12_memory_scaling/case.toml
 0c53e07e56068c09e5c1605fbeeeb606425af5ceef58fb3b7feac9a6be9b35a9  benchmarks/12_memory_scaling/input.toml
 eff2a786a361c68bad968623e491b17cb760e9cf5a4e3daa0ae0944b7fefd079  benchmarks/12_memory_scaling/inputs/si16.toml
 3ae30d6df5f3a956f749ad25cdaf65108299d497c5065e361582f40466607f0c  benchmarks/12_memory_scaling/inputs/si32.toml
@@ -294,8 +294,8 @@ bfc3768b8ada31cfe5bf9bbc9219b5798744e0397b01198a719a86b995e5c12d  benchmarks/15_
 e0ae8406c94ce792da3d81212aaa5a86b7204fcc387002870a8c19256b65897b  benchmarks/15_stress_derivative/inputs/gaas-volume-plus.toml
 1476256d08d437eac69fa619cbbcf6819e323aaca590100bdd6ad80f8fdca219  benchmarks/15_stress_derivative/reference/SOURCE.toml
 02116187ff4805e3147e66f5c18e2bd98e541abf6acdcce11e383e9df20e1725  tests/benchmarks/15_stress_derivative/case.rs
-# 16_relax_endpoint reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
-bf366af18dc1eb16b7bd1703b3f8cc2e75eddda8ecf656817b7bc5d497d2cc66  benchmarks/16_relax_endpoint/case.toml
+# 16_relax_endpoint reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, omissions tested, Case built only by its parser); case 12 and 16 reasons state the 0.54 fit as empirical with its scope, case 16 keeps its endpoint records; reduce.py checks its operands first; README shows [why]; no bound, input, or reference value changed
+d4008aa1028f076b964e5a5c8537094d0e811f3065b444bd12ac8d3b786fef1d  benchmarks/16_relax_endpoint/case.toml
 9db1797a38824ecd70a996d210165e60573be4abe786050595cf21301574adbf  benchmarks/16_relax_endpoint/inputs/fe-cell.toml
 d894d4e994a104ca6461c7340f7008ed32640a4796342c292d34595d7bb0a38e  benchmarks/16_relax_endpoint/inputs/fe-ions.toml
 555e620cdee0d31029868f0010bac7eca0cc0357971dc545cf5aa6b8664350e7  benchmarks/16_relax_endpoint/inputs/si-cell.toml
@@ -433,7 +433,7 @@ d06e2cb73f2b264bf06e862ded7b3d6cdc3260fdecd969c38641fabab1cabbaf  benchmarks/19_
 f193ab39eea4d83be369a70900e4a043ef1d23964eb81853c8a803e4875c4b2f  tests/benchmarks/19_family_v0/case.rs
 1b917f41e68f633e9d7a5e45f68e68c565253276541da9029db43aadc3edfad4  datasets/jth-2.0.toml
 0773b693a41082fedbf4f0eb8419f9d49759fd8ba6a86cde403d0e0dc1bde68c  datasets/orbitaR-PBE-v0.toml
-# 20_abinit_r2scan reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 20_abinit_r2scan reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, omissions tested, Case built only by its parser); case 12 and 16 reasons state the 0.54 fit as empirical with its scope, case 16 keeps its endpoint records; reduce.py checks its operands first; README shows [why]; no bound, input, or reference value changed
 26bce628b05e9fda4eee74e1d245b0edcfe812012907009b41b68d59d1c2a3ba  benchmarks/20_abinit_r2scan/case.toml
 ec303aae0c8c892f136af173fdc92f092b6cbc8804c402be2cb9b68474175555  benchmarks/20_abinit_r2scan/input.toml
 5b042d8690210980cf6a4c93adfbb93172810c291f496df520a58195848b6d9a  benchmarks/20_abinit_r2scan/inputs/al.toml
@@ -460,7 +460,7 @@ dbde3efe683573c1f031801d611e0402b0f7087a905a26a40f66fbaec4aaa544  benchmarks/20_
 ea00463e68d7c16f161b833711787ead4b03b8d1396a9dce9e098e225e944229  benchmarks/20_abinit_r2scan/reference/paw-fe.json
 4acbd27a2f4b71a1847f1225ef290ee6342ee4da778f58c4364a6b277f06f8da  benchmarks/20_abinit_r2scan/reference/paw-si.abi
 27d4c912f58c8a14329d7d802bd096316fbebac164e7151ac63223ebde4a8b77  benchmarks/20_abinit_r2scan/reference/paw-si.json
-77ac5824a54b7251e686dd2de6cfc50c1f7444292ff91be54811346e98367b6e  benchmarks/20_abinit_r2scan/reference/reduce.py
+cc17d875739576ce4897c3c252d1fb194c48f67edd7f2d8a10cb0c392ed94a27  benchmarks/20_abinit_r2scan/reference/reduce.py
 14e5a5551be1c3bff702475f2e9391fcb69af2a5c2bdf7d641ea542ad6d7b147  benchmarks/20_abinit_r2scan/reference/si8.abi
 8c1b897da63ed62f6ff787c55968ff04c3086f21d1dcba7e598584057bf54f2c  benchmarks/20_abinit_r2scan/reference/si8.json
 afe9e364fd7e5d5e6d47312c33a248307876ee2350e0e2072bb9b3d48b25a876  tests/benchmarks/20_abinit_r2scan/case.rs

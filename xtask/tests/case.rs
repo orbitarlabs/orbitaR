@@ -198,19 +198,105 @@ fn a_milestone_names_an_intent_bar_on_g_and_needs_rivals() {
     }
 }
 
+fn why_findings(name: &str, case_toml: &str, input: bool) -> Vec<String> {
+    let mut files = vec![("benchmarks/1_a/case.toml", case_toml)];
+    if input {
+        files.push(("benchmarks/1_a/input.toml", "schema = 1\n"));
+    }
+    let findings = lever(&["layout"], &tree(name, &files));
+    findings
+        .into_iter()
+        .filter(|f| f.contains("[why]") || f.contains("[relax]"))
+        .collect()
+}
+
 #[test]
-fn each_why_names_a_value_of_the_case_and_holds_a_reason() {
+fn each_why_names_a_value_that_the_case_file_sets_and_holds_a_reason() {
     let with = |why: &str| {
         format!("{ACTIVE}[tolerance]\nx_max = 1.0\n\n[relax]\nb = \"ions\"\n\n[why]\n{why}")
     };
     let named = "x_max = \"r\"\nb = \"r\"\nstatus = \"r\"\ninputs = \"r\"\ntolerance = \"r\"\n";
-    let f = layout_of("case-why", &with(named));
-    assert!(!has(&f, "[why]"), "{f:?}");
-    let stray = layout_of("case-why-stray", &with("y_max = \"r\"\n"));
+    let f = why_findings("case-why", &with(named), true);
+    assert!(f.is_empty(), "{f:?}");
+    let stray = why_findings("case-why-stray", &with("y_max = \"r\"\n"), true);
     assert!(
-        has(&stray, "[why].y_max names no value of the case"),
+        has(&stray, "[why].y_max names no value of the case file"),
         "{stray:?}"
     );
-    let empty = layout_of("case-why-empty", &with("x_max = \" \"\n"));
+    let empty = why_findings("case-why-empty", &with("x_max = \" \"\n"), true);
     assert!(has(&empty, "[why].x_max is empty"), "{empty:?}");
+}
+
+#[test]
+fn a_why_of_a_case_key_that_the_file_leaves_out_fails() {
+    let base = format!("{ACTIVE}[tolerance]\nx_max = 1.0\n");
+    for key in ["timeout_s", "repeats", "rivals", "milestone"] {
+        let f = why_findings(
+            &format!("case-why-unset-{key}"),
+            &format!("{base}\n[why]\n{key} = \"r\"\n"),
+            true,
+        );
+        assert!(
+            has(&f, &format!("[why].{key} names no value of the case file")),
+            "{key}: {f:?}"
+        );
+    }
+    let set = ACTIVE.replace("analytic\"\n", "analytic\"\ntimeout_s = 10\nrepeats = 1\n")
+        + "[tolerance]\nx_max = 1.0\n\n[why]\ntimeout_s = \"r\"\nrepeats = \"r\"\n";
+    let f = why_findings("case-why-set", &set, true);
+    assert!(f.is_empty(), "{f:?}");
+    let claim = ACTIVE
+        .replace("\"push\"", "\"claim\"")
+        .replace("[\"correctness\"]", "[\"speed\", \"correctness\"]")
+        .replace(
+            "analytic\"\n",
+            "analytic\"\nrivals = [\"qe\"]\nmilestone = \"m3\"\n",
+        )
+        + "[tolerance]\nx_max = 1.0\n\n[why]\nrivals = \"r\"\nmilestone = \"r\"\n";
+    let f = why_findings("case-why-set-claim", &claim, true);
+    assert!(f.is_empty(), "{f:?}");
+}
+
+#[test]
+fn the_why_groups_need_their_table_and_their_inputs() {
+    let planned = ACTIVE.replace("\"active\"", "\"planned\"") + "\n[why]\ntolerance = \"r\"\n";
+    let f = why_findings("case-why-no-tolerance", &planned, true);
+    assert!(
+        has(
+            &f,
+            "[why].tolerance names the whole [tolerance] table, which is empty"
+        ),
+        "{f:?}"
+    );
+    let inputs = format!("{ACTIVE}[tolerance]\nx_max = 1.0\n\n[why]\ninputs = \"r\"\n");
+    let f = why_findings("case-why-no-input", &inputs, false);
+    assert!(
+        has(
+            &f,
+            "[why].inputs names the case's input files, but benchmarks/1_a/input.toml is missing"
+        ),
+        "{f:?}"
+    );
+    for name in ["inputs", "status"] {
+        let relax = format!("{ACTIVE}[tolerance]\nx_max = 1.0\n\n[relax]\n{name} = \"ions\"\n");
+        let f = why_findings(&format!("case-why-relax-{name}"), &relax, true);
+        assert!(
+            has(
+                &f,
+                &format!("[relax].{name} shares its name with a [why] target")
+            ),
+            "{f:?}"
+        );
+    }
+}
+
+#[test]
+fn the_readme_example_of_why_names_values_of_its_case() {
+    let case = format!(
+        "{}\n{}\n",
+        crate::harness::CASE,
+        crate::readme_block("Benchmark case")
+    );
+    let f = why_findings("case-why-readme", &case, true);
+    assert!(f.is_empty(), "{f:?}");
 }

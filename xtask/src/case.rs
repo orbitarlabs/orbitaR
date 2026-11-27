@@ -3,11 +3,24 @@ use crate::harness::{
     speed::{Milestone, RSS_EXPONENT},
 };
 use serde::Deserialize;
-use std::{collections::BTreeMap, fs, num::NonZeroUsize, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    num::NonZeroUsize,
+    path::Path,
+};
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub(crate) struct Case {
+    case: Meta,
+    tolerance: BTreeMap<String, f64>,
+    relax: BTreeMap<String, Relax>,
+    why: BTreeMap<String, String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct File {
     case: Meta,
     #[serde(default)]
     tolerance: BTreeMap<String, f64>,
@@ -193,16 +206,38 @@ impl Case {
     pub(crate) fn load(root: &Path, id: &str) -> Result<Case, String> {
         let path = format!("benchmarks/{id}/case.toml");
         let text = fs::read_to_string(root.join(&path)).map_err(|e| format!("{path}: {e}"))?;
-        Case::parse(&text).map_err(|e| format!("{path}: {e}"))
-    }
-
-    pub(crate) fn parse(text: &str) -> Result<Case, String> {
-        let case: Case = toml::from_str(text).map_err(|e| e.to_string())?;
-        case.validate()?;
+        let case = Case::parse(&text).map_err(|e| format!("{path}: {e}"))?;
+        let input = format!("benchmarks/{id}/input.toml");
+        if case.why.contains_key(WHY_INPUTS) && !root.join(&input).is_file() {
+            return Err(format!(
+                "{path}: [why].{WHY_INPUTS} names the case's input files, but {input} is missing"
+            ));
+        }
         Ok(case)
     }
 
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn parse(text: &str) -> Result<Case, String> {
+        let File {
+            case,
+            tolerance,
+            relax,
+            why,
+        } = toml::from_str(text).map_err(|e| e.to_string())?;
+        let raw: toml::Table = toml::from_str(text).map_err(|e| e.to_string())?;
+        let set: BTreeSet<String> = (raw.get("case").and_then(toml::Value::as_table))
+            .map(|table| table.keys().cloned().collect())
+            .unwrap_or_default();
+        let case = Case {
+            case,
+            tolerance,
+            relax,
+            why,
+        };
+        case.validate(&set)?;
+        Ok(case)
+    }
+
+    fn validate(&self, set: &BTreeSet<String>) -> Result<(), String> {
         let m = &self.case;
         if m.status == Status::Active && self.tolerance.is_empty() {
             return Err("an active case needs a non-empty [tolerance]".into());
@@ -259,13 +294,26 @@ impl Case {
         if m.repeats == Some(0) {
             return Err("repeats must be at least 1".into());
         }
+        for name in self.relax.keys() {
+            if set.contains(name) || WHY_GROUPS.contains(&name.as_str()) {
+                return Err(format!(
+                    "[relax].{name} shares its name with a [why] target of the case file; rename the input"
+                ));
+            }
+        }
         for (key, text) in &self.why {
-            let named = WHY_KEYS.contains(&key.as_str())
+            if key == WHY_TOLERANCE && self.tolerance.is_empty() {
+                return Err(format!(
+                    "[why].{WHY_TOLERANCE} names the whole [tolerance] table, which is empty"
+                ));
+            }
+            let named = set.contains(key)
+                || WHY_GROUPS.contains(&key.as_str())
                 || self.tolerance.contains_key(key)
                 || self.relax.contains_key(key);
             if !named {
                 return Err(format!(
-                    "[why].{key} names no value of the case: one of {WHY_KEYS:?}, a [tolerance] key, or a [relax] input"
+                    "[why].{key} names no value of the case file: a [case] key that it sets, a [tolerance] key, a [relax] input, `{WHY_TOLERANCE}` (the whole [tolerance] table), or `{WHY_INPUTS}` (the input files)"
                 ));
             }
             if text.trim().is_empty() {
@@ -374,18 +422,9 @@ pub(crate) fn ids(root: &Path) -> Result<Vec<String>, String> {
     Ok(ids.into_iter().map(|(_, id)| id).collect())
 }
 
-const WHY_KEYS: [&str; 10] = [
-    "tier",
-    "status",
-    "claims",
-    "reference",
-    "timeout_s",
-    "repeats",
-    "rivals",
-    "milestone",
-    "inputs",
-    "tolerance",
-];
+const WHY_INPUTS: &str = "inputs";
+const WHY_TOLERANCE: &str = "tolerance";
+const WHY_GROUPS: [&str; 2] = [WHY_INPUTS, WHY_TOLERANCE];
 
 pub(crate) const RESERVED: [&str; 3] = ["wall_s", "speedup", RSS_EXPONENT];
 

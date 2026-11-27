@@ -119,6 +119,19 @@ threads = 4                                # left out: every core; at least 1; n
 
 </details>
 
+## Benchmark case
+
+A case's `[why]` gives the reason for a value of its `case.toml`; each record keeps it as `why`.
+
+```toml
+[why]
+error_max = "the worst seen is 4e-13; the margin is for another libm's last digits"
+status = "active: its bound passed in the run that promoted it"
+```
+
+- A key names a `[case]` key that the file sets, a `[tolerance]` key, or a `[relax]` input.
+- `tolerance` names the whole `[tolerance]` table, and `inputs` the case's input files.
+
 ## License
 
 - [PolyForm Noncommercial 1.0.0](LICENSE): source-available, free for noncommercial use
