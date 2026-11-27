@@ -1,9 +1,9 @@
-"""Reduce an ABINIT run of run.sh to the numbers that case 6 compares: energy terms, eigenvalues, k-points, and with
-two spin channels the cell's magnetization, Σ_k w Σ_band (f↑ − f↓) (ABINIT's "exact up − dn").
-usage: python -I reference.py <run dir> > <name>.json   (reads runo_GSR.nc; prints one JSON object)"""
 import json, pathlib, sys
 import h5py
 import numpy as np
+USAGE = "usage: python -I reference.py <run dir> > <name>.json"
+if len(sys.argv) != 2:
+    sys.exit(USAGE)
 run = pathlib.Path(sys.argv[1])
 with h5py.File(run / "runo_GSR.nc", "r") as h:
     get = lambda k: np.array(h[k][()])

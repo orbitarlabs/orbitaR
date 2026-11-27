@@ -279,7 +279,7 @@ fn the_bound_holds_while_the_stalled_step_is_in_the_history() {
 }
 
 #[test]
-fn a_stall_compares_with_the_oldest_step_left_after_the_history_drops_one() {
+fn a_larger_residual_inside_the_history_does_not_hide_a_rise_above_the_oldest() {
     let x = mixed_along_one_stiff_axis(&[10.0, 1.0, 9.0, 0.5, 0.5, 0.5, 0.5, 0.5, 2.0]);
     assert!(largest_difference(&x, &[0.0, 0.9]) < 1e-12, "{x:?}");
 }

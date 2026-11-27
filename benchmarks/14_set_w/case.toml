@@ -6,16 +6,26 @@ reference = "same-dataset"
 rivals = ["qe", "abinit"]
 milestone = "m4"
 
-# The set W of the M4 bar (reference/cells.py), apart from case 11: each case writes its own record, so G on W
-# reads this case's record alone. Case 11's bound is per atom, so it holds at any cell size.
-# milestone m4: the M4 bar on G, against each rival, on W (harness/speed.rs `Milestone`).
-# gaas32_as is in W because Ga and As show the widest frozen cutoff gap between the rivals (TUNED.toml): QE's
-# 35 Ha against ABINIT's 18 Ha, ABINIT on the JTH files that orbitaR reads. W includes that gap; the record shows its
-# cost.
-# The ABINIT references stop by the rule that reference/SOURCE.toml states with each cell's numbers.
-# Activation blocker: orbitaR's SCF diverges on fe2o3_30, so the case stays planned until it converges.
-# Claim budget: the projected claim node wall, all codes and repeats, from the pre-claim pilot pricing
-# (ORBITAR_PILOT), must be <= 48 h. Only if it is not, timed cells give way to their untimed replacements/ (cells.py)
-# in descending order of projected cost until it fits; past the last one the maintainers decide. No cell is dropped.
 [tolerance]
 free_energy_error_ha_per_atom_max = 2.5e-10
+
+[why]
+status = "planned: orbitaR's SCF diverges on fe2o3_30; the case stays planned until it converges"
+rivals = """\
+each timed cell's rival calibration runs on a tuning cell: case 11's input (Si2) for si63_vac and si128, case 11's \
+al2o3 for al2o3_40 and al2o3_slab, tuning/sto5 for sto39_vo, tuning/fe2o3_10 for fe2o3_30, case 11's gaas for \
+gaas32_as. A tuning cell holds the element set of its timed cells and one element that no other tuning cell holds: \
+`cargo xtask rivals` freezes a cutoff per element, and that element gives each tuning cell its own cutoff back. A \
+cutoff's error is a basis-set error and barely depends on the k mesh, so fe2o3_10 runs at Γ"""
+milestone = "W is the set of the M4 bar; each case writes its own record, so G on W reads this case's record alone"
+inputs = """\
+each timed cell of W stresses: si63_vac (63 atoms) 8 k-points, one per core, a vacancy; si128 (128) Γ only, the most \
+bands, where the subspace work rules; al2o3_40 (40) two species, rattled, Γ; al2o3_slab (30) a (0001) slab, Al | O3 … \
+O3 | Al, 12 Å of vacuum, 2×2×1; sto39_vo (39) three species, rattled, an O vacancy in SrTiO3, Γ; fe2o3_30 (30) AFM \
+Fe2O3 (+ − − + along c): spin, 3d, semicore 3s3p; gaas32_as (32) zincblende GaAs, rattled, an As antisite on a Ga \
+site, Γ. gaas32_as is in W because Ga and As show the widest frozen cutoff gap between the rivals \
+(benchmarks/TUNED.toml): QE's 35 Ha against ABINIT's 18 Ha on the JTH files that orbitaR reads; the record shows its \
+cost. Claim budget: the projected claim node wall, all codes and repeats, from the pilot (ORBITAR_PILOT), must be ≤ \
+48 h. Only if it is not, timed cells give way to their untimed replacements/ (cells.py) in descending order of \
+projected cost until it fits; past the last one the maintainers decide. No cell is dropped"""
+free_energy_error_ha_per_atom_max = "case 11's bound: per atom, so it holds at any cell size"

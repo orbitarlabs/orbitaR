@@ -4,8 +4,6 @@ status = "active"
 claims = ["correctness"]
 reference = "oracle"
 
-# The engine at 1 thread against itself at 4: fcc Al (one spin, 64 k) and case 6's antiferromagnetic bcc Fe pair (two
-# spins, 27 k). Every output field must be bitwise equal; Crystal::bands states the rule that makes it so.
 [tolerance]
 term_difference_ha_max = 0.0
 fermi_level_difference_ha_max = 0.0
@@ -16,3 +14,9 @@ kpoint_difference_max = 0.0
 weight_difference_max = 0.0
 basis_size_difference_max = 0.0
 scf_step_difference_max = 0.0
+
+[why]
+inputs = "one spin on 64 k (fcc Al) and two spins on 27 k (case 6's antiferromagnetic bcc Fe pair)"
+tolerance = """\
+0: the engine gives the same bits at any thread count (tests/ks/scf.rs \
+the_output_does_not_depend_on_the_thread_count)"""

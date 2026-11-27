@@ -1111,6 +1111,7 @@ impl Session {
             "failures": failures,
             "metrics": trace.metrics,
             "tolerance": case.tolerance(),
+            "why": case.why(),
             "readouts": readouts(&trace.metrics, case.tolerance()),
             "inputs": trace.inputs,
             "filter": self.filter,
@@ -1828,13 +1829,13 @@ pub(crate) fn inputs(
     let table = datasets::Table::of_case(root, dir, candidate)?;
     let named = |path: &Path, e: std::io::Error| format!("{}: {e}", path.display());
     let mut out = Vec::new();
-    let first = dir.join("input.toml");
+    let first = dir.join(crate::case::INPUT_FILE);
     match fs::read_to_string(&first) {
         Ok(text) => out.push(("input".to_owned(), text)),
         Err(e) if e.kind() == ErrorKind::NotFound => {}
         Err(e) => return Err(named(&first, e)),
     }
-    let folder = dir.join("inputs");
+    let folder = dir.join(crate::case::INPUTS_DIR);
     let mut more: Vec<PathBuf> = match fs::read_dir(&folder) {
         Ok(entries) => entries
             .map(|entry| entry.map(|e| e.path()))
@@ -1871,7 +1872,7 @@ pub(crate) fn inputs(
             }
         }
     }
-    let crystals = dir.join("crystals.json");
+    let crystals = dir.join(crate::case::CRYSTALS);
     match fs::read_to_string(&crystals) {
         Ok(text) => out.extend(acwf::expand(root, &text, table.as_ref())?),
         Err(e) if e.kind() == ErrorKind::NotFound => {}

@@ -19,6 +19,11 @@ cargo xtask new-case <slug> <reference>
 you write
   benchmarks/<N>_<slug>/input.toml       the engine input; more inputs go in inputs/<stem>.toml
   benchmarks/<N>_<slug>/case.toml        [tolerance]: <metric>_max or <metric>_min; the harness judges, not measure()
+                                         [why]: a reason per value; each record keeps the table as `why`
+                                           error_max = "the worst seen is 4e-13; the margin is for another libm"
+                                           status = "active: its bound passed in the run that promoted it"
+                                         a [why] key: a [case] key that the file sets, a [tolerance] key, a [relax]
+                                           input, `tolerance` (the whole table), or `inputs` (the case's inputs)
   tests/benchmarks/<N>_<slug>/case.rs    measure(): the metrics of the engine output
   benchmarks/<N>_<slug>/reference/       the reference files, with SOURCE.toml
 ```

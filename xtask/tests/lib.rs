@@ -64,6 +64,11 @@ pub const NATIVE_WIRED: (&str, &str) = (
     "# mine\n<!-- local native: scratch/local/rows.toml -->\n",
 );
 
+pub const WHY_EXAMPLE: [&str; 2] = [
+    "error_max = \"the worst seen is 4e-13; the margin is for another libm\"",
+    "status = \"active: its bound passed in the run that promoted it\"",
+];
+
 pub fn tree(name: &str, files: &[(&str, &str)]) -> Tree {
     let root = std::env::temp_dir().join(format!("xtask-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);

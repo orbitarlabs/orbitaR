@@ -5,6 +5,19 @@ and libxc 4.3.4), PAW with the JTH v2.0 PBE files that datasets/jth-2.0.toml pin
 2.10 GHz, each from its cell's committed .abi, which cells.py --check regenerates"""
 locator = "doi:10.1016/j.cpc.2019.107042"
 convention = """\
+cells.py (ASE 3.29.0, spglib 2.8.0, NumPy 2.5.4) builds W with case 11's builders and writers and writes no \
+__pycache__ into case 11's hashed reference/. Seed 13 gives the committed cells; each later draw takes its own \
+PCG64 stream (seed + 8, seed + 9), so the earlier draws stay. α-Fe2O3: Blake et al., Am. Mineral. 51, 123 (1966), \
+its buckled Fe layers centred on z = k/6 alternate in sign, so each face-sharing Fe pair is antiparallel. MIXING \
+sets ABINIT's mixing per cell; it changes the SCF path, not the fixed point: fe2o3_30 under ABINIT's default \
+(diemac 1e6, diemix 1) oscillates (80 steps: vres2 ~1e3) and loses its moments, and diemac 10 with diemix 0.3 \
+converges to the AFM state (Fe ±3.6 μB), vres2 3.9e-11 at step 80, about 1.4 decades per 10 steps (6-variant \
+diagnostic, 4 cores); si128 under the metallic default (diemac 1e6) stalls at vres2 ~5e-6 over 20 steps, and \
+diemac 12, Si's dielectric constant, is the preconditioner ABINIT's guidance gives for a semiconductor. BANDS \
+replaces fband 4.0: run.sh gives a Γ cell one rank, and si128's 768 bands at fband 4 took ~24 min per step; 320 \
+is ABINIT's default (fband 0.5), and the band check below holds it to account. STEPS is every code's SCF step cap \
+on every cell of W: orbitaR's scf.max_iterations, which the rival adapters write as QE's electron_maxstep and \
+ABINIT's nstep (xtask/src/harness/rival.rs); the reference runs stop at the same cap. \
 Case 6's reference/run.sh runs each <name>.abi on the full k mesh, in restart chunks of at most 2 h: chunk k > 1 \
 reads chunk k-1's WFK (getwfk_filepath). Stop rule: stop at the first chunk end with at least 40 \
 steps where the final step, whose F is reported, has vres2 < 1e-16 and the last 10 steps' ETOT values, a restart \

@@ -4,10 +4,16 @@ status = "active"
 claims = ["correctness"]
 reference = "oracle"
 
-# Each SCF stops at ‖Δñ‖ 1e-11, where each eigenvalue lies within 0.54 × 1e-11 Ha of its fixed point (fitted,
-# ks/scf.rs), so the two runs' eigenvalues lie within twice that. F is stationary at the fixed point, so the stop moves
-# it at second order only (tests/ks/crystal.rs, the_free_energy_is_stationary_at_the_self_consistent_state). F's
-# tolerance sits at the float floor of the two solvers; the stop does not set it.
 [tolerance]
 eigenvalue_difference_ha_max = 2e-11
 free_energy_difference_ha_max = 1e-12
+
+[why]
+eigenvalue_difference_ha_max = """\
+each SCF stops at ‖Δñ‖ < 1e-11, where each eigenvalue lies within 0.54 × 1e-11 Ha of its fixed point (tests/ks/scf.rs \
+at_the_stop_eigenvalues_and_e_f_lie_within_0_54_terms_within_1_density_limit_of_a_tight_stop); the two runs lie \
+within twice that"""
+free_energy_difference_ha_max = """\
+F is stationary at the fixed point, so the stop moves it at second order only (tests/ks/crystal.rs \
+the_free_energy_is_stationary_at_the_self_consistent_state); the bound sits at the float floor of the two solvers, \
+not at the stop"""

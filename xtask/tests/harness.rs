@@ -112,6 +112,53 @@ fn an_honest_case_passes_and_leaves_a_record() {
 }
 
 #[test]
+fn a_record_carries_the_why_of_its_case() {
+    let case = format!("{CASE}\n[why]\n{}\n", crate::WHY_EXAMPLE.join("\n"));
+    let (outcome, root) = run_case("harness-why", &case, INPUT, GOOD, honest);
+    assert_eq!(outcome, Outcome::Pass);
+    let record: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        record["why"],
+        serde_json::json!({
+            "error_max": "the worst seen is 4e-13; the margin is for another libm",
+            "status": "active: its bound passed in the run that promoted it",
+        }),
+        "{record}"
+    );
+}
+
+#[test]
+fn the_case_20_reducer_prints_its_usage_before_it_reads_a_missing_operand() {
+    let script = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../benchmarks/20_abinit_r2scan/reference/reduce.py"
+    );
+    let short: [&[&str]; 5] = [
+        &[],
+        &["--abo"],
+        &["--abo", "run.abo"],
+        &["--abo", "run.abo", "reference.json", "4"],
+        &["reference.json", "4"],
+    ];
+    for args in short {
+        let out = std::process::Command::new("python3")
+            .arg("-I")
+            .arg(script)
+            .args(args)
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(1), "{args:?}: {stderr}");
+        assert!(
+            stderr.starts_with("usage: python3 -I reduce.py"),
+            "{args:?}: {stderr}"
+        );
+    }
+}
+
+#[test]
 fn a_measure_that_ignores_the_output_fails() {
     fn fixed(_: &Evidence) -> Result<Metrics, String> {
         Ok(Metrics::from([("error".to_owned(), 0.0)]))
