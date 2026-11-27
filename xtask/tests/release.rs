@@ -263,7 +263,6 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
     }
 }
 
-/// The findings of the Linux wheel check when the engine holds `word` after a valid header.
 fn engine_holding(name: &str, word: &str) -> Vec<String> {
     checked(name, NAME, |m| {
         m[3].1 = elf(EM_X86_64) + &format!("\0{word}\0\x03");

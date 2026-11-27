@@ -132,13 +132,11 @@ fn a_mac_engine_under_the_linux_tag_fails() {
     }
 }
 
-/// The findings of the Mac wheel check when the engine holds `path` after a valid header.
 fn mac_engine_holding(name: &str, path: &str) -> Vec<String> {
     let header = macho(CPU_ARM64, 12) + "\0" + path + "\0";
     checked(name, MAC, |m| m[3].1.clone_from(&header))
 }
 
-/// The one finding of the Mac host-path scan for `held`.
 fn host_finding(held: &str) -> Vec<String> {
     vec![format!(
         "wheel orbitar-0.1.0.data/scripts/orbitar: `{held}` is a path on the build host; remap its root (release/mac.rs)"
@@ -871,7 +869,6 @@ fn the_about_plan_generates_the_notices_with_its_config_in_the_source() {
     assert_eq!(step.dir.as_deref(), Some(Path::new("/w/src")));
 }
 
-/// A maturin build of `target` with fixed paths.
 fn maturin(target: &str) -> Result<xtask::Invocation, String> {
     let pairs = [(PathBuf::from("/w/my src"), "/src")];
     xtask::maturin_plan(&xtask::Build {
