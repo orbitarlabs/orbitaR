@@ -241,10 +241,7 @@ fn block_of(code: &str, t: &[f64], losses: usize) -> String {
         vec!["loss"; losses],
         vec![12; n],
         vec![QUIET_NODE; 1 + n + losses].join(", "),
-        (vec![ALONE; 1 + n].into_iter())
-            .chain(vec!["\"lost\""; losses])
-            .collect::<Vec<_>>()
-            .join(", "),
+        vec![ALONE; 1 + n + losses].join(", "),
     )
 }
 
@@ -644,7 +641,10 @@ fn a_passing_claim_record_shows_no_other_load_through_the_warm_up_and_each_judge
     for (n, (to, refused)) in [
         (first.clone(), false),
         (format!("\"during\": [{shared}, "), true),
-        ("\"during\": [\"lost\", ".to_owned(), true),
+        (
+            "\"during\": [{\"unread\": \"/proc/stat: missing\"}, ".to_owned(),
+            true,
+        ),
         ("\"during\": [".to_owned(), true),
     ]
     .into_iter()
@@ -655,7 +655,7 @@ fn a_passing_claim_record_shows_no_other_load_through_the_warm_up_and_each_judge
         assert_eq!(
             has(
                 &f,
-                "1_a record shows 5 runs of orbitar at 8 threads with no other load through them, not its 6 warm-up and judged runs"
+                "1_a record shows 5 runs of orbitar at 8 threads with no other load through them, not its warm-up and each of its 5 runs, judged or lost"
             ),
             refused,
             "{n}: {f:?}"

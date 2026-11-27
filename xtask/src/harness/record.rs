@@ -321,13 +321,13 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                                 t.len() + lost
                             ));
                         }
-                        let scored = usize::from(block.warmup.get("loss").is_none()) + t.len();
                         let alone = block.during.iter().filter(|d| d.quiet()).count();
-                        if block.during.len() != 1 + t.len() + lost || alone != scored {
+                        if block.during.len() != 1 + t.len() + lost || alone != 1 + t.len() + lost {
                             findings.push(format!(
-                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its {scored} warm-up and judged runs",
+                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its warm-up and each of its {} runs, judged or lost",
                                 tier.name(),
                                 block.code,
+                                t.len() + lost
                             ));
                         }
                         if block.code == speed::Code::Orbitar {

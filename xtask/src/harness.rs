@@ -1423,7 +1423,7 @@ impl Session {
                             }
                             let loaded = t.record.load.iter().filter(|r| !r.quiet()).count();
                             let contended = (t.record.during.iter())
-                                .filter(|d| !d.quiet() && **d != load::During::Lost)
+                                .filter(|d| !d.quiet())
                                 .count();
                             if loaded + contended > 0 {
                                 failures.push(format!(

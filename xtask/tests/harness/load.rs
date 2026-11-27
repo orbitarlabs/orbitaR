@@ -193,6 +193,14 @@ fn a_task_that_waits_for_a_cpu_through_the_window_stops_a_claim_and_one_that_wai
     assert!(!waited(&outcome) && passed(&outcome), "{outcome:?}");
 }
 
+fn mkfifo(path: &std::path::Path) {
+    let made = std::process::Command::new("mkfifo")
+        .arg(path)
+        .status()
+        .unwrap();
+    assert!(made.success(), "mkfifo {}", path.display());
+}
+
 fn served<F: Fn(usize) -> u32 + Send + 'static>(
     fifo: &std::path::Path,
     reads: F,
@@ -201,13 +209,14 @@ fn served<F: Fn(usize) -> u32 + Send + 'static>(
         Arc,
         atomic::{AtomicBool, Ordering},
     };
-    let _ = std::fs::remove_file(fifo);
-    let made = std::process::Command::new("mkfifo")
-        .arg(fifo)
-        .status()
-        .unwrap();
-    assert!(made.success());
     let done = Arc::new(AtomicBool::new(false));
+    let rotate = |fifo: &std::path::Path, k: usize| {
+        let fresh = fifo.with_extension(format!("{k}"));
+        let _ = std::fs::remove_file(&fresh);
+        mkfifo(&fresh);
+        std::fs::rename(&fresh, fifo).unwrap();
+    };
+    rotate(fifo, 0);
     let server = {
         let (done, fifo) = (done.clone(), fifo.to_owned());
         std::thread::spawn(move || {
@@ -217,6 +226,7 @@ fn served<F: Fn(usize) -> u32 + Send + 'static>(
                 if done.load(Ordering::Relaxed) {
                     break;
                 }
+                rotate(&fifo, k + 1);
                 let _ = std::io::Write::write_all(&mut opened.unwrap(), line.as_bytes());
             }
         })
@@ -297,4 +307,59 @@ fn a_task_that_takes_cpus_after_the_child_starts_stops_a_claim_and_a_pilot_recor
             }
         }
     }
+}
+
+fn rival_lost_on_its_warm_up(name: &str, busy: bool) -> (Outcome, Value) {
+    use super::rival::{ABINIT, INPUT, PW, TUNED, rivals_tree};
+    let count = std::env::temp_dir().join(format!("xtask-{name}-calls-{}", std::process::id()));
+    let _ = std::fs::remove_file(&count);
+    let root = rivals_tree(name, INPUT, TUNED, "exit 7", ABINIT);
+    let proc = procfs(&root, 1);
+    let stat = proc.join("stat");
+    let bump = match busy {
+        true => format!(
+            "n=$(awk '/^cpu /{{print $2}}' '{0}'); echo \"cpu  $((n + 10000)) 0 1000 100000 0 0 0 0 0 0\" > '{0}.next'; mv '{0}.next' '{0}'",
+            stat.display()
+        ),
+        false => ":".to_owned(),
+    };
+    let pw = format!(
+        "k=$(cat '{0}' 2>/dev/null || echo 0); k=$((k + 1)); echo $k > '{0}'\n[ $k = 3 ] && {{ {bump}; exit 1; }}\n{PW}",
+        count.display()
+    );
+    super::rival::script(&root.join("rivals/qe/bin/pw.x"), &pw);
+    let bin = fake(&root, "step -2");
+    let session = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_load(&proc);
+    let out = evaluated(&root, &session);
+    let _ = std::fs::remove_file(&count);
+    out
+}
+
+#[test]
+fn a_rival_run_that_fails_while_another_task_takes_cpus_is_refused_and_never_scored_as_a_loss() {
+    let (outcome, record) = rival_lost_on_its_warm_up("load-lost-busy", true);
+    assert!(
+        matches!(&outcome, Outcome::Fail(f) if f.contains("qe: input at 8 threads: the node is not quiet for a timed run: other tasks took")),
+        "{outcome:?}"
+    );
+    assert!(
+        record["speed"].as_array().is_none_or(Vec::is_empty),
+        "{record}"
+    );
+    let last = record["load"].as_array().unwrap().last().unwrap().clone();
+    assert_eq!(last["at"], "qe: input at 8 threads", "{record}");
+    assert!(last["during"]["loaded"].is_object(), "{record}");
+    let (_, record) = rival_lost_on_its_warm_up("load-lost-quiet", false);
+    let qe: Vec<&Value> = (record["speed"].as_array().unwrap().iter())
+        .filter(|b| b["code"] == "qe")
+        .collect();
+    assert_eq!(qe.len(), 1, "{record}");
+    assert!(qe[0]["warmup"]["loss"].is_string(), "{record}");
+    let during = qe[0]["during"].as_array().unwrap();
+    assert!(
+        !during.is_empty() && during.iter().all(|d| d["quiet"].is_object()),
+        "{record}"
+    );
 }

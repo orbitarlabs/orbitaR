@@ -54,7 +54,6 @@ pub(crate) enum During {
     Quiet(Contention),
     Loaded { contention: Contention, why: String },
     Unread(String),
-    Lost,
 }
 
 impl During {
@@ -122,22 +121,16 @@ impl Gate {
         Ok((reading, start))
     }
 
-    pub(crate) fn after(
-        &self,
-        at: &str,
-        speed: &Speed,
-        start: Start,
-        child_cpu_s: Option<f64>,
-    ) -> Result<During, Failure> {
+    pub(crate) fn after(&self, at: &str, speed: &Speed, start: Start) -> Result<During, Failure> {
         let wall_s = start.at.elapsed().as_secs_f64();
-        let during = match (child_cpu_s, &self.node_cpus, &start.counters) {
-            (None, _, _) => During::Lost,
-            (_, Err(e), _) | (_, _, Err(e)) => During::Unread(e.clone()),
-            (Some(child_cpu_s), Ok(cpus), Ok(first)) => match counters(&self.proc) {
+        let during = match (&self.node_cpus, &start.counters) {
+            (Err(e), _) | (_, Err(e)) => During::Unread(e.clone()),
+            (Ok(cpus), Ok(first)) => match counters(&self.proc) {
                 Err(e) => During::Unread(e),
                 Ok(last) => {
                     let busy_cpu_s = last.busy_s - first.busy_s;
                     let harness_cpu_s = last.harness_s - first.harness_s;
+                    let child_cpu_s = last.reaped_s - first.reaped_s;
                     let others_cpu_s = (busy_cpu_s - child_cpu_s - harness_cpu_s).max(0.0);
                     let share = others_cpu_s / (wall_s * *cpus as f64);
                     let contention = Contention {
@@ -265,6 +258,7 @@ fn once(proc: &Path) -> Result<Read, String> {
 struct Counters {
     busy_s: f64,
     harness_s: f64,
+    reaped_s: f64,
 }
 
 fn numbers<'a>(fields: impl Iterator<Item = &'a str>) -> Option<Vec<f64>> {
@@ -280,12 +274,13 @@ fn counters(proc: &Path) -> Result<Counters, String> {
     };
     let own = text(proc, "self/stat")?;
     let times = (own.rsplit_once(')'))
-        .and_then(|(_, rest)| numbers(rest.split_whitespace().skip(11).take(2)));
-    let Some([utime, stime]) = times.as_deref() else {
+        .and_then(|(_, rest)| numbers(rest.split_whitespace().skip(11).take(4)));
+    let Some([utime, stime, cutime, cstime]) = times.as_deref() else {
         return Err(bad(proc, "self/stat", &own));
     };
     Ok(Counters {
         busy_s: (user + nice + system + irq + softirq + steal) / USER_HZ,
         harness_s: (utime + stime) / USER_HZ,
+        reaped_s: (cutime + cstime) / USER_HZ,
     })
 }
