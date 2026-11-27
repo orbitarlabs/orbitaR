@@ -285,7 +285,7 @@ jobs:
             if [ ! -s "$RUNNER_TEMP/mutants.json" ]; then
               count=0
             else
-              count=$(jq -e 'if type == "array" then length else error("not one JSON array") end' "$RUNNER_TEMP/mutants.json") || count=""
+              count=$(jq -es 'if length == 1 and (.[0] | type) == "array" then .[0] | length else error("not one JSON array") end' "$RUNNER_TEMP/mutants.json") || count=""
             fi
           fi
           case "$count" in

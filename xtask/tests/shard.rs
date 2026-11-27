@@ -392,6 +392,8 @@ fn a_count_that_cannot_be_read_runs_every_shard_and_never_passes_with_none_run()
         ("plan-null", "null".to_owned(), 0, 0),
         ("plan-object", "{}".to_owned(), 0, 0),
         ("plan-two", format!("{}{}", array(1), array(2)), 0, 0),
+        ("plan-null-then-empty", format!("null{}", array(0)), 0, 0),
+        ("plan-object-then-empty", format!("{{}}{}", array(0)), 0, 0),
         ("plan-text", "no mutants".to_owned(), 0, 0),
         ("plan-no-diff", array(0), 0, 1),
     ] {
