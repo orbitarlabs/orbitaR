@@ -188,7 +188,7 @@ fn mutants_start_after_lint_and_run_the_shards_that_their_plan_counts() {
         ),
         "{run}"
     );
-    let plan = runs(&jobs["mutants-plan"]).join("\n");
+    let plan = step_run(&ci, "mutants-plan", "One shard per 8 mutants");
     assert!(plan.starts_with("shards=\"[0,1,2,3,4,5,6,7]\"\n"), "{plan}");
 }
 
