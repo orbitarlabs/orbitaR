@@ -68,8 +68,8 @@ def text(repeat):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Write case 12's diamond Si supercells of case 6's cell, each on the k mesh that folds onto "
-        "case 6's 4x4x4."
+        description="Write case 12's diamond Si supercells of case 6's lattice and basis, each on the k mesh that "
+        "folds onto case 12's primitive 4x4x4 mesh (input.toml)."
     )
     parser.add_argument("--check", action="store_true", help="name each file that differs; write nothing")
     check = parser.parse_args().check
