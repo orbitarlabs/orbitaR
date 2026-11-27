@@ -722,3 +722,112 @@ fn a_step_energy_lies_within_the_second_order_of_the_step_from_its_outputs_own_e
         }
     }
 }
+
+type Datasets = fn(u8) -> Result<Dataset, Failure>;
+
+const PAIR: [[f64; 3]; 2] = [[0.1, 0.2, 0.3], [0.55, 0.6, 0.7]];
+
+fn stop_rows() -> [(&'static [[f64; 3]], &'static str, Datasets); 4] {
+    [
+        (&ONE, "", synthetic),
+        (&PAIR, "\n[spin]\nmoments = [2.0, 1.0]\n", synthetic),
+        (&ONE, "\n[xc]\nfunctional = \"r2scan\"\n", synthetic_meta),
+        (
+            &PAIR,
+            "\n[xc]\nfunctional = \"r2scan\"\n\n[spin]\nmoments = [2.0, 1.0]\n",
+            synthetic_meta,
+        ),
+    ]
+}
+
+struct Stopped {
+    eigenvalues: Vec<f64>,
+    fermi_level: f64,
+    free: f64,
+    terms: [f64; 6],
+    steps: usize,
+}
+
+fn stopped(atoms: &[[f64; 3]], extra: &str, dataset: Datasets) -> Stopped {
+    let outcome = run(
+        &read_spec(&input(atoms, extra)).unwrap(),
+        dataset,
+        |_, _| {},
+    )
+    .unwrap();
+    let scf = outcome.scf().unwrap();
+    let e = &scf.energies;
+    Stopped {
+        eigenvalues: (outcome.eigenvalues_ha().iter().flatten().flatten())
+            .copied()
+            .collect(),
+        fermi_level: scf.fermi_level_ha,
+        free: e.free_ha(),
+        terms: [
+            e.kinetic_ha,
+            e.hartree_ha,
+            e.xc_ha,
+            e.local_ha,
+            e.one_center_ha,
+            e.smearing_ha,
+        ],
+        steps: scf.steps,
+    }
+}
+
+fn largest_gap(a: &[f64], b: &[f64]) -> f64 {
+    assert_eq!(a.len(), b.len());
+    (a.iter().zip(b))
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f64::max)
+}
+
+#[test]
+fn at_the_stop_eigenvalues_and_e_f_lie_within_0_54_terms_within_1_density_limit_of_a_tight_stop() {
+    let scf = |tolerance: f64| {
+        format!("\n[scf]\nenergy_tolerance_ha = {tolerance:e}\nmax_iterations = 300\n")
+    };
+    for (atoms, extra, dataset) in stop_rows() {
+        let tight = stopped(atoms, &format!("{extra}{}", scf(1e-12)), dataset);
+        for tolerance in [1e-6, 1e-8] {
+            let limit = tolerance / 100.0;
+            let loose = stopped(atoms, &format!("{extra}{}", scf(tolerance)), dataset);
+            let shares = [
+                (
+                    "eigenvalues",
+                    largest_gap(&loose.eigenvalues, &tight.eigenvalues),
+                    0.54,
+                ),
+                ("E_F", (loose.fermi_level - tight.fermi_level).abs(), 0.54),
+                ("F", (loose.free - tight.free).abs(), 0.01),
+                ("terms", largest_gap(&loose.terms, &tight.terms), 1.0),
+            ];
+            for (what, gap, share) in shares {
+                assert!(
+                    gap <= share * limit,
+                    "{extra:?} at {tolerance:e}: {what} {gap:e} above {share} × {limit:e}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn the_eigensolver_tolerance_that_follows_the_density_change_costs_at_most_one_scf_step_over_the_dense_solver()
+ {
+    for (atoms, extra, dataset) in stop_rows() {
+        let iterative = stopped(atoms, extra, dataset);
+        let dense = stopped(
+            atoms,
+            &format!("{extra}\n[bands]\nsolver = \"dense\"\n"),
+            dataset,
+        );
+        eprintln!("{extra:?}: {} {}", iterative.steps, dense.steps);
+        assert!(
+            iterative.steps <= dense.steps + 1,
+            "{extra:?}: {} against {}",
+            iterative.steps,
+            dense.steps
+        );
+    }
+}

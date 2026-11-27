@@ -27,7 +27,7 @@ RUN --mount=type=bind,source=.,target=/context \
 WORKDIR /src
 COPY --from=about /opt/about/bin/cargo-about /usr/local/bin/cargo-about
 RUN --mount=type=secret,id=ca,required=false --mount=type=bind,source=container/with-ca.sh,target=/with-ca \
-    echo "maturin==1.9.6 --hash=sha256:0246202377c49449315305209f45c8ecef6e2d6bd27a04b5b6f1ab3e4ea47238" > /tmp/maturin.txt \
+    echo "maturin==1.11.5 --hash=sha256:ffe7418834ff3b4a6c987187b7abb85ba033f4733e089d77d84e2de87057b4e7" > /tmp/maturin.txt \
  && /with-ca python -m pip install -q --no-deps --require-hashes --only-binary :all: -r /tmp/maturin.txt \
  && /with-ca cargo about generate --locked --fail --config container/about.toml --output-file THIRD-PARTY-NOTICES \
       container/about.hbs \
@@ -36,9 +36,9 @@ RUN --mount=type=secret,id=ca,required=false --mount=type=bind,source=container/
 FROM scratch AS wheel
 COPY --from=wheel-build /dist/ /
 
-FROM ghcr.io/astral-sh/uv@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
+FROM --platform=linux/amd64 ghcr.io/astral-sh/uv@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 
-FROM python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS slim
+FROM --platform=linux/amd64 python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS slim
 
 FROM slim AS jth-build
 RUN --mount=type=secret,id=ca,required=false --mount=type=bind,source=container/with-ca.sh,target=/with-ca \
@@ -47,9 +47,7 @@ RUN --mount=type=secret,id=ca,required=false --mount=type=bind,source=container/
     --mount=type=bind,source=packages/orbitar-jth,target=/tmp/jth \
     uv pip install --system --no-cache --no-deps /tmp/wheel/*.whl \
  && cp -R /tmp/jth /src \
- && /with-ca python -I -m orbitar.datasets fetch --family jth-2.0 /tmp/fetched \
- && find /tmp/fetched -maxdepth 1 -name '*.toml' ! -name jth-2.0.toml -delete \
- && cp -R /tmp/fetched/. /src/orbitar_jth/ \
+ && /with-ca python -I /src/stage.py /tmp/fetched \
  && cd /src && uv build --offline --no-cache --wheel --out-dir /dist
 
 FROM scratch AS jth-wheel

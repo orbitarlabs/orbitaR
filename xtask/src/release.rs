@@ -1,9 +1,16 @@
-use crate::{Env, Findings, git, harness::datasets::Family, lock::hex, walk};
+pub(crate) mod mac;
+
+use crate::{
+    Env, Findings, git,
+    harness::datasets::{self, Family},
+    lock::hex,
+    walk,
+};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fs,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
@@ -13,7 +20,156 @@ use std::{
 const DOCKERFILE: &str = "container/Dockerfile";
 const PYLOCK: &str = "python/pylock.toml";
 const CASE_INPUT: &str = "benchmarks/1_free_electron/input.toml";
-const PLATFORM: &str = "manylinux_2_28_x86_64";
+const EM_X86_64: u16 = 62;
+const CPU_TYPE_ARM64: u32 = 0x0100_000c;
+
+pub(crate) struct Platform {
+    pub(crate) tag: &'static str,
+    pub(crate) target: &'static str,
+    machine: Machine,
+}
+
+const MH_EXECUTE: u32 = 2;
+const PLATFORM_MACOS: u32 = 1;
+
+pub(crate) const PLATFORMS: [Platform; 2] = [
+    Platform {
+        tag: "manylinux_2_28_x86_64",
+        target: "x86_64-unknown-linux-gnu",
+        machine: Machine::Elf { machine: EM_X86_64 },
+    },
+    Platform {
+        tag: "macosx_12_0_arm64",
+        target: "aarch64-apple-darwin",
+        machine: Machine::MachO {
+            cpu: CPU_TYPE_ARM64,
+            filetype: MH_EXECUTE,
+            platform: PLATFORM_MACOS,
+            minos: (12, 0, 0),
+        },
+    },
+];
+
+#[derive(Debug, PartialEq)]
+pub enum Machine {
+    Elf {
+        machine: u16,
+    },
+    MachO {
+        cpu: u32,
+        filetype: u32,
+        platform: u32,
+        minos: (u32, u32, u32),
+    },
+}
+
+impl Platform {
+    pub(crate) fn deployment_target(&self) -> Option<String> {
+        match self.machine {
+            Machine::MachO {
+                minos: (major, minor, _),
+                ..
+            } => Some(format!("{major}.{minor}")),
+            Machine::Elf { .. } => None,
+        }
+    }
+
+    fn runs(&self, found: &Machine) -> bool {
+        match (&self.machine, found) {
+            (
+                Machine::MachO {
+                    cpu,
+                    filetype,
+                    platform,
+                    minos: tag,
+                },
+                Machine::MachO {
+                    cpu: got_cpu,
+                    filetype: got_type,
+                    platform: got_platform,
+                    minos: floor,
+                },
+            ) => cpu == got_cpu && filetype == got_type && platform == got_platform && floor <= tag,
+            (want, got) => want == got,
+        }
+    }
+}
+
+pub(crate) fn mac_platform(target: &str) -> Result<&'static Platform, String> {
+    let macs = || (PLATFORMS.iter()).filter(|p| p.deployment_target().is_some());
+    macs().find(|p| p.target == target).ok_or_else(|| {
+        let targets: Vec<String> = macs()
+            .map(|p| {
+                format!(
+                    "{} (macOS {})",
+                    p.target,
+                    p.deployment_target().unwrap_or_default()
+                )
+            })
+            .collect();
+        format!("wheel --target {target}: no Mac platform; the Mac targets are {targets:?}")
+    })
+}
+
+fn platform_of(file: &str) -> Option<&'static Platform> {
+    (PLATFORMS.iter()).find(|p| file.ends_with(&format!("-{}.whl", p.tag)))
+}
+
+const LC_BUILD_VERSION: u32 = 0x32;
+const BUILD_VERSION_SIZE: usize = 24;
+const BUILD_TOOL_SIZE: usize = 8;
+const COMMAND_ALIGN: usize = 8;
+const MH_MAGIC_64: [u8; 4] = [0xcf, 0xfa, 0xed, 0xfe];
+const MACH_HEADER_64: usize = 32;
+
+pub fn machine(bytes: &[u8]) -> Option<Machine> {
+    let u32_in = |slice: &[u8], i: usize| {
+        Some(u32::from_le_bytes(
+            slice.get(i..i.checked_add(4)?)?.try_into().ok()?,
+        ))
+    };
+    if bytes.starts_with(b"\x7fELF") && bytes.get(4..6) == Some(&[2, 1]) {
+        let machine = u16::from_le_bytes(bytes.get(18..20)?.try_into().ok()?);
+        return Some(Machine::Elf { machine });
+    }
+    if !bytes.starts_with(&MH_MAGIC_64) {
+        return None;
+    }
+    let header = bytes.get(..MACH_HEADER_64)?;
+    let (cpu, filetype, commands) = (u32_in(header, 4)?, u32_in(header, 12)?, u32_in(header, 16)?);
+    let size = usize::try_from(u32_in(header, 20)?).ok()?;
+    let mut rest = bytes.get(MACH_HEADER_64..MACH_HEADER_64.checked_add(size)?)?;
+    let mut build = None;
+    for _ in 0..commands {
+        let head = rest.get(..8)?;
+        let (command, length) = (u32_in(head, 0)?, usize::try_from(u32_in(head, 4)?).ok()?);
+        if length < 8 || length % COMMAND_ALIGN != 0 {
+            return None;
+        }
+        let (body, after) = (rest.get(..length)?, rest.get(length..)?);
+        if command == LC_BUILD_VERSION {
+            let fields = body.get(..BUILD_VERSION_SIZE)?;
+            let tools = usize::try_from(u32_in(fields, 20)?).ok()?;
+            let extent = BUILD_TOOL_SIZE
+                .checked_mul(tools)?
+                .checked_add(BUILD_VERSION_SIZE)?;
+            if length != extent || build.is_some() {
+                return None;
+            }
+            let v = u32_in(fields, 12)?;
+            build = Some((u32_in(fields, 8)?, (v >> 16, (v >> 8) & 0xff, v & 0xff)));
+        }
+        rest = after;
+    }
+    let (platform, minos) = build.filter(|_| rest.is_empty())?;
+    Some(Machine::MachO {
+        cpu,
+        filetype,
+        platform,
+        minos,
+    })
+}
+
 const PERSONAL: [&str; 6] = [
     "Author-email:",
     "Maintainer:",
@@ -38,13 +194,18 @@ const JTH_INFO: [&str; 4] = ["METADATA", "WHEEL", "RECORD", "entry_points.txt"];
 #[derive(Deserialize)]
 struct Listing {
     names: Vec<String>,
+    stored: Vec<String>,
     metadata: String,
     #[serde(default)]
     families: BTreeMap<String, String>,
     license: Option<String>,
     notices: Option<String>,
     runs: Vec<(String, String)>,
-    elf: Vec<String>,
+    machine_code: Vec<String>,
+    #[serde(default)]
+    heads: BTreeMap<String, String>,
+    #[serde(default)]
+    spans: BTreeMap<String, String>,
     #[serde(default)]
     sha256: BTreeMap<String, String>,
     #[serde(default)]
@@ -73,19 +234,35 @@ fn jth_version(root: &Path) -> Result<String, String> {
         .ok_or_else(|| format!("{path}: no [project] version"))
 }
 
-fn pylock(root: &Path, path: &str) -> Result<BTreeSet<String>, String> {
-    let text = fs::read_to_string(root.join(path)).map_err(|e| format!("{path}: {e}"))?;
-    let lock: toml::Value = toml::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
-    let packages = lock["packages"].as_array().cloned().unwrap_or_default();
-    Ok(packages
-        .iter()
-        .map(|p| {
-            format!(
-                "{}=={}",
-                p["name"].as_str().unwrap_or("?"),
-                p["version"].as_str().unwrap_or("?")
-            )
-        })
+#[derive(Deserialize)]
+struct Pylock {
+    #[serde(default)]
+    packages: Vec<Locked>,
+}
+
+#[derive(Deserialize)]
+struct Locked {
+    name: String,
+    version: String,
+    #[serde(default)]
+    wheels: Vec<LockedWheel>,
+}
+
+#[derive(Deserialize)]
+struct LockedWheel {
+    url: String,
+    hashes: BTreeMap<String, String>,
+}
+
+fn locked(root: &Path) -> Result<Vec<Locked>, String> {
+    let text = fs::read_to_string(root.join(PYLOCK)).map_err(|e| format!("{PYLOCK}: {e}"))?;
+    let lock: Pylock = toml::from_str(&text).map_err(|e| format!("{PYLOCK}: {e}"))?;
+    Ok(lock.packages)
+}
+
+fn pylock(root: &Path) -> Result<BTreeSet<String>, String> {
+    Ok((locked(root)?.iter())
+        .map(|p| format!("{}=={}", p.name, p.version))
         .collect())
 }
 
@@ -100,7 +277,7 @@ pub(crate) fn license(root: &Path) -> String {
         .to_owned()
 }
 
-fn linked(root: &Path, env: &Env) -> Result<BTreeSet<String>, String> {
+fn linked(root: &Path, env: &Env, target: &str) -> Result<BTreeSet<String>, String> {
     let tree = [
         "tree",
         "--offline",
@@ -109,7 +286,7 @@ fn linked(root: &Path, env: &Env) -> Result<BTreeSet<String>, String> {
         "--edges",
         "normal",
         "--target",
-        "x86_64-unknown-linux-gnu",
+        target,
         "--prefix",
         "none",
         "--format",
@@ -178,18 +355,36 @@ fn build(root: &Path, target: &str, commit: &str, extra: &[&str]) -> Result<(), 
     run(&mut command, &format!("docker build --target {target}")).map(|_| ())
 }
 
-fn contents(root: &Path, file: &str, listing: &Listing, crates: &BTreeSet<String>) -> Findings {
+fn contents(
+    root: &Path,
+    (file, platform): (&str, &Platform),
+    listing: &Listing,
+    crates: &BTreeSet<String>,
+    build_roots: &[String],
+) -> Findings {
     let mut findings = Vec::new();
     let version = match version(root) {
         Ok(v) => v,
         Err(e) => return vec![e],
     };
-    let want = format!("orbitar-{version}-py3-none-{PLATFORM}.whl");
+    let want = format!("orbitar-{version}-py3-none-{}.whl", platform.tag);
     if file != want {
         findings.push(format!("wheel: {file} is not {want}"));
     }
     let names: BTreeSet<&str> = listing.names.iter().map(String::as_str).collect();
     let script = format!("orbitar-{version}.data/scripts/orbitar");
+    let head = (listing.heads.get(&script)).and_then(|hex| {
+        (0..hex.len() / 2)
+            .map(|i| u8::from_str_radix(hex.get(2 * i..2 * i + 2)?, 16).ok())
+            .collect::<Option<Vec<u8>>>()
+    });
+    let found = head.as_deref().and_then(machine);
+    if names.contains(script.as_str()) && !found.as_ref().is_some_and(|m| platform.runs(m)) {
+        findings.push(format!(
+            "wheel: {script} is no {} engine for {}: its header reads {found:?}",
+            platform.target, platform.tag
+        ));
+    }
     for member in [
         "orbitar/__init__.py",
         "orbitar/ase.py",
@@ -214,6 +409,7 @@ fn contents(root: &Path, file: &str, listing: &Listing, crates: &BTreeSet<String
         );
     }
     findings.extend(duplicates(file, &listing.names));
+    findings.extend(order(file, listing));
     for name in &listing.paw {
         findings.push(format!(
             "wheel: {name} opens with a PAW-XML root; datasets never enter the wheel"
@@ -293,12 +489,14 @@ fn contents(root: &Path, file: &str, listing: &Listing, crates: &BTreeSet<String
             requires.insert(dist);
         }
     }
-    match (pylock(root, PYLOCK), jth_version(root)) {
+    match (pylock(root), jth_version(root)) {
         (Ok(mut pinned), Ok(jth)) => {
-            pinned.insert(format!("orbitar-jth=={jth}"));
-            if pinned != requires {
+            let data = format!("orbitar-jth=={jth}");
+            pinned.insert(data.clone());
+            let unpinned: BTreeSet<&String> = requires.difference(&pinned).collect();
+            if !unpinned.is_empty() || !requires.contains(&data) {
                 findings.push(format!(
-                    "wheel: Requires-Dist {requires:?} differs from {PYLOCK} and {JTH} {pinned:?}"
+                    "wheel: Requires-Dist {requires:?} differs from {PYLOCK} and {JTH}: {unpinned:?} has no pin, {data} is required"
                 ));
             }
         }
@@ -306,15 +504,68 @@ fn contents(root: &Path, file: &str, listing: &Listing, crates: &BTreeSet<String
     }
     for (member, runs) in &listing.runs {
         let what = format!("wheel {member}");
-        let binary = member.contains(".data/scripts/") && listing.elf.contains(member);
+        let binary = member.contains(".data/scripts/") && listing.machine_code.contains(member);
         findings.extend(named_in(&what, runs, binary));
-        findings.extend(homes(
-            &what,
-            runs,
-            "build the wheel with `cargo xtask wheel`",
-        ));
+        if binary && platform.deployment_target().is_some() {
+            let spans = listing.spans.get(member).unwrap_or(runs);
+            findings.extend(host_paths(&what, spans, build_roots));
+        } else {
+            findings.extend(homes(
+                &what,
+                runs,
+                "build the wheel with `cargo xtask wheel`",
+            ));
+        }
     }
     findings
+}
+
+const HOST_ROOTS: [(&str, bool); 6] = [
+    ("/Users/", true),
+    ("/home/", true),
+    ("/Volumes/", true),
+    ("/var/folders/", true),
+    ("/private/", false),
+    ("/tmp/", false),
+];
+
+pub fn host_paths(what: &str, spans: &str, build_roots: &[String]) -> Findings {
+    let segment = |c: &u8| c.is_ascii_alphanumeric() || b"._-+@".contains(c);
+    let roots: Vec<(String, bool)> = (HOST_ROOTS.iter())
+        .map(|(r, anywhere)| (r.to_ascii_lowercase(), *anywhere))
+        .chain(build_roots.iter().map(|r| {
+            let root = format!("{}/", r.trim_end_matches('/'));
+            (root.to_ascii_lowercase(), true)
+        }))
+        .collect();
+    let mut paths = BTreeSet::new();
+    for span in spans.lines() {
+        let lower = span.to_ascii_lowercase();
+        let mut held: Vec<(usize, usize)> = (roots.iter())
+            .flat_map(|(root, anywhere)| {
+                (lower.match_indices(root.as_str())).filter_map(move |(i, _)| {
+                    let starts = *anywhere || !span.as_bytes()[..i].last().is_some_and(segment);
+                    let component = span[i + root.len()..].split('/').next().unwrap_or_default();
+                    (starts && !component.is_empty()).then(|| (i, i + root.len() + component.len()))
+                })
+            })
+            .collect();
+        held.sort_unstable();
+        let mut path_end = 0;
+        for (start, end) in held {
+            if start >= path_end {
+                path_end = span[end..]
+                    .find(|c: char| c.is_ascii_whitespace())
+                    .map_or(span.len(), |n| end + n);
+                paths.insert(&span[start..end]);
+            }
+        }
+    }
+    (paths.into_iter())
+        .map(|p| {
+            format!("{what}: `{p}` is a path on the build host; remap its root (release/mac.rs)")
+        })
+        .collect()
 }
 
 macro_rules! paw_root {
@@ -323,7 +574,7 @@ macro_rules! paw_root {
     };
 }
 
-fn listing(wheel: &Path) -> Result<Listing, String> {
+fn listing(wheel: &Path, python: Option<&Path>) -> Result<Listing, String> {
     let script = concat!(
         "import hashlib, json, re, sys, zipfile\n\
         paw = re.compile(",
@@ -333,36 +584,67 @@ fn listing(wheel: &Path) -> Result<Listing, String> {
         names = z.namelist()\n\
         read = lambda end: next((z.read(n).decode() for n in names if n.endswith(end)), None)\n\
         runs = lambda n: '\\n'.join(r.decode() for r in re.findall(rb'[ -~]{4,}', z.read(n)))\n\
-        print(json.dumps({'names': names, 'metadata': read('.dist-info/METADATA') or '', \
+        stored = [i.filename for i in sorted(z.infolist(), key=lambda i: i.header_offset)]\n\
+        print(json.dumps({'names': names, 'stored': stored, 'metadata': read('.dist-info/METADATA') or '', \
         'families': {n: z.read(n).decode() for n in names if n.startswith('orbitar/families/')}, 'license': read('.dist-info/licenses/LICENSE'), \
         'notices': read('.dist-info/licenses/THIRD-PARTY-NOTICES'), 'runs': [[n, runs(n)] for n in names if not n.startswith('orbitar_jth/')], \
-        'elf': [n for n in names if z.read(n)[:4] == b'\\x7fELF'], \
+        'machine_code': [n for n in names if z.read(n)[:4] in (b'\\x7fELF', b'\\xcf\\xfa\\xed\\xfe')], \
+        'heads': {n: z.read(n)[:65536].hex() for n in names if '.data/scripts/' in n}, \
+        'spans': {n: '\\n'.join(r.decode('utf-8', 'replace') for r in re.findall(rb'[^\\x00-\\x1f\\x7f]{4,}', z.read(n))) \
+        for n in names if '.data/scripts/' in n}, \
         'sha256': {n: hashlib.sha256(z.read(n)).hexdigest() for n in names}, \
         'entry_points': read('.dist-info/entry_points.txt'), \
         'paw': [n for n in names if paw.match(z.read(n))]}))"
     );
-    let out = run(
-        Command::new("python3")
-            .args(["-I", "-c", script])
-            .arg(wheel),
-        "python3 zipfile",
-    )?;
+    let out = match python {
+        None => run(
+            Command::new("python3")
+                .args(["-I", "-c", script])
+                .arg(wheel),
+            "python3 zipfile",
+        )?,
+        Some(python) => run(
+            venv_run(python, &["python", "-I", "-c", script]).arg(wheel),
+            "python zipfile",
+        )?,
+    };
     serde_json::from_slice(&out.stdout).map_err(|e| format!("{}: {e}", wheel.display()))
 }
 
 fn check_file(root: &Path, wheel: &Path, env: &Env) -> Findings {
+    check_file_with(root, wheel, env, &Scan::default())
+}
+
+#[derive(Default)]
+pub(crate) struct Scan<'a> {
+    pub(crate) python: Option<&'a Path>,
+    pub(crate) build_roots: &'a [String],
+}
+
+pub(crate) fn check_file_with(root: &Path, wheel: &Path, env: &Env, scan: &Scan) -> Findings {
     let file = wheel
         .file_name()
         .map(|f| f.to_string_lossy().into_owned())
         .unwrap_or_default();
     if file.starts_with(&format!("{JTH_MODULE}-")) {
-        return match listing(wheel) {
+        return match listing(wheel, scan.python) {
             Ok(listing) => jth_contents(root, &file, &listing),
             Err(e) => vec![e],
         };
     }
-    match (listing(wheel), linked(root, env)) {
-        (Ok(listing), Ok(crates)) => contents(root, &file, &listing, &crates),
+    let Some(platform) = platform_of(&file) else {
+        let tags: Vec<&str> = PLATFORMS.iter().map(|p| p.tag).collect();
+        return vec![format!(
+            "wheel: {file} is not orbitar-<version>-py3-none-<tag>.whl of a tag in {tags:?}"
+        )];
+    };
+    match (
+        listing(wheel, scan.python),
+        linked(root, env, platform.target),
+    ) {
+        (Ok(listing), Ok(crates)) => {
+            contents(root, (&file, platform), &listing, &crates, scan.build_roots)
+        }
         (Err(e), _) | (_, Err(e)) => vec![e],
     }
 }
@@ -376,6 +658,28 @@ fn duplicates(file: &str, names: &[String]) -> Findings {
         .filter(|(_, count)| *count > 1)
         .map(|(name, count)| {
             format!("wheel {file}: {name} is a member {count} times; a wheel holds each path once")
+        })
+        .collect()
+}
+
+fn order(file: &str, listing: &Listing) -> Findings {
+    fn place(name: &str) -> (u8, Vec<&str>) {
+        let parts: Vec<&str> = name.split('/').collect();
+        let info = parts[0].ends_with(".dist-info");
+        let last = info && parts[1..] == ["RECORD"];
+        (u8::from(info) + u8::from(last), parts)
+    }
+    let mut want = listing.names.clone();
+    want.sort_by(|a, b| place(a).cmp(&place(b)));
+    [("central directory", &listing.names), ("stored entries", &listing.stored)]
+        .into_iter()
+        .filter_map(|(part, names)| {
+            (names.iter().zip(&want).find(|(got, want)| got != want)).map(|(got, want)| {
+                format!(
+                    "wheel {file}: in the {part}, {got} stands where {want} belongs; a wheel lists its members \
+                     by path, .dist-info after the rest and RECORD last, so that each host builds the same bytes"
+                )
+            })
         })
         .collect()
 }
@@ -484,10 +788,19 @@ fn jth_contents(root: &Path, file: &str, listing: &Listing) -> Findings {
     findings
 }
 
-pub(crate) fn wheel(root: &Path, check: Option<&Path>, env: &Env) -> Findings {
-    match check {
-        Some(file) => check_file(root, &root.join(file), env),
-        None => prove_wheel(root, env),
+pub(crate) fn wheel(
+    root: &Path,
+    check: Option<&Path>,
+    target: Option<&str>,
+    env: &Env,
+) -> Findings {
+    match (check, target) {
+        (Some(file), _) => check_file(root, &root.join(file), env),
+        (None, None) => prove_wheel(root, env),
+        (None, Some(target)) => match mac_platform(target) {
+            Ok(platform) => mac::prove(root, platform, env),
+            Err(e) => vec![e],
+        },
     }
 }
 
@@ -584,49 +897,208 @@ pub fn install_verdict(install: &Install) -> Findings {
 }
 
 pub fn install(root: &Path, commit: &str) -> Result<(Install, PathBuf), Findings> {
-    let one = |e: String| vec![e];
-    let venv = root.join("target/wheel/venv");
-    let python = venv.join("bin/python");
-    run(
-        Command::new("uv")
-            .args(["venv", "--quiet", "--python", "3.12"])
-            .arg(&venv),
-        "uv venv",
+    let dirs: Vec<PathBuf> = (std::iter::once(HOUSE).chain(WHEELS))
+        .map(|t| root.join("target/wheel").join(t))
+        .collect();
+    fill(
+        root,
+        &root.join("target/wheel/venv"),
+        &Wheels::Pylock {
+            interpreter: OsStr::new("3.12"),
+            dirs: &dirs,
+        },
+        commit,
     )
-    .map_err(one)?;
-    let uv_install = |args: &[&str]| {
-        let mut command = Command::new("uv");
-        command
-            .args(["pip", "install", "--quiet", "--python"])
-            .arg(&python)
-            .args(args)
-            .current_dir(root);
-        command
-    };
-    run(&mut uv_install(&["--no-build", "-r", PYLOCK]), PYLOCK).map_err(one)?;
-    let mut local = vec!["--no-index", "--no-deps"];
-    let dirs: Vec<String> = WHEELS.iter().map(|t| format!("target/wheel/{t}")).collect();
-    for dir in &dirs {
-        local.extend(["--find-links", dir.as_str()]);
-    }
-    let data = JTH.rsplit('/').next().unwrap_or(JTH);
-    for line in readme_lines(root, "Install") {
-        match line.strip_prefix("pip install ") {
-            Some(args) => {
-                let words: Vec<&str> = local
-                    .iter()
-                    .copied()
-                    .chain(args.split_whitespace())
-                    .chain(std::iter::once(data))
-                    .collect();
-                run(&mut uv_install(&words), &line)
-            }
-            None => run(
-                venv_run(&python, &["sh", "-c", line.as_str()]).current_dir(root),
-                &line,
-            ),
+}
+
+pub enum Wheels<'a> {
+    Pylock {
+        interpreter: &'a OsStr,
+        dirs: &'a [PathBuf],
+    },
+    Files {
+        interpreter: &'a OsStr,
+        files: &'a [PathBuf],
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Program {
+    Uv,
+    Maturin,
+    CargoAbout,
+    Cargo,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Invocation {
+    pub program: Program,
+    pub args: Vec<OsString>,
+    pub env: Vec<(OsString, OsString)>,
+    pub unset: Vec<OsString>,
+    pub dir: Option<PathBuf>,
+}
+
+impl Invocation {
+    pub fn new(program: Program) -> Self {
+        Self {
+            program,
+            args: Vec::new(),
+            env: Vec::new(),
+            unset: Vec::new(),
+            dir: None,
         }
-        .map_err(one)?;
+    }
+
+    pub fn arg(mut self, arg: impl AsRef<OsStr>) -> Self {
+        self.args.push(arg.as_ref().to_owned());
+        self
+    }
+
+    pub fn args<I: IntoIterator<Item = S>, S: AsRef<OsStr>>(mut self, args: I) -> Self {
+        self.args
+            .extend(args.into_iter().map(|a| a.as_ref().to_owned()));
+        self
+    }
+
+    pub fn env(mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> Self {
+        self.env
+            .push((key.as_ref().to_owned(), value.as_ref().to_owned()));
+        self
+    }
+
+    pub fn unset(mut self, key: impl AsRef<OsStr>) -> Self {
+        self.unset.push(key.as_ref().to_owned());
+        self
+    }
+
+    pub fn dir(mut self, dir: &Path) -> Self {
+        self.dir = Some(dir.to_owned());
+        self
+    }
+
+    pub fn sealed(self) -> Self {
+        overrides().fold(self, Self::unset)
+    }
+
+    pub fn words(&self) -> Vec<String> {
+        (self.args.iter())
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    pub fn var(&self, key: &str) -> Option<String> {
+        (self.env.iter().rev())
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.to_string_lossy().into_owned())
+    }
+}
+
+pub(crate) fn execute(step: &Invocation, env: Option<&Env>, what: &str) -> Result<Output, String> {
+    let mut command = match (step.program, env) {
+        (Program::Uv, _) => Command::new("uv"),
+        (Program::Maturin, _) => Command::new("maturin"),
+        (Program::CargoAbout, _) => Command::new("cargo-about"),
+        (Program::Cargo, Some(env)) => Command::new(&env.cargo),
+        (Program::Cargo, None) => return Err(format!("{what}: no cargo to run")),
+    };
+    command.args(&step.args);
+    for (key, value) in &step.env {
+        command.env(key, value);
+    }
+    for key in &step.unset {
+        command.env_remove(key);
+    }
+    if let Some(dir) = &step.dir {
+        command.current_dir(dir);
+    }
+    run(&mut command, what)
+}
+
+const RUN: [&str; 5] = ["run", "--no-project", "--quiet", "--offline", "--no-config"];
+
+pub fn in_venv(python: &Path, args: &[&str]) -> Invocation {
+    Invocation::new(Program::Uv)
+        .sealed()
+        .args(RUN)
+        .arg("--python")
+        .arg(python)
+        .arg("--")
+        .args(args)
+}
+
+pub fn clear(dir: &Path) -> Result<(), String> {
+    match fs::remove_dir_all(dir) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            Err(format!("{}: {e}", dir.display()))
+        }
+        _ => Ok(()),
+    }
+}
+
+pub fn install_plan(
+    root: &Path,
+    venv: &Path,
+    wheels: &Wheels,
+    readme: &[String],
+) -> Vec<(String, Invocation)> {
+    let python = venv.join("bin/python");
+    let interpreter = match wheels {
+        Wheels::Pylock { interpreter, .. } | Wheels::Files { interpreter, .. } => interpreter,
+    };
+    let create = Invocation::new(Program::Uv)
+        .args(["venv", "--quiet", "--python"])
+        .arg(interpreter)
+        .arg(venv);
+    let pip = |flags: &[&str]| {
+        Invocation::new(Program::Uv)
+            .args(["pip", "install", "--quiet"])
+            .args(flags)
+            .arg("--python")
+            .arg(&python)
+            .dir(root)
+    };
+    let mut plan = vec![("uv venv".to_owned(), create)];
+    match wheels {
+        Wheels::Pylock { dirs, .. } => {
+            for line in readme {
+                let step = match line.strip_prefix("pip install ") {
+                    Some(args) => {
+                        let mut step = pip(&["--no-cache", "--offline", "--no-config"])
+                            .sealed()
+                            .args(["--no-index", "--no-build"]);
+                        for dir in *dirs {
+                            step = step.arg("--find-links").arg(dir);
+                        }
+                        step.args(args.split_whitespace())
+                    }
+                    None => in_venv(&python, &["sh", "-c", line.as_str()]).dir(root),
+                };
+                plan.push((line.clone(), step));
+            }
+        }
+        Wheels::Files { files, .. } => {
+            let step = pip(&[]).args(["--only-binary", ":all:"]).args(files.iter());
+            plan.push(("uv pip install the wheel files".to_owned(), step));
+        }
+    }
+    plan
+}
+
+pub(crate) fn fill(
+    root: &Path,
+    venv: &Path,
+    wheels: &Wheels,
+    commit: &str,
+) -> Result<(Install, PathBuf), Findings> {
+    let one = |e: String| vec![e];
+    clear(venv).map_err(one)?;
+    if let Wheels::Pylock { .. } = wheels {
+        wheelhouse(root).map_err(one)?;
+    }
+    let python = venv.join("bin/python");
+    for (what, step) in install_plan(root, venv, wheels, &readme_lines(root, "Install")) {
+        execute(&step, None, &what).map_err(one)?;
     }
     let version_printed = run(
         &mut venv_run(&python, &["orbitar", "--version"]),
@@ -656,6 +1128,34 @@ pub fn install(root: &Path, commit: &str) -> Result<(Install, PathBuf), Findings
     Ok((install, python))
 }
 
+const HOUSE: &str = "house";
+
+fn wheelhouse(root: &Path) -> Result<(), String> {
+    let house = root.join("target/wheel").join(HOUSE);
+    fs::create_dir_all(&house).map_err(|e| format!("{}: {e}", house.display()))?;
+    let mut kept = BTreeSet::new();
+    for wheel in locked(root)?.iter().flat_map(|p| &p.wheels) {
+        let file = (wheel.url.rsplit('/').next())
+            .filter(|f| f.ends_with(".whl"))
+            .ok_or_else(|| format!("{PYLOCK}: {} names no wheel file", wheel.url))?;
+        let sha = (wheel.hashes.get("sha256"))
+            .ok_or_else(|| format!("{PYLOCK}: {file} has no sha256"))?;
+        let local = house.join(file);
+        if datasets::cached(&local, sha)?.is_none() {
+            datasets::download(&local, &wheel.url, sha, PYLOCK)?;
+        }
+        kept.insert(OsString::from(file));
+    }
+    let entries = fs::read_dir(&house).map_err(|e| format!("{}: {e}", house.display()))?;
+    for entry in entries.flatten() {
+        if !kept.contains(&entry.file_name()) {
+            fs::remove_file(entry.path())
+                .map_err(|e| format!("{}: {e}", entry.path().display()))?;
+        }
+    }
+    Ok(())
+}
+
 fn readme_tests(root: &Path, python: PathBuf, env: &Env) -> Findings {
     let vars: [(&str, OsString); 1] = [("ORBITAR_PYTHON", python.into_os_string())];
     let test = [
@@ -672,23 +1172,42 @@ fn readme_tests(root: &Path, python: PathBuf, env: &Env) -> Findings {
 }
 
 pub fn readme_lines(root: &Path, heading: &str) -> Vec<String> {
-    let text = fs::read_to_string(root.join("README.md")).unwrap_or_default();
-    let section = text
-        .split(&format!("\n## {heading}\n"))
-        .nth(1)
-        .unwrap_or("");
-    let block = section.split("```").nth(1).unwrap_or("");
-    (block.lines().skip(1))
+    (readme_block(root, heading).lines())
         .map(|l| l.split_once(" #").map_or(l, |(code, _)| code).trim())
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
         .map(str::to_owned)
         .collect()
 }
 
+fn overrides() -> impl Iterator<Item = OsString> {
+    std::env::vars_os().map(|(key, _)| key).filter(|key| {
+        let name = key.to_string_lossy();
+        name.starts_with("UV_") || name.starts_with("PIP_")
+    })
+}
+
+fn sealed(command: &mut Command) -> &mut Command {
+    for key in overrides() {
+        command.env_remove(key);
+    }
+    command
+}
+
+fn readme_block(root: &Path, heading: &str) -> String {
+    let text = fs::read_to_string(root.join("README.md")).unwrap_or_default();
+    let section = (text.split(&format!("\n## {heading}\n")).nth(1)).unwrap_or("");
+    let block = section.split("```").nth(1).unwrap_or("");
+    block
+        .split_once('\n')
+        .map_or("", |(_, code)| code)
+        .to_owned()
+}
+
 fn venv_run(python: &Path, args: &[&str]) -> Command {
     let mut command = Command::new("uv");
-    command
-        .args(["run", "--no-project", "--quiet", "--python"])
+    sealed(&mut command)
+        .args(RUN)
+        .arg("--python")
         .arg(python)
         .arg("--")
         .args(args);

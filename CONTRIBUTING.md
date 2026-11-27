@@ -19,6 +19,11 @@ cargo xtask new-case <slug> <reference>
 you write
   benchmarks/<N>_<slug>/input.toml       the engine input; more inputs go in inputs/<stem>.toml
   benchmarks/<N>_<slug>/case.toml        [tolerance]: <metric>_max or <metric>_min; the harness judges, not measure()
+                                         [why]: a reason per value; each record keeps the table as `why`
+                                           error_max = "the worst seen is 4e-13; the margin is for another libm"
+                                           status = "active: its bound passed in the run that promoted it"
+                                         a [why] key: a [case] key that the file sets, a [tolerance] key, a [relax]
+                                           input, `tolerance` (the whole table), or `inputs` (the case's inputs)
   tests/benchmarks/<N>_<slug>/case.rs    measure(): the metrics of the engine output
   benchmarks/<N>_<slug>/reference/       the reference files, with SOURCE.toml
 ```
@@ -39,6 +44,8 @@ you write
 - The pull request records each reviewer who agrees. A LOCK change names its reviewer and its reason.
 - The commands and CI judge every other change.
 - No pull request text or commit message holds a generated-by line or a co-author trailer: `cargo xtask pr-text`.
+- Anyone may author a commit, but not as Claude, nor with half of the orbitar-admin or GitHub identity.
+- No commit message, merges included, names a person, an account, or a home directory: `cargo xtask publish`.
 
 ## Cases against a rival code
 
