@@ -159,3 +159,35 @@ fn the_mutants_jobs_run_their_tests_under_the_cap_of_the_unit_shards() {
         Some(CAP.join(" ").as_str())
     );
 }
+
+#[test]
+fn mutants_start_after_lint_and_run_the_shards_that_their_plan_counts() {
+    let ci = ci();
+    let jobs = &ci["jobs"];
+    let needs = |job: &str| -> Vec<String> {
+        match &jobs[job]["needs"] {
+            Yaml::String(one) => vec![one.clone()],
+            Yaml::Array(many) => many
+                .iter()
+                .filter_map(|n| n.as_str().map(str::to_owned))
+                .collect(),
+            _ => Vec::new(),
+        }
+    };
+    assert_eq!(needs("mutants-plan"), ["lint"]);
+    assert_eq!(needs("mutants"), ["mutants-plan"]);
+    assert_eq!(needs("mutants-all"), ["mutants-plan", "mutants"]);
+    assert_eq!(
+        jobs["mutants"]["strategy"]["matrix"]["shard"].as_str(),
+        Some("${{ fromJSON(needs.mutants-plan.outputs.shards) }}")
+    );
+    let run = runs(&jobs["mutants"]).join("\n");
+    assert!(
+        run.contains(
+            "--shard ${{ matrix.shard }}/${{ strategy.job-total }} --sharding round-robin"
+        ),
+        "{run}"
+    );
+    let plan = runs(&jobs["mutants-plan"]).join("\n");
+    assert!(plan.contains("\"\" | *[!0-9]*) shards=8 ;;"), "{plan}");
+}
