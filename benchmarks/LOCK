@@ -1,4 +1,4 @@
-# harness reviewer=owner (11-26: the light run's bound is relative to the pair), captain reason=the light run's peak Pss bound becomes a tenth of the measured pair (about 16 MB) instead of 5 MB: GitHub's hosted Ubuntu runner measures 5.56 MB for sh and sleep; the test still proves the pair counts shared pages once and the light run holds no harness memory
+# harness reviewer=PENDING reason=promo cards: results collect keeps the versus entries (G, 95% CI, R, pair medians), size series and node block of a passing claim record and refuses one that its own numbers contradict; render draws the speed, memory, scaling and verification cards from RESULTS.toml alone; S11 holds the cards
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -19,7 +19,7 @@ f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harn
 ec4c980211c7243e37508ee3af8f242b298661ef4684a599f4ba93559a607b76  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
-53749170c1dd70512dcb1e0874648a2bdd75bbec964fb0e1242d141da613b160  xtask/src/lib.rs
+87a3ac50cc571115fdf2afd03720831595d628fbda9053abdabdf206349f217b  xtask/src/lib.rs
 d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
@@ -29,7 +29,8 @@ d9912666d4bcfa98750da92e9e38e03320661cb93d1874144fc1ee3305e7cab2  xtask/src/pr_t
 581fae9def97c4f6cab5b9f0357407c8bb23fae679b54880987c6def6b9e8613  xtask/src/publish.rs
 33e54a474af27a538eb73d661f54aeb896bada153ced8589b694bd70b0993112  xtask/src/release.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
-70747986eb676692dccad69e5b12b3417d6b7e19e9adb7fdcb8a2b7e0240cdff  xtask/src/results.rs
+078aaa85d661ec523f1bce0488d8c090173aa5a56b3700707f89aeb378012b40  xtask/src/results.rs
+c4d780b6cf2a41f2954177d0d29cbdb42137daf4def6c08fe8e47455a2433c9f  xtask/src/results/card.rs
 0ae1508724aecc0270cdee93ee50d335329a255e76d1c9cd4a7f0cb2394346ae  xtask/src/same.rs
 bccc20364a7a8d88ea892b748a373ac7668e870c0da87623f00bf2f6cf32c3eb  xtask/src/science.rs
 1f77f549104d7bb10ee346a2867f61be1af44e270eab8c1ddb715873f2e65bd9  xtask/src/strain.rs
@@ -68,7 +69,8 @@ c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/no
 0250980bef23a5cd4d1deb47b20b80ee8283d9f4701b0a16dde71cf63a930a5c  xtask/tests/publish.rs
 5308466787fda8b1e5ea3740bd8c647f00180189be8dc21333b5906fcaa26cfa  xtask/tests/release.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
-2fa5406c310212330ec85de4db654fd788127734cfa88b654f4ebae7dd28e3ae  xtask/tests/results.rs
+7e6f0ddacb4ce3a4139cefa342f7c6e4c5a3e997b94f9026a8ad896965d6f2ef  xtask/tests/results.rs
+725c61bf2a604be7d0d8b4c72967514273444bb1ade8bb84da8de9255b5945f3  xtask/tests/results/card.rs
 830a1dd7ff8024b5dd4bb93394a481f1aa5d3ac06293f108cab5f6484219db48  xtask/tests/same.rs
 2bf0a126bec3b439381931c88bc4dcaebd8eeeedeb8171a25e5682e1a2126a74  xtask/tests/science.rs
 6bcca93c807b7b6679490eaed489d281586f529b98f819daea4489957b337a57  xtask/tests/strain.rs
