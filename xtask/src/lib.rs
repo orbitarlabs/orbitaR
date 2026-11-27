@@ -125,12 +125,16 @@ enum Cli {
         #[arg(long)]
         base: Option<String>,
     },
-    /// publish [--base <rev>]: no workflow, container file, or packaging lever publishes; no workflow asks for more
-    /// than contents: read; no file names a person, an account, a private link, or a home directory; each commit of
-    /// <base>..HEAD (base: origin/main) holds no Claude identity, and its message names no one and no home directory
+    /// publish [--base <rev>] [--head <rev>]: no workflow, container file, or packaging lever publishes; no workflow
+    /// asks for more than contents: read; no file names a person, an account, a private link, or a home directory;
+    /// each commit of <base>..<head> (origin/main..HEAD) has well-formed identity lines (git fsck --strict), neither
+    /// the Claude name nor address, no half of the maintainer or GitHub identity, and a message, merges too, that
+    /// names no one and no home directory
     Publish {
         #[arg(long, default_value = publish::BASE)]
         base: String,
+        #[arg(long, default_value = publish::HEAD)]
+        head: String,
     },
     /// pr-text [--body <file>] --base <rev> [--head <rev>]: the pull request text and each commit message of
     /// <base>..<head> (head: HEAD) hold no tool's generated-by line and no co-author trailer
@@ -302,7 +306,7 @@ const LEVERS: [Lever; 8] = [
     |root| science::check(root, None),
     native::check,
     version::check,
-    |root| publish::check(root, publish::BASE),
+    |root| publish::check(root, publish::BASE, publish::HEAD),
 ];
 
 pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
@@ -345,7 +349,7 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
         Cli::Science { base } => science::check(root, base.as_deref()),
         Cli::Native => native::check(root),
         Cli::Version => version::check(root),
-        Cli::Publish { base } => publish::check(root, &base),
+        Cli::Publish { base, head } => publish::check(root, &base, &head),
         Cli::PrText { body, base, head } => pr_text::check(root, body.as_deref(), &base, &head),
         Cli::Same {
             base,

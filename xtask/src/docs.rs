@@ -4,7 +4,7 @@ use crate::{
     walk,
 };
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
-use pulldown_cmark::{BrokenLink, CowStr, Event, LinkType, Options, Parser, Tag};
+use pulldown_cmark::{BrokenLink, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -14,7 +14,7 @@ use std::{
 
 const PROSE: [(&str, usize); 5] = [
     ("AGENTS.md", 22),
-    ("CONTRIBUTING.md", 53),
+    ("CONTRIBUTING.md", 54),
     ("container/README.md", 73),
     ("README.md", 126),
     ("SECURITY.md", 4),
@@ -225,6 +225,32 @@ fn plain(path: &str) -> bool {
     !path.is_empty() && (Path::new(path).components()).all(|c| matches!(c, Component::Normal(_)))
 }
 
+fn in_tree(root: &Path, path: &str) -> bool {
+    plain(path) && resolves_inside(root, path) && public(root, path)
+}
+
+fn public(root: &Path, path: &str) -> bool {
+    let quiet = ["-c", "core.quotePath=false"];
+    let Ok(tracked) = git(root, &[&quiet[..], &["ls-files", "--", path]].concat()) else {
+        return false;
+    };
+    let files: Vec<&str> = tracked.lines().collect();
+    let within = |file: &str| -> Vec<String> {
+        let dirs = (file.match_indices('/')).map(|(at, _)| file[..=at].to_owned());
+        dirs.chain([file.to_owned()]).collect()
+    };
+    let asked: BTreeSet<String> = files.iter().flat_map(|f| within(f)).collect();
+    let asked: Vec<&str> = asked.iter().map(String::as_str).collect();
+    let ask = [&quiet[..], &["check-attr", "export-ignore", "--"], &asked].concat();
+    let Ok(out) = git(root, &ask) else {
+        return false;
+    };
+    let ignored: BTreeSet<&str> = (out.lines())
+        .filter_map(|l| l.strip_suffix(": export-ignore: set"))
+        .collect();
+    (files.iter()).any(|f| within(f).iter().all(|p| !ignored.contains(p.as_str())))
+}
+
 fn resolves_inside(root: &Path, path: &str) -> bool {
     match (root.canonicalize(), root.join(path).canonicalize()) {
         (Ok(base), Ok(real)) => real.starts_with(base),
@@ -312,8 +338,7 @@ fn html(root: &Path, line: &str) -> bool {
                 && !rest
                     .split('/')
                     .any(|part| part.is_empty() || part.starts_with('.'))
-        }) && plain(path)
-            && resolves_inside(root, path)
+        }) && in_tree(root, path)
             && root.join(path).is_file()
     };
     let quoted = |rest: &str, key: &str| -> Option<(String, String)> {
@@ -323,7 +348,8 @@ fn html(root: &Path, line: &str) -> bool {
     };
     match line {
         "<p align=\"center\">" | "</p>" | "<picture>" | "</picture>" | "</a>" => true,
-        "<a href=\"benchmarks/README.md\">" | "<details>" | "</details>" => true,
+        "<details>" | "</details>" => true,
+        "<a href=\"benchmarks/README.md\">" => in_tree(root, "benchmarks/README.md"),
         _ if line.starts_with("<summary>") => line
             .strip_prefix("<summary>")
             .and_then(|rest| rest.strip_suffix("</summary>"))
@@ -371,6 +397,7 @@ fn readme(root: &Path) -> Findings {
         .filter(|path| path.ends_with(".rs"))
         .map(|path| walk::read(root, &path))
         .collect();
+    let parsed = parse_readme(root, &text);
     let mut findings = Vec::new();
     let lines: Vec<&str> = text.lines().collect();
     let mut heading = String::new();
@@ -390,7 +417,7 @@ fn readme(root: &Path) -> Findings {
                         "{at}: HTML comes from the allowlist only: a picture under assets/, <details>, <summary>"
                     ));
                 }
-            } else if inline_html(line) {
+            } else if inline_html(line) || parsed.html.contains(&(n + 1)) {
                 findings.push(format!(
                     "{at}: put HTML on its own line, from the allowlist"
                 ));
@@ -422,7 +449,7 @@ fn readme(root: &Path) -> Findings {
         }
         rows.by_ref().take(body.len() + 1).for_each(drop);
     }
-    findings.extend(readme_links(root, &text));
+    findings.extend(parsed.links);
     findings
 }
 
@@ -442,44 +469,83 @@ fn inline_html(line: &str) -> bool {
 const REFERENCE: &str =
     "write each link inline as [text](path); a reference link escapes the tree check";
 
-fn readme_links(root: &Path, text: &str) -> Findings {
+struct Parsed {
+    links: Findings,
+    html: BTreeSet<usize>,
+}
+
+const BARE: [&str; 3] = ["http://", "https://", "www."];
+
+fn bare_urls(text: &str) -> Vec<&str> {
+    (text.split_whitespace())
+        .map(|word| {
+            (word.trim_start_matches(['*', '_', '~', '(']))
+                .trim_end_matches(['.', ',', ':', ';', '!', '?', ')', '*', '_', '~', '"', '\''])
+        })
+        .filter(|word| {
+            let lower = word.to_ascii_lowercase();
+            BARE.iter()
+                .any(|b| lower.starts_with(b) && lower.len() > b.len())
+        })
+        .collect()
+}
+
+fn parse_readme(root: &Path, text: &str) -> Parsed {
     let line = |at: usize| text[..at].matches('\n').count() + 1;
+    let gone = |target: &str| format!("the link `{target}` names no file of the tree");
     let unresolved = |_: BrokenLink<'_>| Some((CowStr::from(""), CowStr::from("")));
     let parser = Parser::new_with_broken_link_callback(text, Options::empty(), Some(unresolved));
     let mut found: Vec<(usize, String)> = (parser.reference_definitions().iter())
         .map(|(_, definition)| (line(definition.span.start), REFERENCE.to_owned()))
         .collect();
+    let mut html = BTreeSet::new();
+    let (mut code, mut linked) = (0, 0);
     for (event, span) in parser.into_offset_iter() {
-        let (Event::Start(Tag::Link {
-            link_type,
-            dest_url,
-            ..
-        })
-        | Event::Start(Tag::Image {
-            link_type,
-            dest_url,
-            ..
-        })) = event
-        else {
-            continue;
-        };
-        match link_type {
-            LinkType::ShortcutUnknown => {}
-            LinkType::Inline | LinkType::Autolink | LinkType::Email => {
-                if !(plain(&dest_url) && resolves_inside(root, &dest_url)) {
-                    found.push((
-                        line(span.start),
-                        format!("the link `{dest_url}` names no file of the tree"),
-                    ));
+        match event {
+            Event::Html(_) | Event::InlineHtml(_) => {
+                html.extend(line(span.start)..=line(span.end.max(span.start + 1) - 1));
+            }
+            Event::Start(Tag::CodeBlock(_)) => code += 1,
+            Event::End(TagEnd::CodeBlock) => code -= 1,
+            Event::End(TagEnd::Link | TagEnd::Image) => linked -= 1,
+            Event::Text(words) if code == 0 && linked == 0 => {
+                for url in bare_urls(&words) {
+                    found.push((line(span.start), gone(url)));
                 }
             }
-            _ => found.push((line(span.start), REFERENCE.to_owned())),
+            Event::Start(
+                Tag::Link {
+                    link_type,
+                    dest_url,
+                    ..
+                }
+                | Tag::Image {
+                    link_type,
+                    dest_url,
+                    ..
+                },
+            ) => {
+                linked += 1;
+                match link_type {
+                    LinkType::ShortcutUnknown => {}
+                    LinkType::Inline | LinkType::Autolink | LinkType::Email => {
+                        if !in_tree(root, &dest_url) {
+                            found.push((line(span.start), gone(&dest_url)));
+                        }
+                    }
+                    _ => found.push((line(span.start), REFERENCE.to_owned())),
+                }
+            }
+            _ => {}
         }
     }
     found.sort();
-    (found.into_iter())
-        .map(|(n, what)| format!("docs: README.md:{n}: {what}"))
-        .collect()
+    Parsed {
+        links: (found.into_iter())
+            .map(|(n, what)| format!("docs: README.md:{n}: {what}"))
+            .collect(),
+        html,
+    }
 }
 
 fn holds(file: &str, example: &[&str]) -> bool {

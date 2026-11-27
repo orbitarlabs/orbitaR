@@ -1,4 +1,4 @@
-use crate::{has, lever, tree};
+use crate::{Tree, has, lever, tree};
 use std::{path::Path, process::Command};
 
 const WORKFLOW: &str = "name: package\npermissions:\n  contents: read\njobs:\n  package:\n    runs-on: ubuntu-latest # never self-hosted\n    steps:\n      - uses: actions/checkout@0123 # v7\n      - run: cargo xtask wheel\n";
@@ -362,11 +362,9 @@ fn publish_at(root: &Path, head: &str) -> Vec<String> {
     lever(&["publish"], root)
 }
 
-#[test]
-fn a_branch_commit_by_anyone_passes_but_the_claude_identity_a_borrowed_identity_or_a_named_message_fails_outside_a_github_merge()
- {
+fn branch(name: &str) -> (Tree, String, String) {
     let root = tree(
-        "publish-commits",
+        name,
         &[
             (".github/workflows/package.yml", WORKFLOW),
             ("xtask/src/release.rs", RELEASE),
@@ -374,85 +372,12 @@ fn a_branch_commit_by_anyone_passes_but_the_claude_identity_a_borrowed_identity_
     );
     let base = on_main(&root);
     let side = commit_as(&root, MAINTAINER, MAINTAINER, &[&base], "side");
-    let email = format!("someone{AT}example.org");
-    let person: Who = ("Some One", &email);
-    let renamed: Who = ("Some One", MAINTAINER.1);
-    let readdressed: Who = (MAINTAINER.0, &email);
-    let loud = format!("NoReply{AT}Anthropic.COM");
-    let shouted: Who = ("Someone Else", &loud);
-    let trailer = format!("a step\n\nCo-Authored-By: Claude Opus 5.5 <noreply{AT}anthropic.com>");
-    let link = format!(
-        "a step\n\nClaude-Session: https://{}/code/session_0123",
-        "claude.ai"
-    );
-    let home = format!("a step built in /{}/someone/orbitar", "home");
-    let claude = "holds the Claude identity";
-    let borrowed = |role: &str| format!("its {role} takes the name or the address of");
-    let (author, committer) = (borrowed("author"), borrowed("committer"));
-    let (author, committer) = (author.as_str(), committer.as_str());
-    for (by, to, message, merge, needles) in [
-        (person, person, "a step", false, vec![]),
-        (person, MAINTAINER, "a step", false, vec![]),
-        (MAINTAINER, person, "a step", false, vec![]),
-        (person, GITHUB, "an edit on the web", false, vec![]),
-        (person, GITHUB, "Merge side into base", true, vec![]),
-        (person, GITHUB, &home, true, vec![]),
-        (
-            person,
-            person,
-            &home,
-            true,
-            vec!["holds a home directory; reword the commit"],
-        ),
-        (
-            person,
-            GITHUB,
-            &home,
-            false,
-            vec!["holds a home directory; reword the commit"],
-        ),
-        (
-            MAINTAINER,
-            MAINTAINER,
-            trailer.as_str(),
-            false,
-            vec![claude],
-        ),
-        (CLAUDE, MAINTAINER, "a step", false, vec![claude]),
-        (MAINTAINER, CLAUDE, "a step", false, vec![claude]),
-        (shouted, person, "a step", false, vec![claude]),
-        (CLAUDE, GITHUB, "Merge side into base", true, vec![claude]),
-        (renamed, MAINTAINER, "a step", false, vec![author]),
-        (MAINTAINER, readdressed, "a step", false, vec![committer]),
-        (
-            person,
-            renamed,
-            "Merge side into base",
-            true,
-            vec![committer],
-        ),
-        (
-            MAINTAINER,
-            MAINTAINER,
-            &link,
-            false,
-            vec!["names a person, an account"],
-        ),
-        (
-            person,
-            person,
-            &link,
-            false,
-            vec!["names a person, an account"],
-        ),
-        (
-            person,
-            person,
-            &home,
-            false,
-            vec!["holds a home directory; reword the commit"],
-        ),
-    ] {
+    (root, base, side)
+}
+
+fn each_head(name: &str, cases: &[(Who, Who, &str, bool, &[&str])]) {
+    let (root, base, side) = branch(name);
+    for &(by, to, message, merge, needles) in cases {
         let parents: Vec<&str> = if merge {
             vec![&base, &side]
         } else {
@@ -460,19 +385,139 @@ fn a_branch_commit_by_anyone_passes_but_the_claude_identity_a_borrowed_identity_
         };
         let head = commit_as(&root, by, to, &parents, message);
         let found = publish_at(&root, &head);
-        for needle in &needles {
-            assert!(has(&found, needle), "{message}: {found:?}");
+        for needle in needles {
+            assert!(has(&found, needle), "{by:?} {to:?} {message}: {found:?}");
         }
         if needles.is_empty() {
-            assert_eq!(found, Vec::<String>::new(), "{message}");
+            assert_eq!(found, Vec::<String>::new(), "{by:?} {to:?} {message}");
         }
-        assert!(
-            !has(&found, &email) && !has(&found, "Some One") && !has(&found, "Someone Else"),
-            "{message}: a finding echoes who: {found:?}"
-        );
+        for who in [PERSON.0, PERSON.1, "Someone Else"] {
+            assert!(
+                !has(&found, who),
+                "{message}: a finding echoes who: {found:?}"
+            );
+        }
     }
-    let bad = commit_as(&root, renamed, MAINTAINER, &[&base], "bad");
-    let good = commit_as(&root, person, person, &[&bad], "good");
+}
+
+const PERSON: Who = ("Some One", concat!("someone", "@", "example.org"));
+const MERGE: &str = "Merge pull request #7 from orbitarlabs/topic\n\nxtask: a step";
+
+#[test]
+fn an_outside_contributor_passes_as_author_or_committer_and_through_github() {
+    each_head(
+        "publish-outside",
+        &[
+            (PERSON, PERSON, "a step", false, &[]),
+            (PERSON, MAINTAINER, "a step", false, &[]),
+            (MAINTAINER, PERSON, "a step", false, &[]),
+            (PERSON, GITHUB, "an edit on the web", false, &[]),
+            (PERSON, GITHUB, MERGE, true, &[]),
+            (PERSON, PERSON, "Merge branch 'topic'", true, &[]),
+        ],
+    );
+}
+
+#[test]
+fn the_claude_address_anywhere_or_the_claude_name_in_any_case_fails() {
+    let loud = format!("NoReply{AT}Anthropic.COM");
+    let shouted: Who = ("Someone Else", &loud);
+    let trailer = format!("a step\n\nCo-Authored-By: Claude Opus 5.5 <noreply{AT}anthropic.com>");
+    let (address, author, committer) = (
+        "holds the Claude address",
+        "its author is named Claude",
+        "its committer is named Claude",
+    );
+    each_head(
+        "publish-claude",
+        &[
+            (CLAUDE, MAINTAINER, "a step", false, &[address, author]),
+            (MAINTAINER, CLAUDE, "a step", false, &[address, committer]),
+            (shouted, PERSON, "a step", false, &[address]),
+            (("cLAUDE", PERSON.1), PERSON, "a step", false, &[author]),
+            (
+                PERSON,
+                ("claude code", PERSON.1),
+                "a step",
+                false,
+                &[committer],
+            ),
+            (
+                PERSON,
+                ("Claude[bot]", PERSON.1),
+                "a step",
+                false,
+                &[committer],
+            ),
+            (MAINTAINER, MAINTAINER, &trailer, false, &[address]),
+            (CLAUDE, GITHUB, MERGE, true, &[address, author]),
+        ],
+    );
+}
+
+#[test]
+fn half_of_the_maintainer_or_the_github_identity_fails() {
+    let borrowed = |role: &str| format!("its {role} takes the name or the address of");
+    let (author, committer) = (borrowed("author"), borrowed("committer"));
+    let (author, committer) = (author.as_str(), committer.as_str());
+    each_head(
+        "publish-borrowed",
+        &[
+            (
+                (PERSON.0, MAINTAINER.1),
+                MAINTAINER,
+                "a step",
+                false,
+                &[author],
+            ),
+            (
+                MAINTAINER,
+                (MAINTAINER.0, PERSON.1),
+                "a step",
+                false,
+                &[committer],
+            ),
+            (("github", PERSON.1), PERSON, "a step", false, &[author]),
+            (
+                PERSON,
+                (PERSON.0, "NoReply@GitHub.com"),
+                MERGE,
+                true,
+                &[committer],
+            ),
+        ],
+    );
+}
+
+#[test]
+fn a_message_that_names_someone_or_holds_a_home_fails_in_merges_too() {
+    let link = format!(
+        "a step\n\nClaude-Session: https://{}/code/session_0123",
+        "claude.ai"
+    );
+    let home = format!("a step built in /{}/someone/orbitar", "home");
+    let (named, homed) = (
+        "names a person, an account",
+        "holds a home directory; reword the commit",
+    );
+    each_head(
+        "publish-messages",
+        &[
+            (MAINTAINER, MAINTAINER, &link, false, &[named]),
+            (PERSON, PERSON, &link, false, &[named]),
+            (PERSON, PERSON, &home, false, &[homed]),
+            (PERSON, GITHUB, &home, false, &[homed]),
+            (PERSON, GITHUB, &home, true, &[homed]),
+            (PERSON, PERSON, &home, true, &[homed]),
+        ],
+    );
+}
+
+#[test]
+fn a_bad_commit_under_a_good_head_is_named_by_its_short_hash() {
+    let (root, base, _) = branch("publish-traversal");
+    let bad = commit_as(&root, (PERSON.0, MAINTAINER.1), MAINTAINER, &[&base], "bad");
+    let good = commit_as(&root, PERSON, PERSON, &[&bad], "good");
     let short = git_as(
         &root,
         MAINTAINER,
@@ -490,116 +535,170 @@ fn a_branch_commit_by_anyone_passes_but_the_claude_identity_a_borrowed_identity_
 }
 
 #[test]
-fn without_its_base_the_lever_reports_it_and_a_named_base_checks_a_push_range() {
-    let root = tree("publish-base", &[("xtask/src/release.rs", RELEASE)]);
+fn a_named_range_reads_only_its_commits_and_a_missing_end_is_reported() {
+    let root = tree("publish-range", &[("xtask/src/release.rs", RELEASE)]);
     let base = on_main(&root);
     let pushed = commit_as(&root, CLAUDE, MAINTAINER, &[&base], "pushed");
     let later = commit_as(&root, MAINTAINER, MAINTAINER, &[&pushed], "later");
-    git_as(
-        &root,
-        MAINTAINER,
-        MAINTAINER,
-        &["update-ref", "refs/remotes/origin/main", &later],
-    );
+    let git = |args: &[&str]| git_as(&root, MAINTAINER, MAINTAINER, args);
+    git(&["update-ref", "refs/remotes/origin/main", &later]);
     assert_eq!(publish_at(&root, &later), Vec::<String>::new());
-    let range = lever(&["publish", "--base", &base], &root);
-    assert_eq!(range.len(), 1, "{range:?}");
-    assert!(has(&range, "holds the Claude identity"), "{range:?}");
+    let read = |base: &str, head: &str| lever(&["publish", "--base", base, "--head", head], &root);
+    let claude = |found: &[String]| found.len() == 2 && has(found, "holds the Claude address");
+    assert!(claude(&read(&base, &pushed)), "{:?}", read(&base, &pushed));
+    assert!(claude(&read(&base, "HEAD")), "{:?}", read(&base, "HEAD"));
+    assert_eq!(read(&pushed, &later), Vec::<String>::new());
+    assert_eq!(read(&later, &later), Vec::<String>::new());
+    let missing = |rev: &str| {
+        format!(
+            "publish: `{rev}` names no commit, so no commit of the branch was read; \
+             fetch it (`git fetch origin main`) or name the range with `--base <rev> --head <rev>`"
+        )
+    };
+    assert_eq!(read(&base, "gone"), [missing("gone")]);
     assert_eq!(
-        lever(&["publish", "--base", &pushed], &root),
-        Vec::<String>::new()
+        read("0000000000000000000000000000000000000000", &later).len(),
+        1
     );
-    git_as(
-        &root,
-        MAINTAINER,
-        MAINTAINER,
-        &["update-ref", "-d", "refs/remotes/origin/main"],
-    );
+    git(&["update-ref", "-d", "refs/remotes/origin/main"]);
+    assert_eq!(lever(&["publish"], &root), [missing("origin/main")]);
+}
+
+#[test]
+fn ci_reads_the_exact_range_of_a_pull_request_and_of_a_push() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let ci = std::fs::read_to_string(repo.join(".github/workflows/ci.yml")).unwrap();
+    let docs = yaml_rust2::YamlLoader::load_from_str(&ci).unwrap();
+    let steps: Vec<(String, String, String, String)> =
+        (docs[0]["jobs"].as_hash().unwrap().values())
+            .flat_map(|job| job["steps"].as_vec().cloned().unwrap_or_default())
+            .filter(|step| {
+                step["run"]
+                    .as_str()
+                    .is_some_and(|r| r.contains("xtask publish"))
+            })
+            .map(|step| {
+                let env = |key: &str| step["env"][key].as_str().unwrap_or("").to_owned();
+                let (base, head) = match step["if"].as_str() {
+                    Some("github.event_name == 'push'") => (env("BEFORE"), env("AFTER")),
+                    _ => (env("BASE"), env("PR_HEAD")),
+                };
+                let when = step["if"].as_str().unwrap_or("").to_owned();
+                (when, base, head, step["run"].as_str().unwrap().to_owned())
+            })
+            .collect();
+    let want = |when: &str, base: &str, head: &str, run: &str| {
+        (
+            when.to_owned(),
+            base.to_owned(),
+            head.to_owned(),
+            run.to_owned(),
+        )
+    };
     assert_eq!(
-        lever(&["publish"], &root),
+        steps,
         [
-            "publish: `origin/main` names no commit, so no commit of the branch was read; \
-          fetch it (`git fetch origin main`) or name the base with `--base <rev>`"
+            want(
+                "github.event_name == 'pull_request'",
+                "${{ github.event.pull_request.base.sha }}",
+                "${{ github.event.pull_request.head.sha }}",
+                "cargo xtask publish --base \"$BASE\" --head \"$PR_HEAD\"",
+            ),
+            want(
+                "github.event_name == 'push'",
+                "${{ github.event.before }}",
+                "${{ github.sha }}",
+                "cargo xtask publish --base \"$BEFORE\" --head \"$AFTER\"",
+            ),
         ]
     );
 }
 
 #[test]
-fn a_commit_object_with_malformed_metadata_or_the_claude_identity_in_any_header_fails() {
+fn an_identity_line_that_git_fsck_refuses_fails_and_the_claude_address_in_any_header_fails() {
     let root = tree("publish-objects", &[("xtask/src/release.rs", RELEASE)]);
     let base = on_main(&root);
-    let tree_id = git_as(&root, MAINTAINER, MAINTAINER, &["rev-parse", "HEAD^{tree}"]);
+    let git = |args: &[&str]| git_as(&root, MAINTAINER, MAINTAINER, args);
+    let tree_id = git(&["rev-parse", "HEAD^{tree}"]);
+    let me = PERSON.1;
     let who = format!("orbitar-admin <{}> 1764100000 +0000", MAINTAINER.1);
-    let header = |author: &str, extra: &str| {
+    let object = |author: &str, extra: &str| {
         format!(
             "tree {tree_id}\nparent {base}\nauthor {author}\ncommitter {who}\n{extra}\na step\n"
         )
     };
+    let written = |object: &str| {
+        let path = root.join("object.txt");
+        std::fs::write(&path, object).unwrap();
+        let strict = Command::new("git")
+            .args(["hash-object", "-t", "commit", "object.txt"])
+            .current_dir(&root)
+            .output()
+            .unwrap()
+            .status
+            .success();
+        let id = git(&[
+            "hash-object",
+            "-t",
+            "commit",
+            "-w",
+            "--literally",
+            "object.txt",
+        ]);
+        std::fs::remove_file(&path).unwrap();
+        (id, strict)
+    };
+    let bad = "its author line is no `name <address> seconds zone`, as git fsck --strict reads it";
+    for (author, fine) in [
+        (format!("x <{me}> 0 +0000"), true),
+        (format!("x <{me}> 1764100000 -0500"), true),
+        ("x 1764100000 +0000".to_owned(), false),
+        (format!("<{me}> 1764100000 +0000"), false),
+        (format!("x<{me}> 1764100000 +0000"), false),
+        (format!("x> <{me}> 1764100000 +0000"), false),
+        (format!("x <{me} 1764100000 +0000"), false),
+        (format!("x <a<{me}> 1764100000 +0000"), false),
+        (format!("x <{me}>1764100000 +0000"), false),
+        (format!("x <{me}> 01764100000 +0000"), false),
+        (format!("x <{me}> +1764100000 +0000"), false),
+        (format!("x <{me}> 99999999999999999999 +0000"), false),
+        (format!("x <{me}> soon +0000"), false),
+        (format!("x <{me}>  +0000"), false),
+        (format!("x <{me}> 1764100000 UTC"), false),
+        (format!("x <{me}> 1764100000 +00a0"), false),
+        (format!("x <{me}> 1764100000 +00000"), false),
+        (format!("x <{me}> 1764100000 +0000 x"), false),
+        (format!("x <{me}> 1764100000"), false),
+    ] {
+        let (id, strict) = written(&object(&author, "\n"));
+        assert_eq!(strict, fine, "git and this test disagree on `{author}`");
+        let found = publish_at(&root, &id);
+        let want: Vec<String> = if fine {
+            Vec::new()
+        } else {
+            vec![format!(
+                "publish: commit {}: {bad}",
+                git(&["rev-parse", "--short", &id])
+            )]
+        };
+        assert_eq!(found, want, "`{author}`");
+    }
     let loud = format!("NoReply{AT}Anthropic.COM");
-    for (object, needle) in [
+    for (extra, needle) in [
         (
-            header("orbitar-admin 1764100000 +0000", "\n"),
-            "its author line is no `name <address> time zone`",
-        ),
-        (
-            header(&format!("x <{}> soon +0000", MAINTAINER.1), "\n"),
-            "its author line is no",
-        ),
-        (
-            header(&format!("x <{}> 1764100000 UTC", MAINTAINER.1), "\n"),
-            "its author line is no",
-        ),
-        (
-            header(&format!("x <{}> 1764100000 +00a0", MAINTAINER.1), "\n"),
-            "its author line is no",
-        ),
-        (
-            header(&format!("x <{}> 1764100000 +0000 x", MAINTAINER.1), "\n"),
-            "its author line is no",
-        ),
-        (
-            header(&format!("x <{}> 1764100000", MAINTAINER.1), "\n"),
-            "its author line is no",
-        ),
-        (
-            header(&format!("x <{}", MAINTAINER.1), "\n"),
-            "its author line is no",
-        ),
-        (
-            header(&who, &format!("author {who}\n\n")),
+            format!("author {who}\n\n"),
             "it holds 2 author lines, not one",
         ),
+        (format!("x-note {loud}\n\n"), "holds the Claude address"),
         (
-            header(&who, &format!("x-note {loud}\n\n")),
-            "holds the Claude identity",
-        ),
-        (
-            header(
-                &who,
-                &format!("gpgsig -----BEGIN-----\n {loud}\n -----END-----\n\n"),
-            ),
-            "holds the Claude identity",
+            format!("gpgsig -----BEGIN-----\n {loud}\n -----END-----\n\n"),
+            "holds the Claude address",
         ),
     ] {
-        let path = root.join("object.txt");
-        std::fs::write(&path, &object).unwrap();
-        let id = git_as(
-            &root,
-            MAINTAINER,
-            MAINTAINER,
-            &[
-                "hash-object",
-                "-t",
-                "commit",
-                "-w",
-                "--literally",
-                "object.txt",
-            ],
-        );
-        std::fs::remove_file(&path).unwrap();
+        let (id, _) = written(&object(&who, &extra));
         let found = publish_at(&root, &id);
-        assert_eq!(found.len(), 1, "{object}: {found:?}");
-        assert!(has(&found, needle), "{object}: {found:?}");
+        assert_eq!(found.len(), 1, "{extra}: {found:?}");
+        assert!(has(&found, needle), "{extra}: {found:?}");
     }
 }
 

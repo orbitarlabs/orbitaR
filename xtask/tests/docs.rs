@@ -11,6 +11,24 @@ fn docs(name: &str, agents: &str, gated: &str, stack: &str, extra: &[(&str, &str
     lever(&["docs"], &docs_tree(name, agents, gated, stack, extra))
 }
 
+fn tracked(root: &Tree) -> &Tree {
+    git(root, &["init", "-q"]);
+    git(root, &["add", "-A"]);
+    root
+}
+
+fn readme_findings(name: &str, lines: &[&str], extra: &[(&str, &str)]) -> Vec<String> {
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let mut files = vec![("README.md", readme.as_str())];
+    files.extend_from_slice(extra);
+    let root = docs_tree(name, "# A\n", &format!("# R\n{GATES}"), STACK, &files);
+    lever(&["docs"], tracked(&root))
+}
+
+fn readme_line(n: usize, what: &str) -> String {
+    format!("docs: README.md:{}: {what}", README.lines().count() + 2 + n)
+}
+
 fn docs_tree(name: &str, agents: &str, gated: &str, stack: &str, extra: &[(&str, &str)]) -> Tree {
     let mut files = vec![
         ("AGENTS.md", agents),
@@ -529,38 +547,132 @@ fn a_readme_link_names_a_file_of_the_tree() {
         "![Chart](assets/missing.svg)",
         "- An autolink: <https://example.com/x>",
     ];
-    let readme = format!("{README}\n{}\n", lines.join("\n"));
-    let f = docs(
+    let f = readme_findings(
         "docs-readme-links",
-        "# A\n",
-        &format!("# R\n{GATES}"),
-        STACK,
-        &[
-            ("README.md", &readme),
-            ("LICENSE", "x\n"),
-            ("benchmarks/x.toml", ""),
-        ],
+        &lines,
+        &[("LICENSE", "x\n"), ("benchmarks/x.toml", "")],
     );
-    let first = README.lines().count() + 2;
     let gone = |n: usize, target: &str| {
-        format!(
-            "docs: README.md:{}: the link `{target}` names no file of the tree",
-            first + n
-        )
+        readme_line(n, &format!("the link `{target}` names no file of the tree"))
     };
     assert_eq!(
         f,
         [
-            format!(
-                "docs: README.md:{}: put HTML on its own line, from the allowlist",
-                first + 8
-            ),
+            readme_line(8, "put HTML on its own line, from the allowlist"),
             gone(3, "packages/gone/LICENSE"),
             gone(4, "https://example.com"),
             gone(5, "../LICENSE"),
             gone(6, "/etc/hosts"),
             gone(7, "assets/missing.svg"),
             gone(8, "https://example.com/x"),
+        ]
+    );
+}
+
+#[test]
+fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
+    let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>\n";
+    let lines = [
+        "- [Tracked](LICENSE)",
+        "- [Untracked](NOTES)",
+        "- [Ignored](private/plan.toml)",
+        "- [Ignored directory](private/)",
+        "<img src=\"assets/tracked.svg\" alt=\"Logo\">",
+        "<img src=\"assets/untracked.svg\" alt=\"Logo\">",
+        "<a href=\"benchmarks/README.md\">",
+        "</a>",
+    ];
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let root = docs_tree(
+        "docs-readme-public",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &[
+            ("README.md", &readme),
+            ("LICENSE", "x\n"),
+            ("private/plan.toml", ""),
+            (".gitattributes", "private/ export-ignore\n"),
+            ("assets/tracked.svg", svg),
+            ("benchmarks/README.md", "# B\n"),
+        ],
+    );
+    tracked(&root);
+    write(&root, "NOTES", "x\n");
+    write(&root, "assets/untracked.svg", svg);
+    let html = "HTML comes from the allowlist only: a picture under assets/, <details>, <summary>";
+    let gone = |n: usize, target: &str| {
+        readme_line(n, &format!("the link `{target}` names no file of the tree"))
+    };
+    let readme_only = |f: Vec<String>| -> Vec<String> {
+        f.into_iter().filter(|x| x.contains("README.md:")).collect()
+    };
+    assert_eq!(
+        readme_only(lever(&["docs"], &root)),
+        [
+            readme_line(5, html),
+            gone(1, "NOTES"),
+            gone(2, "private/plan.toml"),
+            gone(3, "private/"),
+        ]
+    );
+    git(&root, &["rm", "-q", "--cached", "benchmarks/README.md"]);
+    assert_eq!(
+        readme_only(lever(&["docs"], &root)),
+        [
+            readme_line(5, html),
+            readme_line(6, html),
+            gone(1, "NOTES"),
+            gone(2, "private/plan.toml"),
+            gone(3, "private/"),
+        ]
+    );
+}
+
+#[test]
+fn readme_html_that_the_parser_sees_must_stand_on_its_own_line_whatever_the_backticks() {
+    let f = readme_findings(
+        "docs-readme-backtick",
+        &[
+            "- An unmatched ` and then <a href=\"https://example.com\">a site</a>",
+            "- Code `<a href=\"https://example.com\">` is no tag.",
+        ],
+        &[],
+    );
+    assert_eq!(
+        f,
+        [readme_line(
+            0,
+            "put HTML on its own line, from the allowlist"
+        )]
+    );
+}
+
+#[test]
+fn a_bare_web_address_outside_code_is_a_link_out_of_the_tree() {
+    let f = readme_findings(
+        "docs-readme-bare",
+        &[
+            "- See https://example.com/a for more.",
+            "- Or (www.example.com) and *HTTP://EXAMPLE.COM*.",
+            "- Code `https://example.com` and [text](LICENSE) are fine; so is https:// alone.",
+            "",
+            "```text",
+            "https://example.com/in/a/block",
+            "```",
+        ],
+        &[("LICENSE", "x\n")],
+    );
+    let gone = |n: usize, target: &str| {
+        readme_line(n, &format!("the link `{target}` names no file of the tree"))
+    };
+    let links: Vec<String> = f.into_iter().filter(|x| x.contains("the link")).collect();
+    assert_eq!(
+        links,
+        [
+            gone(0, "https://example.com/a"),
+            gone(1, "HTTP://EXAMPLE.COM"),
+            gone(1, "www.example.com"),
         ]
     );
 }
@@ -850,7 +962,7 @@ fn readme_html_is_a_picture_under_assets_or_a_fold_one_tag_per_line() {
     ];
     let inline = ["Some <b>bold</b> prose", "A <https://example.com> link"];
     let readme = format!(
-        "{README}\n{}\n{}\n{}\n- Code `<b>` is no tag, nor is 1 < 2.\n",
+        "{README}\n{}\n{}\n{}\n\n- Code `<b>` is no tag, nor is 1 < 2.\n",
         good.join("\n"),
         bad.join("\n"),
         inline.join("\n")
@@ -864,10 +976,11 @@ fn readme_html_is_a_picture_under_assets_or_a_fold_one_tag_per_line() {
             ("README.md", &readme),
             ("assets/brand/logo-light.svg", svg),
             ("assets/brand/logo-dark.svg", svg),
+            ("benchmarks/README.md", "# B\n"),
             ("tests/main.rs", "readme_block(\"Run\")\n"),
         ],
     );
-    let f = lever(&["docs"], &root);
+    let f = lever(&["docs"], tracked(&root));
     let first = README.lines().count() + 2;
     let refused = |n: usize| format!("docs: README.md:{n}: HTML comes from the allowlist only");
     let inline_at = |n: usize| format!("docs: README.md:{n}: put HTML on its own line");
@@ -905,13 +1018,14 @@ fn readme_refuses_reference_links_and_their_definitions_inside_containers_too() 
         "- [unknown] is no link: no definition holds it.",
     ];
     let readme = format!("{README}\n{}\n", lines.join("\n"));
-    let f = docs(
+    let root = docs_tree(
         "docs-readme-reference-links",
         "# A\n",
         &format!("# R\n{GATES}"),
         STACK,
         &[("README.md", &readme), ("LICENSE", "x\n")],
     );
+    let f = lever(&["docs"], tracked(&root));
     let first = README.lines().count() + 2;
     let refused = |n: usize| {
         format!(
@@ -974,7 +1088,7 @@ fn readme_refuses_a_picture_whose_asset_is_a_symlink_out_of_the_checkout() {
     )
     .unwrap();
     let first = README.lines().count() + 2;
-    let f: Vec<String> = lever(&["docs"], &root)
+    let f: Vec<String> = lever(&["docs"], tracked(&root))
         .into_iter()
         .filter(|x| x.contains("README.md:"))
         .collect();
