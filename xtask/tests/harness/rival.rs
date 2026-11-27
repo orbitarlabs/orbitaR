@@ -154,7 +154,7 @@ fn first_inputs_in(name: &str, input: &str, setup: impl Fn(&Tree)) -> [String; 4
     std::fs::create_dir_all(&log).unwrap();
     let keep = |file: &str| {
         format!(
-            "[ -e '{0}/{file}' ] || {{ cp {file} '{0}/{file}'; echo \"$OMP_NUM_THREADS $GFORTRAN_UNBUFFERED_PRECONNECTED $*\" > '{0}/{file}.env'; }}",
+            "[ -e '{0}/{file}' ] || {{ cp {file} '{0}/{file}'; echo \"$OMP_NUM_THREADS $OPENBLAS_NUM_THREADS $GFORTRAN_UNBUFFERED_PRECONNECTED $*\" > '{0}/{file}.env'; }}",
             log.display()
         )
     };
@@ -182,8 +182,30 @@ fn the_rival_inputs_carry_the_case_cell_mesh_smearing_bands_and_stop_with_the_io
         pp_dirpath \"./\"\npseudos \"JTH-PBE-v2.0/Si/Si.xml\"\necut 10.0\npawecutdg 20.0\nngkpt 2 2 2\nnshiftk 1\nshiftk 0.5 0.5 0.5\nkptopt 3\nnsym 1\n\
         occopt 3\ntsmear 0.01\nnband 8\ntoldfe 3.674932217565499e-9\nnstep 500\noptstress 0\nchkprim 0\nchksymbreak 0\nprtwf 0\nprtden 0\nprteig 0\nprtgsr 0\nprtebands 0\n";
     assert_eq!(abi, want_abinit);
-    assert_eq!(qe_env.trim(), "8 y -in pw.in");
-    assert_eq!(abi_env.trim(), "8 y run.abi");
+    assert_eq!(qe_env.trim(), "8 1 y -in pw.in");
+    assert_eq!(abi_env.trim(), "8 1 y run.abi");
+}
+
+#[test]
+fn each_blas_that_a_declared_rival_links_is_openblas_whose_pool_each_rank_holds_at_one_thread() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../benchmarks/NODE.toml");
+    let node: toml::Table = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let mut blas = Vec::new();
+    for (code, packages) in node.iter().filter(|(k, _)| *k != "host" && *k != "orbitar") {
+        for (name, pin) in packages.as_table().unwrap() {
+            let pin = pin.as_str().unwrap_or_default();
+            let linked = ["blas", "mkl", "blis", "lapack"];
+            if linked.iter().any(|l| name.contains(l) || pin.contains(l)) {
+                blas.push(format!("{code}.{name} = {pin}"));
+            }
+        }
+    }
+    assert!(!blas.is_empty(), "{node}");
+    assert!(
+        blas.iter()
+            .all(|b| b.contains("openblas") && !b.contains("mkl") && !b.contains("blis")),
+        "{blas:?}"
+    );
 }
 
 #[test]

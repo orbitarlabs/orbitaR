@@ -20,6 +20,7 @@ const CLOCK_SLACK_S: f64 = 0.15;
 const CLOCK_SHARE: f64 = 0.02;
 const STEP_SLACK_S: f64 = 0.05;
 const STEP_SHARE: f64 = 0.5;
+const BLAS_POOLS: [(&str, &str); 1] = [("openblas", "OPENBLAS_NUM_THREADS")];
 
 #[derive(Deserialize)]
 pub(crate) struct Settings {
@@ -951,7 +952,8 @@ impl Rivals {
         command
             .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
             .env("OMP_NUM_THREADS", layout.threads.to_string())
-            .env("GFORTRAN_UNBUFFERED_PRECONNECTED", "y");
+            .env("GFORTRAN_UNBUFFERED_PRECONNECTED", "y")
+            .envs(BLAS_POOLS.map(|(_, threads)| (threads, "1")));
         command
     }
 }
