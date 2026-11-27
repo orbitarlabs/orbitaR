@@ -517,6 +517,13 @@ pub(crate) fn notebook_lever(root: &Path, write: bool) -> Findings {
     let path = root.join(NOTEBOOK);
     let written = quickstart(&readme).and_then(|bytes| {
         let dir = path.parent().ok_or("no notebook directory")?;
+        let kind = |at: &Path| std::fs::symlink_metadata(at).ok().map(|m| m.file_type());
+        if kind(dir).is_some_and(|k| !k.is_dir()) {
+            return Err("its directory is no real directory; nothing is written".into());
+        }
+        if kind(&path).is_some_and(|k| !k.is_file()) {
+            return Err("is no regular file (a symlink?); nothing is written".into());
+        }
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
         std::fs::write(&path, bytes).map_err(|e| e.to_string())
     });

@@ -1752,3 +1752,30 @@ fn a_quickstart_without_a_readme_ase_python_block_or_another_notebook_fails() {
         "{f:?}"
     );
 }
+
+#[test]
+fn writing_the_quickstart_refuses_a_symlink_or_a_directory_at_its_path_and_writes_nothing() {
+    let root = ase_tree("notebook-symlink", &ASE, &[("target.txt", "kept\n")]);
+    std::fs::create_dir_all(root.join("notebooks")).unwrap();
+    std::os::unix::fs::symlink(root.join("target.txt"), root.join(NOTEBOOK)).unwrap();
+    let f = lever(&["notebook", "--write"], &root);
+    assert_eq!(
+        f,
+        [format!(
+            "notebook: {NOTEBOOK}: is no regular file (a symlink?); nothing is written"
+        )]
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("target.txt")).unwrap(),
+        "kept\n"
+    );
+    std::fs::remove_file(root.join(NOTEBOOK)).unwrap();
+    std::fs::create_dir(root.join(NOTEBOOK)).unwrap();
+    let f = lever(&["notebook", "--write"], &root);
+    assert!(has(&f, "is no regular file"), "{f:?}");
+    let root = ase_tree("notebook-dir-symlink", &ASE, &[("elsewhere/keep", "")]);
+    std::os::unix::fs::symlink(root.join("elsewhere"), root.join("notebooks")).unwrap();
+    let f = lever(&["notebook", "--write"], &root);
+    assert!(has(&f, "its directory is no real directory"), "{f:?}");
+    assert!(!root.join("elsewhere/quickstart.ipynb").exists());
+}
