@@ -1,3 +1,3 @@
-sha256 = "19cfd7c3bb8217a5e76c2beabf1f82fd53ed5ed6fd3808536a06785a37d8494c"
+sha256 = "729534a6cd9b045b363c17b8fcb03a43583b64715a38fe25fe65502b96875429"
 reviewer = "PENDING"
-reason = "ci: round 1 fixes: named shards on the unit target, cache save keys, the rival clock rule, same's verdict and the shim hold pinned by fixed inputs"
+reason = "merge of lock-split 53f4c42 into ci-speed: the file holds both sides' changes"

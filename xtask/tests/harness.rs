@@ -1385,6 +1385,89 @@ fn claim_with_variants(root: &Tree, id: &str, held: &Path) -> (Outcome, serde_js
     (outcome, serde_json::from_str(&text).unwrap())
 }
 
+fn within_the_generators(name: &str, input: &str, variant: &str) -> bool {
+    use rival::{ABINIT, PW, TUNED, rivals_tree};
+    let root = rivals_tree(name, input, TUNED, PW, ABINIT);
+    crate::write(&root, "benchmarks/1_a/reference/input.json", "{}");
+    let held = std::env::temp_dir().join(format!("xtask-{name}-variants-{}", std::process::id()));
+    crate::write(&held, "1_a/input.toml", variant);
+    let (_, record) = claim_with_variants(&root, "1_a", &held);
+    let _ = std::fs::remove_dir_all(&held);
+    let entry = &record["held_out"][0];
+    assert_eq!(entry["input"], "held-out-input", "{record}");
+    match &entry["base"] {
+        serde_json::Value::Null => {
+            assert!(
+                entry["geometry"]["beyond_the_generators"].is_string(),
+                "{entry}"
+            );
+            false
+        }
+        base => {
+            assert_eq!(base, "input", "{entry}");
+            true
+        }
+    }
+}
+
+#[test]
+fn a_held_out_variant_may_strain_its_cell_or_move_an_atom_up_to_each_bound_and_no_further() {
+    use rival::INPUT;
+    let cell = "cell_bohr = [[0.0, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]";
+    let site = "[[0.0, 0.0, 0.25]]";
+    for (n, variant, within) in [
+        (
+            0,
+            INPUT.replace(
+                cell,
+                "cell_bohr = [[4e-9, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+            ),
+            true,
+        ),
+        (
+            1,
+            INPUT.replace(
+                cell,
+                "cell_bohr = [[5e-9, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+            ),
+            true,
+        ),
+        (
+            2,
+            INPUT.replace(
+                cell,
+                "cell_bohr = [[6e-9, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+            ),
+            false,
+        ),
+        (
+            3,
+            INPUT.replace(site, "[[0.018897261328856257, 0.0, 0.2688972613288566]]"),
+            true,
+        ),
+        (4, INPUT.replace(site, "[[0.019, 0.0, 0.269]]"), false),
+        (5, INPUT.replace(site, "[[0.0, 0.0, 1.25]]"), true),
+    ] {
+        assert_ne!(variant, INPUT, "{n}");
+        assert_eq!(
+            within_the_generators(&format!("held-out-edge-{n}"), INPUT, &variant),
+            within,
+            "{n}"
+        );
+    }
+}
+
+#[test]
+fn each_atom_of_a_held_out_variant_pairs_with_its_own_base_site() {
+    use rival::INPUT;
+    let two = INPUT
+        .replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]")
+        .replace("[[0.0, 0.0, 0.25]]", "[[0.0, 0.0, 0.25], [0.5, 0.5, 0.75]]");
+    let crowded = two.replace("[0.5, 0.5, 0.75]]", "[0.0, 0.0, 0.2501]]");
+    assert_ne!(crowded, two);
+    assert!(!within_the_generators("held-out-pairs", &two, &crowded));
+}
+
 #[test]
 fn a_held_out_variant_must_name_an_input_of_its_case_and_hold_its_species_mesh_spin_and_occupations()
  {
