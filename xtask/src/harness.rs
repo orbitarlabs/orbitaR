@@ -813,7 +813,7 @@ pub fn rival_layout_policies(root: &Path) -> Result<BTreeMap<String, String>, St
 
 struct RivalPaths<'a> {
     id: &'a str,
-    held: &'a BTreeMap<String, String>,
+    held: &'a BTreeMap<String, Option<String>>,
 }
 
 impl RivalPaths<'_> {
@@ -821,16 +821,41 @@ impl RivalPaths<'_> {
         rival::input_path(self.id, name)
     }
 
+    fn calibration(
+        &self,
+        rivals: &rival::Rivals,
+        code: rival::Rival,
+        name: &str,
+        cell: &rival::Cell,
+    ) -> Result<Option<(rival::Row, String)>, String> {
+        let cutoff = rivals.cutoff(code, cell)?;
+        if self.held.get(name) != Some(&None) {
+            return rivals.calibrated(code, &self.keyed(name), cell, cutoff);
+        }
+        let own = self.own(name);
+        match rivals.calibrated_own(code, &own, cutoff) {
+            Some(row) => Ok(Some(row)),
+            None => Err(format!(
+                "held-out {name}: no calibration of its own; run `cargo xtask rivals calibrate --cell {own}`"
+            )),
+        }
+    }
+
     fn keyed(&self, name: &str) -> String {
-        rival::input_path(self.id, self.held.get(name).map_or(name, String::as_str))
+        rival::input_path(
+            self.id,
+            (self.held.get(name).cloned().flatten())
+                .as_deref()
+                .unwrap_or(name),
+        )
     }
 }
 
 fn borrows(paths: &RivalPaths, b: &Block, rivals: &rival::Rivals) -> bool {
     let abinit = rival::Rival::Abinit;
-    let (path, base) = (paths.own(b.input), paths.keyed(b.input));
+    let path = paths.own(b.input);
     (rival::Cell::parse(&b.table))
-        .and_then(|cell| rivals.calibrated(abinit, &base, &cell, rivals.cutoff(abinit, &cell)?))
+        .and_then(|cell| paths.calibration(rivals, abinit, b.input, &cell))
         .is_ok_and(|row| row.is_some_and(|(_, from)| from != path))
 }
 
@@ -848,10 +873,8 @@ fn accuracies(
     let target_p = rivals.settings.target.pressure_gpa;
     let path = |b: &Block| paths.own(b.input);
     let calibrated = |code: rival::Rival, b: &Block| {
-        rival::Cell::parse(&b.table).and_then(|cell| {
-            let cutoff = rivals.cutoff(code, &cell)?;
-            rivals.calibrated(code, &paths.keyed(b.input), &cell, cutoff)
-        })
+        rival::Cell::parse(&b.table)
+            .and_then(|cell| paths.calibration(rivals, code, b.input, &cell))
     };
     let basis = |b: &Block, from: &str| match from == path(b) {
         true => "own".to_owned(),
@@ -1000,7 +1023,7 @@ pub enum Outcome {
 
 struct HeldOut {
     inputs: Vec<(String, String)>,
-    held: BTreeMap<String, String>,
+    held: BTreeMap<String, Option<String>>,
     tuned: Vec<String>,
 }
 
@@ -1568,7 +1591,7 @@ impl Session {
                             }
                             let loaded = t.record.load.iter().filter(|r| !r.quiet()).count();
                             let contended = (t.record.during.iter())
-                                .filter(|d| !d.quiet() && **d != load::During::Lost)
+                                .filter(|d| !d.quiet())
                                 .count();
                             if loaded + contended > 0 {
                                 failures.push(format!(
@@ -1811,10 +1834,18 @@ impl Session {
                     path.display()
                 )
             })?;
+            let within = generated_from(&base.1, &text);
+            let geometry = match &within {
+                Ok((strain, shift)) => {
+                    json!({ "cell_strain": strain, "largest_shift_bohr": shift })
+                }
+                Err(why) => json!({ "beyond_the_generators": why }),
+            };
+            let base = within.is_ok().then_some(stem);
             trace
                 .held_out
-                .push(json!({ "input": name, "base": stem, "sha256": hash }));
-            held.insert(name.clone(), stem);
+                .push(json!({ "input": name, "base": base, "geometry": geometry, "sha256": hash }));
+            held.insert(name.clone(), base);
             inputs.push((name, text));
         }
         Ok(HeldOut {
@@ -1923,6 +1954,29 @@ const VARIANT_IDENTITY: [(&str, Option<&str>); 4] = [
     ("occupations", None),
 ];
 
+const RATTLE_MAX_ANGSTROM: f64 = 0.05;
+const VARIANT_SHIFT_MAX_BOHR: f64 = 2.0 * RATTLE_MAX_ANGSTROM / acwf::BOHR_ANGSTROM;
+const CELL_STRAIN_MAX: f64 = 1e-9;
+
+fn generated_from(base: &str, variant: &str) -> Result<(f64, f64), String> {
+    let cell = |text: &str| {
+        let table: toml::Table = toml::from_str(text).map_err(|e| e.to_string())?;
+        rival::Cell::parse(&table)
+    };
+    let (strain, shift) = cell(variant)?.variation_from(&cell(base)?)?;
+    if strain > CELL_STRAIN_MAX {
+        return Err(format!(
+            "its cell is strained by {strain} of the base's, past {CELL_STRAIN_MAX}"
+        ));
+    }
+    if shift > VARIANT_SHIFT_MAX_BOHR {
+        return Err(format!(
+            "an atom moved {shift} Bohr along an axis from its base site, past {VARIANT_SHIFT_MAX_BOHR}"
+        ));
+    }
+    Ok((strain, shift))
+}
+
 fn same_identity(base: &str, variant: &str) -> Result<(), String> {
     let parse = |text: &str| toml::from_str::<toml::Table>(text).map_err(|e| e.to_string());
     let (base, variant) = (parse(base)?, parse(variant)?);
@@ -1958,7 +2012,7 @@ fn preflight(
     dir: &Path,
     inputs: &[(String, String)],
     tables: &[toml::Table],
-    held: &BTreeMap<String, String>,
+    held: &BTreeMap<String, Option<String>>,
     measure: Measure,
 ) -> Option<String> {
     let mut missing = BTreeSet::new();

@@ -280,10 +280,9 @@ pub(crate) fn time(
         let at = blocks[i].at();
         let (reading, start) = gate.before(&at, speed)?;
         load.borrow_mut()[i].push(reading);
-        let out = judged(&blocks[i])?;
-        let child = out.as_ref().ok().map(|(_, run)| run.cpu_s);
-        during.borrow_mut()[i].push(gate.after(&at, speed, start, child)?);
-        Ok(out)
+        let out = judged(&blocks[i]);
+        during.borrow_mut()[i].push(gate.after(&at, speed, start)?);
+        out
     };
     let mut warmups = vec![Value::Null; blocks.len()];
     for i in shuffled(seed, 0, blocks.len())

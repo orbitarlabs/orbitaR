@@ -124,7 +124,6 @@ pub(crate) struct Run {
     pub(crate) seconds: f64,
     pub(crate) peak_rss_bytes: u64,
     pub(crate) peak_pss_bytes: u64,
-    pub(crate) cpu_s: f64,
     pub(crate) steps: Vec<Step>,
     pub(crate) lines: Vec<(f64, String)>,
 }
@@ -563,7 +562,6 @@ struct Watched {
     status: i32,
     peak_rss_bytes: u64,
     peak_pss_bytes: u64,
-    cpu_s: f64,
     #[serde(default)]
     timed_out_s: Option<u64>,
 }
@@ -654,7 +652,6 @@ fn watched(
             status: usage.status.into_raw(),
             peak_rss_bytes: usage.rusage.maxrss,
             peak_pss_bytes: pss,
-            cpu_s: (usage.rusage.utime + usage.rusage.stime).as_secs_f64(),
             timed_out_s,
         });
     }
@@ -667,7 +664,6 @@ fn watched(
         status: usage.status.into_raw(),
         peak_rss_bytes: usage.rusage.maxrss,
         peak_pss_bytes: pss,
-        cpu_s: (usage.rusage.utime + usage.rusage.stime).as_secs_f64(),
         timed_out_s,
     })
 }
@@ -713,7 +709,6 @@ fn finish(watch: Watched, stream: Stream, step: StepLine) -> Result<Run, Failure
         seconds: watch.seconds,
         peak_rss_bytes: watch.peak_rss_bytes,
         peak_pss_bytes: watch.peak_pss_bytes,
-        cpu_s: watch.cpu_s,
         steps,
         lines: watch.lines,
     })

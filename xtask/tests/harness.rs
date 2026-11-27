@@ -1239,7 +1239,12 @@ fn a_claim_beside_rivals_runs_each_held_out_variant_and_names_its_hash_and_the_t
     let sha = hex(&Sha256::digest(&variant));
     assert_eq!(
         record["held_out"],
-        serde_json::json!([{ "input": "held-out-input", "base": "input", "sha256": sha }])
+        serde_json::json!([{
+            "input": "held-out-input",
+            "base": "input",
+            "geometry": { "cell_strain": 0.0, "largest_shift_bohr": 0.0 },
+            "sha256": sha
+        }])
     );
     assert_eq!(record["tuned"], serde_json::json!(["input"]), "{record}");
     let (_, record) = held_out("held-out-unset", None);
@@ -1367,6 +1372,100 @@ fn a_held_out_variant_must_name_an_input_of_its_case_and_hold_its_species_mesh_s
             matches!(&outcome, Outcome::Fail(f) if f.contains(why)),
             "{n}: {outcome:?}"
         );
+    }
+}
+
+fn largest_generator_rattle_angstrom() -> f64 {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut largest = 0.0_f64;
+    for case in ["11_speed_scaling", "14_set_w"] {
+        let path = root.join(format!("benchmarks/{case}/reference/cells.py"));
+        let text = std::fs::read_to_string(path).unwrap();
+        for call in text.split("rattled(").skip(1) {
+            let line = call.lines().next().unwrap_or_default();
+            if line.starts_with("atoms, amplitude") {
+                continue;
+            }
+            let at = line.find(", 0.").unwrap();
+            let rest = &line[at + 2..];
+            let amplitude: f64 = rest[..rest.find(',').unwrap()].parse().unwrap();
+            largest = largest.max(amplitude);
+        }
+    }
+    largest
+}
+
+fn moved_along_x(bohr: f64, scale: f64) -> String {
+    let f = bohr / 10.0;
+    rival::INPUT
+        .replace(
+            "positions_fractional = [[0.0, 0.0, 0.25]]",
+            &format!("positions_fractional = [[{}, {f}, {}]]", -f, 0.25 + f),
+        )
+        .replace(
+            "cell_bohr = [[0.0, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+            &format!(
+                "cell_bohr = [[0.0, {0}, {0}], [{0}, 0.0, {0}], [{0}, {0}, 0.0]]",
+                5.0 * scale
+            ),
+        )
+}
+
+#[test]
+fn a_variant_inherits_its_bases_skip_and_calibration_only_within_the_generators_rattle_and_no_strain()
+ {
+    use rival::{ABINIT, INPUT, PW, TUNED, rivals_tree};
+    let bound_bohr = 2.0 * largest_generator_rattle_angstrom() / 0.529_177_208_59;
+    for (n, (variant, inherits)) in [
+        (moved_along_x(0.9 * bound_bohr, 1.0), true),
+        (moved_along_x(1.1 * bound_bohr, 1.0), false),
+        (moved_along_x(0.0, 1.0 + 1e-6), false),
+        (moved_along_x(0.0, 10.0), false),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_ne!(variant, INPUT, "{n}");
+        let root = rivals_tree(&format!("held-out-bound-{n}"), INPUT, TUNED, PW, ABINIT);
+        skipping_qe_for(&root, &["benchmarks/1_a/input.toml"]);
+        crate::write(&root, "benchmarks/1_a/reference/input.json", "{}");
+        let held =
+            std::env::temp_dir().join(format!("xtask-variants-bound-{n}-{}", std::process::id()));
+        crate::write(&held, "1_a/input.toml", &variant);
+        let (outcome, record) = claim_with_variants(&root, "1_a", &held);
+        let _ = std::fs::remove_dir_all(&held);
+        let entry = &record["held_out"][0];
+        let abinit = (record["speed"].as_array().into_iter().flatten())
+            .find(|b| b["code"] == "abinit" && b["input"] == "held-out-input")
+            .map(|b| b["accuracy"].clone())
+            .unwrap_or_default();
+        let own = "held-out held-out-input: no calibration of its own; run `cargo xtask rivals calibrate --cell benchmarks/1_a/inputs/held-out-input.toml`";
+        let refused = matches!(&outcome, Outcome::Fail(f) if f.contains(own));
+        match inherits {
+            true => {
+                assert_eq!(entry["base"], "input", "{n}: {record}");
+                assert_eq!(timed_by(&record, "qe"), Vec::<&str>::new(), "{n}: {record}");
+                assert_eq!(
+                    abinit["basis"], "borrowed from benchmarks/1_a/input.toml",
+                    "{n}: {record}"
+                );
+                assert_eq!(abinit["e_ha_per_atom"], 1e-6, "{n}: {record}");
+                assert!(!refused, "{n}: {outcome:?}");
+            }
+            false => {
+                assert!(entry["base"].is_null(), "{n}: {record}");
+                assert!(
+                    entry["geometry"]["beyond_the_generators"].is_string(),
+                    "{n}: {record}"
+                );
+                assert_eq!(timed_by(&record, "qe"), ["held-out-input"], "{n}: {record}");
+                assert!(
+                    abinit["basis"].is_null() && abinit["e_ha_per_atom"].is_null(),
+                    "{n}: {record}"
+                );
+                assert!(refused, "{n}: {outcome:?}");
+            }
+        }
     }
 }
 

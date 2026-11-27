@@ -204,13 +204,14 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                             .filter_map(|h| h["input"].as_str())
                             .collect();
                     for held in record["held_out"].as_array().into_iter().flatten() {
-                        let (Some(name), Some(base)) =
-                            (held["input"].as_str(), held["base"].as_str())
-                        else {
+                        let Some(name) = held["input"].as_str() else {
                             findings.push(format!(
-                                "{}: {id} record holds a held-out variant without the input it varies: {held}",
+                                "{}: {id} record holds a held-out variant without its input name: {held}",
                                 tier.name()
                             ));
+                            continue;
+                        };
+                        let Some(base) = held["base"].as_str() else {
                             continue;
                         };
                         if !names.contains(&base) || variants.contains(base) {
@@ -321,13 +322,13 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                                 t.len() + lost
                             ));
                         }
-                        let scored = usize::from(block.warmup.get("loss").is_none()) + t.len();
                         let alone = block.during.iter().filter(|d| d.quiet()).count();
-                        if block.during.len() != 1 + t.len() + lost || alone != scored {
+                        if block.during.len() != 1 + t.len() + lost || alone != 1 + t.len() + lost {
                             findings.push(format!(
-                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its {scored} warm-up and judged runs",
+                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its warm-up and each of its {} runs, judged or lost",
                                 tier.name(),
                                 block.code,
+                                t.len() + lost
                             ));
                         }
                         if block.code == speed::Code::Orbitar {
