@@ -446,14 +446,36 @@ fn a_record_that_names_no_pilot_flag_false_or_an_unread_schema_is_refused() {
 fn a_passing_record_that_measures_fewer_bounds_than_its_case_is_refused_and_a_failing_one_is_kept()
 {
     let root = cases("missing-bound");
+    write(
+        &root,
+        "benchmarks/1_a/case.toml",
+        &format!("{PUSH}y_error_max = 1.0\n"),
+    );
     let head = commit(&root, "records");
     for (outcome, refused) in [("pass", true), ("fail", false)] {
-        let one = record("1_a", "push", &head, false, outcome, r#"{"x_error":5e-13}"#)
-            .replace(r#""share_min":0.1,"#, "");
+        let one = record(
+            "1_a",
+            "push",
+            &head,
+            false,
+            outcome,
+            r#"{"x_error":5e-13,"share":0.4}"#,
+        );
         write(&root, "target/benchmarks/push/1_a.json", &one);
         let found = lever(&["results", "collect"], &root);
         let named = "1_a passes without a measure of each bound of its case's [tolerance]";
-        assert_eq!(has(&found, named), refused, "{outcome}: {found:?}");
+        match refused {
+            true => assert!(has(&found, named), "{outcome}: {found:?}"),
+            false => {
+                assert_eq!(found, Vec::<String>::new(), "{outcome}");
+                let results = read(&root, "benchmarks/RESULTS.toml");
+                let row = results
+                    .split("[[case]]")
+                    .find(|r| r.contains("id = \"1_a\""))
+                    .unwrap();
+                assert!(row.contains("outcome = \"fail\""), "{results}");
+            }
+        }
     }
 }
 

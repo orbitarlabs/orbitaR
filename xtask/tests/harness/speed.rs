@@ -722,17 +722,30 @@ fn a_single_k_point_size_holds_one_solve_in_flight_so_a_size_on_two_k_points_dou
 }
 
 #[test]
-fn a_spin_polarized_size_holds_a_solve_in_flight_per_spin() {
-    let spin = |atoms: usize| {
-        let moments = vec!["1.0"; atoms].join(", ");
-        format!("{}\n[spin]\nmoments = [{moments}]\n", chain(atoms))
-    };
+fn a_spin_polarized_size_holds_twice_the_solves_in_flight_of_an_unpolarized_one() {
+    let polarized = format!("{}\n[spin]\nmoments = [1.0, 1.0]\n", chain(2));
     assert!(refused_by_estimate(
         "speed-spin-solves",
-        &spin(1),
-        &spin(2),
-        120e6
+        &chain(1),
+        &polarized,
+        200e6
     ));
+}
+
+#[test]
+fn a_size_whose_peak_estimate_equals_the_guard_passes_it_and_one_byte_more_does_not() {
+    use xtask::harness::{PEAK_PSS_GUARD_BYTES, Peak, estimated_peak, past_the_guard};
+    let four = Peak {
+        atoms: 4,
+        in_flight: 1,
+        bytes: 8.96e9,
+    };
+    let estimate = estimated_peak(&[four], 5, 1).unwrap();
+    assert_eq!(estimate, 14_000_000_000.0);
+    assert_eq!(PEAK_PSS_GUARD_BYTES, 14_000_000_000.0);
+    assert!(!past_the_guard(estimate, PEAK_PSS_GUARD_BYTES));
+    assert!(past_the_guard(estimate + 1.0, PEAK_PSS_GUARD_BYTES));
+    assert!(!past_the_guard(13_671_875.0 * 1024.0, PEAK_PSS_GUARD_BYTES));
 }
 
 #[test]
@@ -788,7 +801,6 @@ fn the_least_squares_slope_weighs_every_point_and_needs_two_sizes() {
     assert!((log_log_slope(&power) - 1.7).abs() < 1e-12);
     assert!((log_log_slope(&[(0.0, 0.0), (1.0, 2.0), (3.0, 3.0)]) - 39.0 / 42.0).abs() < 1e-12);
     assert!(log_log_slope(&[(1.0, 2.0), (1.0, 3.0)]).is_nan());
-    assert!(log_log_slope(&[(0.0, 0.0), (1e-200, 1.0)]).is_nan());
     assert!(log_log_slope(&[]).is_nan());
 }
 

@@ -556,9 +556,13 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
 }
 
 pub fn log_log_slope(points: &[(f64, f64)]) -> f64 {
-    let mx = points.iter().map(|p| p.0).sum::<f64>() / points.len() as f64;
-    let sxx: f64 = points.iter().map(|p| (p.0 - mx) * p.0).sum();
-    let sxy: f64 = points.iter().map(|p| (p.0 - mx) * p.1).sum();
+    let n = points.len() as f64;
+    let (mx, my) = (
+        points.iter().map(|p| p.0).sum::<f64>() / n,
+        points.iter().map(|p| p.1).sum::<f64>() / n,
+    );
+    let sxx: f64 = points.iter().map(|p| (p.0 - mx) * (p.0 - mx)).sum();
+    let sxy: f64 = points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
     match sxx > 0.0 {
         true => sxy / sxx,
         false => f64::NAN,
@@ -590,7 +594,7 @@ pub fn estimated_peak(smaller: &[Peak], atoms: usize, in_flight: usize) -> Optio
     Some(m.bytes * dense.max(fitted))
 }
 
-fn past_the_guard(bytes: f64, limit: f64) -> bool {
+pub fn past_the_guard(bytes: f64, limit: f64) -> bool {
     bytes > limit
 }
 

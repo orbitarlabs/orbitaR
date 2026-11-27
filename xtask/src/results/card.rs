@@ -114,6 +114,7 @@ fn seconds(v: f64) -> String {
 
 fn bytes(v: f64) -> String {
     match v {
+        v if v.is_infinite() => "lost run".into(),
         v if v < 1e9 => format!("{:.0} MB", v / 1e6),
         v => format!("{:.2} GB", v / 1e9),
     }
@@ -485,7 +486,7 @@ impl Card for Bars<'_> {
             .fold(0.0, f64::max);
         for (i, (label, fill, value)) in self.bars.iter().enumerate() {
             let y = TOP + ROW * i as f64;
-            let length = match value.is_finite() {
+            let length = match value.is_finite() && top > 0.0 {
                 true => value / top * LENGTH,
                 false => LENGTH,
             };
@@ -537,7 +538,8 @@ fn domain(s: &Series) -> String {
 fn scaling(rows: &[Row]) -> Option<Scaling<'_>> {
     let (row, claim) = (rows.iter()).find_map(|r| {
         let claim = r.claim.as_ref()?;
-        (!claim.series.is_empty()).then_some((r, claim))
+        let ours = claim.series.iter().any(|s| s.code == ORBITAR);
+        (ours && claim.series.len() > 1).then_some((r, claim))
     })?;
     let ours = claim.series.iter().find(|s| s.code == ORBITAR)?;
     let sizes: BTreeSet<u32> = (claim.series.iter())
