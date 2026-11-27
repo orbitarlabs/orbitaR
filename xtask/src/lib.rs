@@ -165,12 +165,15 @@ enum Cli {
     /// collect reads <dir>/<tier>/*.json (default target/benchmarks; every tier there when none is named) and writes
     /// a row per active case: what it checks and its headline metric (benchmarks/results-what.toml), each bound's
     /// measured value and ratio, the outcome, the record's commit and engine. It refuses a dirty record or one whose
-    /// commit is no ancestor of HEAD. A passing claim record's row also keeps, per rival named by its case, G, its 95%
-    /// CI, R and each pair's medians, the size series (median T(δ) and peak Pss per size and code, the fitted
-    /// exponents) and the node block. render writes benchmarks/README.md and assets/benchmarks/results-{light,dark}.svg
-    /// from RESULTS.toml alone, and assets/benchmarks/card-{speed,memory,scaling,verification}-{light,dark}.svg: speed,
-    /// memory and scaling only from such a row, verification only while each case it shows passes; it removes
-    /// a card that no row backs (results.rs, results/card.rs).
+    /// commit is no ancestor of HEAD, a pilot, a pass with failures, a filter or a bound its case does not hold, and a
+    /// claim record that harness/record.rs refuses. It pins each row's record, byte for byte, as one line of
+    /// benchmarks/RECORDS.jsonl (record_sha256). A passing claim row also keeps [case.claim]: per rival G, its 95% CI, R
+    /// and the pairs, recomputed from the speed blocks by harness/speed.rs `compare`; the size series, checked against
+    /// the same blocks; each input that a code did not time, with the reason; the node block. render writes
+    /// benchmarks/README.md and assets/benchmarks/results-{light,dark}.svg from RESULTS.toml alone, and
+    /// assets/benchmarks/card-{speed,memory,scaling,verification}-{light,dark}.svg: speed, memory and scaling only from a
+    /// claim row, verification only while each case it shows passes; it removes a card that no row backs. Science S11
+    /// derives each row again from its pinned record (results.rs, results/claim.rs, results/card.rs).
     Results {
         #[command(subcommand)]
         step: Step,

@@ -1,4 +1,5 @@
 mod card;
+mod claim;
 
 use crate::{Tree, git, has, lever, tree, write};
 use std::{fs, path::Path, process::Command};
@@ -53,7 +54,7 @@ fn record(
         _ => r#"{"d_difference_max":0.0}"#,
     };
     format!(
-        r#"{{"case":"{case}","tier":"{tier}","commit":"{commit}","dirty":{dirty},"pilot":false,"engine_sha256":"{}","outcome":"{outcome}","metrics":{metrics},"tolerance":{tolerance}}}"#,
+        r#"{{"schema":4,"failures":[],"filter":null,"case":"{case}","tier":"{tier}","commit":"{commit}","dirty":{dirty},"pilot":false,"engine_sha256":"{}","outcome":"{outcome}","metrics":{metrics},"tolerance":{tolerance}}}"#,
         "ab".repeat(32)
     )
 }
@@ -352,5 +353,91 @@ fn a_results_file_that_its_own_numbers_contradict_is_refused() {
         let found = lever(&["results", "render"], &root);
         assert!(has(&found, why), "{why}: {found:?}");
         assert!(has(&s11(&root), why), "{why}");
+    }
+}
+
+#[test]
+fn science_s11_derives_each_row_again_from_its_pinned_record_and_names_any_other_row() {
+    let root = cases("pinned");
+    let head = commit(&root, "head");
+    push_records(&root, &head);
+    assert!(lever(&["results", "collect"], &root).is_empty());
+    assert!(lever(&["results", "render"], &root).is_empty());
+    assert_eq!(s11(&root), Vec::<String>::new());
+    let (results, pinned) = (
+        read(&root, "benchmarks/RESULTS.toml"),
+        read(&root, "benchmarks/RECORDS.jsonl"),
+    );
+    assert_eq!(pinned.lines().count(), 2, "{pinned}");
+    let row = "1_a: its row in benchmarks/RESULTS.toml differs from what its record in benchmarks/RECORDS.jsonl gives";
+    write(
+        &root,
+        "benchmarks/RESULTS.toml",
+        &results.replace(
+            "measured = 5e-13\nratio = 5e-1",
+            "measured = 2.5e-13\nratio = 2.5e-1",
+        ),
+    );
+    assert!(has(&s11(&root), row), "{:?}", s11(&root));
+    write(&root, "benchmarks/RESULTS.toml", &results);
+    write(
+        &root,
+        "benchmarks/RECORDS.jsonl",
+        &pinned.replace("5e-13", "4e-13"),
+    );
+    assert!(has(
+        &s11(&root),
+        "1_a: record_sha256 is not the sha256 of its record in benchmarks/RECORDS.jsonl"
+    ));
+    let extra = record("2_b", "node", &head, false, "pass", r#"{"e_error":0.5}"#);
+    write(
+        &root,
+        "benchmarks/RECORDS.jsonl",
+        &format!("{pinned}{extra}\n"),
+    );
+    assert!(has(
+        &s11(&root),
+        "benchmarks/RECORDS.jsonl holds a record of 2_b, which no row uses"
+    ));
+    write(&root, "benchmarks/RECORDS.jsonl", &pinned);
+    write(
+        &root,
+        "benchmarks/4_d/case.toml",
+        &EXACT.replace("\"active\"", "\"planned\""),
+    );
+    assert!(has(
+        &s11(&root),
+        "but the active cases are [\"1_a\", \"2_b\"]"
+    ));
+}
+
+#[test]
+fn a_record_that_names_no_pilot_flag_false_or_an_unread_schema_is_refused() {
+    let root = cases("schema");
+    let head = commit(&root, "head");
+    let one = record(
+        "1_a",
+        "push",
+        &head,
+        false,
+        "pass",
+        r#"{"x_error":5e-13,"share":0.4}"#,
+    );
+    for (record, why) in [
+        (
+            one.replace("\"pilot\":false", "\"pilot\":\"false\""),
+            "1_a names no pilot flag false",
+        ),
+        (
+            one.replace("\"schema\":4", "\"schema\":3"),
+            "1_a has record schema 3; results reads schema [4]",
+        ),
+        (
+            one.replace("\"share_min\":0.1", "\"share_min\":0.2"),
+            "1_a: the record bounds share_min at 2e-1, which its case's [tolerance] does not",
+        ),
+    ] {
+        write(&root, "target/benchmarks/push/1_a.json", &record);
+        assert!(has(&lever(&["results", "collect"], &root), why), "{why}");
     }
 }

@@ -1,4 +1,8 @@
-use super::{ORBITAR, Outcome, Pair, Row, Versus, cpu, escaped, log10, package, px};
+use super::{
+    Outcome, Row,
+    claim::{Claim, ORBITAR, Pair, Series, Versus},
+    escaped, log10, px,
+};
 use std::{collections::BTreeSet, fmt::Write as _};
 
 pub(super) const CARDS: [&str; 8] = [
@@ -81,9 +85,14 @@ fn cut(x: f64) -> String {
     if x.is_infinite() {
         return "∞".into();
     }
-    let text = format!("{x:.9}");
-    let point = text.find('.').unwrap_or(text.len());
-    text[..(point + 3).min(text.len())].to_owned()
+    let text = format!("{x}");
+    let (whole, fraction) = text.split_once('.').unwrap_or((&text, ""));
+    let digits: String = fraction
+        .chars()
+        .chain(std::iter::repeat('0'))
+        .take(2)
+        .collect();
+    format!("{whole}.{digits}")
 }
 
 fn cells(n: usize) -> String {
@@ -271,8 +280,8 @@ struct Hero {
     note: String,
 }
 
-fn caption(row: &Row) -> Vec<String> {
-    let threads: BTreeSet<u32> = (row.versus.iter())
+fn caption(row: &Row, claim: &Claim) -> Vec<String> {
+    let threads: BTreeSet<u32> = (claim.versus.iter())
         .flat_map(|v| v.pairs.iter().map(|p| p.threads))
         .collect();
     let list: Vec<String> = threads.iter().map(u32::to_string).collect();
@@ -280,18 +289,12 @@ fn caption(row: &Row) -> Vec<String> {
         true => String::new(),
         false => format!("{} cores, ", list.join(", ")),
     };
-    let node = (row.node.as_ref()).and_then(|n| cpu(n).ok()).unwrap_or("");
-    let mut codes: Vec<&str> = row.versus.iter().map(|v| v.rival.as_str()).collect();
-    for s in &row.series {
-        if s.code != ORBITAR && !codes.contains(&s.code.as_str()) {
-            codes.push(&s.code);
-        }
-    }
+    let node = claim.cpu().unwrap_or("");
     let commit = row.commit.as_deref().map_or("", |c| &c[..7]);
     let mut builds = vec![format!("case {} · orbitaR at commit {commit}", row.number)];
-    for code in codes {
-        if let Ok((version, build)) = package(row.node.as_ref(), code) {
-            builds.push(format!("{} {version} ({build})", named(code)));
+    for v in &claim.versus {
+        if let Ok((version, build)) = claim.package(&v.rival) {
+            builds.push(format!("{} {version} ({build})", named(&v.rival)));
         }
     }
     vec![
@@ -300,26 +303,62 @@ fn caption(row: &Row) -> Vec<String> {
     ]
 }
 
+fn omitted(claim: &Claim, memory: bool) -> Vec<String> {
+    let mut lines: Vec<String> = (claim.skip.iter())
+        .map(|s| {
+            format!(
+                "not timed: {} {} ({} atoms), {}: {}",
+                named(&s.code),
+                stem(&s.input),
+                s.atoms,
+                s.kind.name(),
+                s.reason
+            )
+        })
+        .collect();
+    if memory {
+        for v in &claim.versus {
+            for p in v.pairs.iter().filter(|p| !p.in_r) {
+                lines.push(format!(
+                    "not in R against {}: {}, its runs are too short for a peak Pss reading",
+                    named(&v.rival),
+                    stem(&p.input)
+                ));
+            }
+        }
+    }
+    lines
+}
+
+fn declared(claim: &Claim) -> BTreeSet<&str> {
+    (claim.versus.iter())
+        .flat_map(|v| v.pairs.iter().map(|p| p.input.as_str()))
+        .chain(claim.skip.iter().map(|s| s.input.as_str()))
+        .collect()
+}
+
 #[derive(Clone, Copy)]
 enum Metric {
     Speed,
     Memory,
 }
 
-fn pair<'a>(v: &'a Versus, input: &str) -> Option<&'a Pair> {
-    v.pairs.iter().find(|p| p.input == input)
-}
-
 struct Bars<'a> {
     metric: Metric,
     row: &'a Row,
+    claim: &'a Claim,
     input: String,
     heroes: Vec<Hero>,
     bars: Vec<(String, Colour, f64)>,
 }
 
+fn pair<'a>(v: &'a Versus, input: &str) -> Option<&'a Pair> {
+    v.pairs.iter().find(|p| p.input == input)
+}
+
 fn bars(rows: &[Row], metric: Metric) -> Option<Bars<'_>> {
-    let row = rows.iter().find(|r| !r.versus.is_empty())?;
+    let (row, claim) = (rows.iter()).find_map(|r| Some((r, r.claim.as_ref()?)))?;
+    let first = claim.versus.first()?;
     let read = |p: &Pair| match metric {
         Metric::Speed => true,
         Metric::Memory => p.in_r,
@@ -332,15 +371,13 @@ fn bars(rows: &[Row], metric: Metric) -> Option<Bars<'_>> {
         Metric::Speed => [p.t_delta_s_orbitar, p.t_delta_s_rival],
         Metric::Memory => [p.peak_pss_bytes_orbitar, p.peak_pss_bytes_rival],
     };
-    let inputs: BTreeSet<&str> = (row.versus[0].pairs.iter())
+    let shared: BTreeSet<&str> = (first.pairs.iter())
         .filter(|p| read(p))
         .map(|p| p.input.as_str())
-        .filter(|input| {
-            (row.versus.iter()).all(|v| v.pairs.iter().any(|p| read(p) && p.input == *input))
-        })
+        .filter(|input| (claim.versus.iter()).all(|v| pair(v, input).is_some_and(read)))
         .collect();
     let distance = |input: &str| -> f64 {
-        (row.versus.iter())
+        (claim.versus.iter())
             .map(|v| {
                 let [ours, theirs] = values(pair(v, input)?);
                 Some((log10(theirs / ours) - log10(mean(v))).abs())
@@ -348,40 +385,43 @@ fn bars(rows: &[Row], metric: Metric) -> Option<Bars<'_>> {
             .map(|d| d.filter(|d| d.is_finite()).unwrap_or(f64::INFINITY))
             .sum()
     };
-    let input = *inputs
+    let input = *shared
         .iter()
         .min_by(|a, b| distance(a).total_cmp(&distance(b)))?;
     let mut bars = vec![(
         "orbitaR".to_owned(),
         PALETTE.orbitar,
-        values(pair(&row.versus[0], input)?)[0],
+        values(pair(first, input)?)[0],
     )];
+    let all = declared(claim).len();
     let mut heroes = Vec::new();
-    for v in &row.versus {
-        let label = match package(row.node.as_ref(), &v.rival) {
+    for v in &claim.versus {
+        let label = match claim.package(&v.rival) {
             Ok((version, _)) => format!("{} {version}", named(&v.rival)),
             Err(_) => named(&v.rival),
         };
         bars.push((label, colour(&v.rival), values(pair(v, input)?)[1]));
         let n = v.pairs.iter().filter(|p| read(p)).count();
+        let over = format!("geometric mean over {n} of {}", cells(all));
         heroes.push(match metric {
             Metric::Speed => Hero {
                 big: format!("≥ {}×", cut(v.g_ci[0])),
                 power: String::new(),
                 line: format!("faster than {}", named(&v.rival)),
-                note: format!("95% CI lower bound · geometric mean over {}", cells(n)),
+                note: format!("95% CI lower bound · {over}"),
             },
             Metric::Memory => Hero {
                 big: format!("{}×", cut(v.r)),
                 power: String::new(),
                 line: format!("less peak memory than {}", named(&v.rival)),
-                note: format!("geometric mean over {}", cells(n)),
+                note: over,
             },
         });
     }
     Some(Bars {
         metric,
         row,
+        claim,
         input: stem(input).to_owned(),
         heroes,
         bars,
@@ -392,36 +432,53 @@ impl Card for Bars<'_> {
     fn draw(&self, theme: usize) -> String {
         const ROW: f64 = 56.0;
         const BAR: f64 = 38.0;
-        const TOP: f64 = 340.0;
+        const TOP: f64 = 358.0;
         const LEFT: f64 = 240.0;
         const LENGTH: f64 = 540.0;
+        let memory = matches!(self.metric, Metric::Memory);
+        let lines: Vec<String> = (caption(self.row, self.claim).into_iter())
+            .chain(omitted(self.claim, memory))
+            .collect();
         let bottom = TOP + ROW * self.bars.len() as f64;
-        let height = bottom + 76.0;
+        let height = bottom + 36.0 + 20.0 * lines.len() as f64;
         let mut svg = Svg::new(height, theme);
-        let (tag, title, subtitle, unit): (&str, &str, String, fn(f64) -> String) =
-            match self.metric {
-                Metric::Speed => (
-                    "SPEED",
-                    "Time to the same accuracy",
-                    "T(δ): time to the converged energy within δ, the median of timed runs · lower is better".into(),
-                    seconds,
-                ),
-                Metric::Memory => (
-                    "MEMORY",
-                    "Peak memory at the same accuracy",
-                    "peak Pss: the median of timed runs · lower is better".into(),
-                    bytes,
-                ),
-            };
-        svg.head(tag, title, &subtitle);
+        let unit: fn(f64) -> String = match self.metric {
+            Metric::Speed => seconds,
+            Metric::Memory => bytes,
+        };
+        let (tag, title, subtitle, mean) = match self.metric {
+            Metric::Speed => (
+                "SPEED",
+                "Time to the same accuracy",
+                "T(δ): time to the converged energy within δ, the median of timed runs · lower is better",
+                "G",
+            ),
+            Metric::Memory => (
+                "MEMORY",
+                "Peak memory at the same accuracy",
+                "peak Pss: the median of timed runs · lower is better",
+                "R",
+            ),
+        };
+        svg.head(tag, title, subtitle);
         svg.heroes(&self.heroes);
         svg.text(
             PAD,
-            TOP - 18.0,
+            TOP - 36.0,
             14.0,
             " font-weight=\"600\"",
             PALETTE.muted,
             &format!("one representative cell: {}", self.input),
+        );
+        svg.text(
+            PAD,
+            TOP - 16.0,
+            12.0,
+            "",
+            PALETTE.muted,
+            &format!(
+                "of the cells that every rival ran, the one whose ratios lie nearest each {mean}; ties go to the first by name"
+            ),
         );
         let top = (self.bars.iter())
             .map(|b| b.2)
@@ -452,53 +509,112 @@ impl Card for Bars<'_> {
                 &unit(*value),
             );
         }
-        svg.caption(bottom + 24.0, &caption(self.row));
+        svg.caption(bottom + 24.0, &lines);
         svg.end()
     }
 }
 
 struct Scaling<'a> {
     row: &'a Row,
+    claim: &'a Claim,
     heroes: Vec<Hero>,
 }
 
+fn domain(s: &Series) -> String {
+    match (s.points.first(), s.points.last()) {
+        (Some(a), Some(b)) => format!("{}–{} atoms", a.atoms, b.atoms),
+        _ => "no point".into(),
+    }
+}
+
 fn scaling(rows: &[Row]) -> Option<Scaling<'_>> {
-    let row = rows.iter().find(|r| {
-        r.series.iter().any(|s| s.code == ORBITAR) && r.series.iter().any(|s| s.code != ORBITAR)
+    let (row, claim) = (rows.iter()).find_map(|r| {
+        let claim = r.claim.as_ref()?;
+        let ours = claim.series.iter().any(|s| s.code == ORBITAR);
+        (ours && claim.series.len() > 1).then_some((r, claim))
     })?;
-    let ours = row.series.iter().find(|s| s.code == ORBITAR)?;
-    let sizes: BTreeSet<u32> = (row.series.iter())
+    let ours = claim.series.iter().find(|s| s.code == ORBITAR)?;
+    let sizes: BTreeSet<u32> = (claim.series.iter())
         .flat_map(|s| s.points.iter().map(|p| p.atoms))
         .collect();
     if sizes.len() < 2 {
         return None;
     }
+    let mut cells: Vec<(u32, &str)> = (ours.points.iter())
+        .map(|p| (p.atoms, p.input.as_str()))
+        .chain(
+            (claim.skip.iter())
+                .filter(|s| s.code == ORBITAR)
+                .map(|s| (s.atoms, s.input.as_str())),
+        )
+        .collect();
+    cells.sort_unstable();
+    let largest = cells.last().map_or(0, |c| c.0);
+    let at_largest: Vec<&str> = (cells.iter())
+        .filter(|c| c.0 == largest)
+        .map(|c| c.1)
+        .collect();
     let mut heroes = Vec::new();
     let mut alphas = Vec::new();
-    for s in row.series.iter().filter(|s| s.code != ORBITAR) {
+    for s in claim.series.iter().filter(|s| s.code != ORBITAR) {
+        let name = named(&s.code);
         alphas.push(format!(
-            "{} α {}",
-            named(&s.code),
-            exponent(s.t_delta_exponent)
+            "{name} α {} over {}",
+            exponent(s.t_delta_exponent),
+            domain(s)
         ));
-        let largest = (s.points.iter().rev())
-            .find_map(|p| Some((p, ours.points.iter().rev().find(|o| o.atoms == p.atoms)?)));
-        if let Some((theirs, mine)) = largest {
+        let [input] = at_largest[..] else {
             heroes.push(Hero {
-                big: format!("{}×", cut(theirs.t_delta_s / mine.t_delta_s)),
+                big: "none".into(),
                 power: String::new(),
-                line: format!("faster than {} at {} atoms", named(&s.code), mine.atoms),
-                note: "median T(δ) at the largest shared size".into(),
+                line: format!("no {name} ratio at {largest} atoms"),
+                note: format!("{} cells share the largest size", at_largest.len()),
             });
+            continue;
+        };
+        let point = |series: &Series| {
+            series
+                .points
+                .iter()
+                .find(|p| p.input == input)
+                .map(|p| p.t_delta_s)
+        };
+        match (point(s), point(ours)) {
+            (Some(theirs), Some(mine)) => {
+                let ratio = theirs / mine;
+                heroes.push(Hero {
+                    big: format!("{}×", cut(ratio)),
+                    power: String::new(),
+                    line: match ratio > 1.0 {
+                        true => format!("faster than {name} at {largest} atoms"),
+                        false => format!("{name} time ÷ orbitaR time at {largest} atoms"),
+                    },
+                    note: format!("median T(δ) of {}", stem(input)),
+                });
+            }
+            _ => {
+                let why = (claim.skipped(&s.code, input))
+                    .or_else(|| claim.skipped(ORBITAR, input))
+                    .map_or("no point", |k| k.kind.name());
+                heroes.push(Hero {
+                    big: "none".into(),
+                    power: String::new(),
+                    line: format!("no {name} ratio at {largest} atoms"),
+                    note: format!("{} {why}", stem(input)),
+                });
+            }
         }
     }
     heroes.push(Hero {
         big: "N".into(),
         power: exponent(ours.t_delta_exponent),
         line: "orbitaR time grows as N^α".into(),
-        note: alphas.join(" · "),
+        note: std::iter::once(format!("least squares over {}", domain(ours)))
+            .chain(alphas)
+            .collect::<Vec<_>>()
+            .join(" · "),
     });
-    Some(Scaling { row, heroes })
+    Some(Scaling { row, claim, heroes })
 }
 
 fn exponent(alpha: f64) -> String {
@@ -517,12 +633,15 @@ fn decade(k: f64) -> String {
 
 impl Card for Scaling<'_> {
     fn draw(&self, theme: usize) -> String {
-        const TOP: f64 = 320.0;
+        const TOP: f64 = 350.0;
         const PLOT: f64 = 300.0;
         const LEFT: f64 = PAD + 72.0;
         const RIGHT: f64 = WIDTH - PAD - 96.0;
+        let lines: Vec<String> = (caption(self.row, self.claim).into_iter())
+            .chain(omitted(self.claim, false))
+            .collect();
         let bottom = TOP + PLOT;
-        let height = bottom + 112.0;
+        let height = bottom + 84.0 + 20.0 * lines.len() as f64;
         let mut svg = Svg::new(height, theme);
         svg.head(
             "SCALABILITY",
@@ -530,7 +649,7 @@ impl Card for Scaling<'_> {
             "median T(δ) per cell size · log–log axes · lower is better",
         );
         svg.heroes(&self.heroes);
-        let points = || self.row.series.iter().flat_map(|s| s.points.iter());
+        let points = || self.claim.series.iter().flat_map(|s| s.points.iter());
         let sizes: BTreeSet<u32> = points().map(|p| p.atoms).collect();
         let (first, last) = (
             f64::from(*sizes.first().unwrap_or(&1)),
@@ -581,7 +700,7 @@ impl Card for Scaling<'_> {
             PALETTE.muted,
             "atoms per cell",
         );
-        for s in &self.row.series {
+        for s in &self.claim.series {
             let fill = colour(&s.code);
             let path: Vec<String> = (s.points.iter())
                 .map(|p| format!("{},{}", px(x(p.atoms)), px(y(p.t_delta_s))))
@@ -612,7 +731,7 @@ impl Card for Scaling<'_> {
                 );
             }
         }
-        svg.caption(bottom + 72.0, &caption(self.row));
+        svg.caption(bottom + 72.0, &lines);
         svg.end()
     }
 }
@@ -625,6 +744,7 @@ enum Tile {
     },
     Derivatives {
         cases: &'static [u32],
+        metrics: [&'static str; 2],
         label: [&'static str; 2],
     },
     Identical {
@@ -645,6 +765,7 @@ const TILES: [Tile; 4] = [
     },
     Tile::Derivatives {
         cases: &[13, 15, 22],
+        metrics: ["_force_difference_ha_bohr", "_stress_difference_ha_bohr3"],
         label: ["forces and stress vs", "finite differences of F"],
     },
     Tile::Identical { case: 9 },
@@ -681,21 +802,29 @@ fn verification(rows: &[Row]) -> Option<Verification> {
                     note: format!("case {case} · bound {}", scientific(m.limit)),
                 }
             }
-            Tile::Derivatives { cases, label } => {
-                let mut worst = 0.0_f64;
+            Tile::Derivatives {
+                cases,
+                metrics,
+                label,
+            } => {
+                let mut worst = None::<f64>;
                 for case in *cases {
                     let row = passed(*case)?;
                     commits.extend(row.commit.clone());
-                    worst = row.metrics.iter().map(|m| m.ratio).fold(worst, f64::max);
+                    for m in (row.metrics.iter())
+                        .filter(|m| metrics.iter().any(|suffix| m.name.ends_with(suffix)))
+                    {
+                        worst = Some(worst.map_or(m.ratio, |w| w.max(m.ratio)));
+                    }
                 }
                 let numbers: Vec<String> = cases.iter().map(u32::to_string).collect();
                 Drawn {
                     big: "dF/dx ✓".into(),
                     label: label.map(str::to_owned),
                     note: format!(
-                        "cases {} · worst {:.0}% of bound",
+                        "cases {} · worst ≤ {:.0}% of its bound",
                         numbers.join(", "),
-                        worst * 100.0
+                        (worst? * 100.0).ceil()
                     ),
                 }
             }

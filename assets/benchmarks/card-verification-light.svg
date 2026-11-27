@@ -20,7 +20,7 @@
 <text x="504.0" y="232.0" font-size="14.0" fill="#171817">forces and stress vs</text>
 <text x="504.0" y="251.0" font-size="14.0" fill="#171817">finite differences of F</text>
 <text x="504.0" y="280.0" font-size="12.0" fill="#6b6964">cases 13, 15, 22</text>
-<text x="504.0" y="296.0" font-size="12.0" fill="#6b6964">worst 34% of bound</text>
+<text x="504.0" y="296.0" font-size="12.0" fill="#6b6964">worst ≤ 31% of its bound</text>
 <rect x="708.0" y="152.0" width="204.0" height="168.0" rx="12" fill="none" stroke="#e3dfd5"/>
 <text x="724.0" y="198.0" font-size="24.0" font-weight="700" fill="#bf6038">0 bits</text>
 <text x="724.0" y="232.0" font-size="14.0" fill="#171817">1 vs 4 threads</text>
