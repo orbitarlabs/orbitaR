@@ -619,8 +619,17 @@ pub fn install(root: &Path, commit: &str) -> Result<(Install, PathBuf), Findings
     .map_err(one)?;
     let uv_install = |args: &[&str]| {
         let mut command = Command::new("uv");
-        command
-            .args(["pip", "install", "--quiet", "--no-cache", "--python"])
+        let pip = [
+            "pip",
+            "install",
+            "--quiet",
+            "--no-cache",
+            "--offline",
+            "--no-config",
+        ];
+        sealed(&mut command)
+            .args(pip)
+            .arg("--python")
             .arg(&python)
             .args(args)
             .current_dir(root);
@@ -735,10 +744,27 @@ pub fn readme_lines(root: &Path, heading: &str) -> Vec<String> {
         .collect()
 }
 
+fn sealed(command: &mut Command) -> &mut Command {
+    for (key, _) in std::env::vars_os() {
+        let name = key.to_string_lossy();
+        if name.starts_with("UV_") || name.starts_with("PIP_") {
+            command.env_remove(&key);
+        }
+    }
+    command
+}
+
 fn venv_run(python: &Path, args: &[&str]) -> Command {
     let mut command = Command::new("uv");
-    command
-        .args(["run", "--no-project", "--quiet", "--python"])
+    sealed(&mut command)
+        .args([
+            "run",
+            "--no-project",
+            "--quiet",
+            "--offline",
+            "--no-config",
+            "--python",
+        ])
         .arg(python)
         .arg("--")
         .args(args);

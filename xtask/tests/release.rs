@@ -1065,32 +1065,67 @@ fn pip_install_orbitar_from_the_local_wheels_brings_the_data_package_into_the_ve
 
 const DEP: &str = "dep-1.0-py3-none-any.whl";
 
+fn dist(root: &Path, dir: &str, name: &str, version: &str, requires: &str) -> String {
+    let tag = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n";
+    let info = format!("{name}-{version}.dist-info");
+    let members: Vec<(String, String)> = vec![
+        (format!("{name}/__init__.py"), String::new()),
+        (
+            format!("{info}/METADATA"),
+            format!("Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n{requires}"),
+        ),
+        (format!("{info}/WHEEL"), tag.into()),
+        (format!("{info}/RECORD"), String::new()),
+    ];
+    let members: Vec<(&str, String)> = (members.iter())
+        .map(|(p, t)| (p.as_str(), t.clone()))
+        .collect();
+    let file = format!("{dir}/{name}-{version}-py3-none-any.whl");
+    std::fs::create_dir_all(root.join(dir)).unwrap();
+    wheel(root, &file, &members);
+    let digest = sha256(&std::fs::read(root.join(&file)).unwrap());
+    let url = format!("file://{}", root.join(&file).display());
+    format!(
+        "[[packages]]\nname = \"{name}\"\nversion = \"{version}\"\n\
+         wheels = [{{ url = \"{url}\", hashes = {{ sha256 = \"{digest}\" }} }}]\n\n"
+    )
+}
+
+const LOCK_HEAD: &str = "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n";
+
 fn locked_dep(name: &str, sha: Option<&str>) -> crate::Tree {
     let root = installable_with(name, true, "Requires-Dist: dep==1.0\n");
-    let tag = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n";
-    let dep: Vec<(&str, String)> = vec![
-        ("dep/__init__.py", String::new()),
-        (
-            "dep-1.0.dist-info/METADATA",
-            "Metadata-Version: 2.1\nName: dep\nVersion: 1.0\n".into(),
-        ),
-        ("dep-1.0.dist-info/WHEEL", tag.into()),
-        ("dep-1.0.dist-info/RECORD", String::new()),
-    ];
-    wheel(&root, DEP, &dep);
-    let bytes = std::fs::read(root.join(DEP)).unwrap();
-    let digest = sha256(&bytes);
-    let pin = sha.unwrap_or(&digest);
-    let url = format!("file://{}", root.join(DEP).display());
+    let mut entry = dist(&root, ".", "dep", "1.0", "");
+    if let Some(pin) = sha {
+        let at = entry.find("sha256 = \"").unwrap() + "sha256 = \"".len();
+        entry.replace_range(at..at + 64, pin);
+    }
+    write(&root, "python/pylock.toml", &format!("{LOCK_HEAD}{entry}"));
+    root
+}
+
+#[test]
+fn pip_install_orbitar_takes_no_wheel_that_uv_config_offers_beside_the_house() {
+    let root = installable_with("unchecked", true, "Requires-Dist: top==1.0\n");
+    let top = dist(&root, "locked", "top", "1.0", "Requires-Dist: dep\n");
+    let dep = dist(&root, "locked", "dep", "1.0", "");
+    dist(&root, "offered", "dep", "2.0", "");
     write(
         &root,
         "python/pylock.toml",
-        &format!(
-            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"dep\"\nversion = \"1.0\"\n\
-             wheels = [{{ url = \"{url}\", hashes = {{ sha256 = \"{pin}\" }} }}]\n"
-        ),
+        &format!("{LOCK_HEAD}{top}{dep}"),
     );
-    root
+    let offered = root.join("offered").display().to_string();
+    write(
+        &root,
+        "uv.toml",
+        &format!("[pip]\nfind-links = [\"{offered}\"]\n"),
+    );
+    let found = xtask::install(&root, "abc").err();
+    let site = root.join("target/wheel/venv/lib/python3.12/site-packages");
+    assert!(!site.join("dep-2.0.dist-info").exists(), "{found:?}");
+    assert_eq!(found, None);
+    assert!(site.join("dep-1.0.dist-info").is_dir());
 }
 
 fn sha256(bytes: &[u8]) -> String {
