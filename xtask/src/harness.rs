@@ -777,6 +777,26 @@ impl RivalPaths<'_> {
         rival::input_path(self.id, name)
     }
 
+    fn calibration(
+        &self,
+        rivals: &rival::Rivals,
+        code: rival::Rival,
+        name: &str,
+        cell: &rival::Cell,
+    ) -> Result<Option<(rival::Row, String)>, String> {
+        let cutoff = rivals.cutoff(code, cell)?;
+        if self.held.get(name) != Some(&None) {
+            return rivals.calibrated(code, &self.keyed(name), cell, cutoff);
+        }
+        let own = self.own(name);
+        match rivals.calibrated_own(code, &own, cutoff) {
+            Some(row) => Ok(Some(row)),
+            None => Err(format!(
+                "held-out {name}: no calibration of its own; run `cargo xtask rivals calibrate --cell {own}`"
+            )),
+        }
+    }
+
     fn keyed(&self, name: &str) -> String {
         rival::input_path(
             self.id,
@@ -789,9 +809,9 @@ impl RivalPaths<'_> {
 
 fn borrows(paths: &RivalPaths, b: &Block, rivals: &rival::Rivals) -> bool {
     let abinit = rival::Rival::Abinit;
-    let (path, base) = (paths.own(b.input), paths.keyed(b.input));
+    let path = paths.own(b.input);
     (rival::Cell::parse(&b.table))
-        .and_then(|cell| rivals.calibrated(abinit, &base, &cell, rivals.cutoff(abinit, &cell)?))
+        .and_then(|cell| paths.calibration(rivals, abinit, b.input, &cell))
         .is_ok_and(|row| row.is_some_and(|(_, from)| from != path))
 }
 
@@ -809,10 +829,8 @@ fn accuracies(
     let target_p = rivals.settings.target.pressure_gpa;
     let path = |b: &Block| paths.own(b.input);
     let calibrated = |code: rival::Rival, b: &Block| {
-        rival::Cell::parse(&b.table).and_then(|cell| {
-            let cutoff = rivals.cutoff(code, &cell)?;
-            rivals.calibrated(code, &paths.keyed(b.input), &cell, cutoff)
-        })
+        rival::Cell::parse(&b.table)
+            .and_then(|cell| paths.calibration(rivals, code, b.input, &cell))
     };
     let basis = |b: &Block, from: &str| match from == path(b) {
         true => "own".to_owned(),

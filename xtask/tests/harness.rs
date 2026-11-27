@@ -1392,6 +1392,7 @@ fn a_variant_inherits_its_bases_skip_and_calibration_only_within_the_generators_
         (moved_along_x(0.9 * bound_bohr, 1.0), true),
         (moved_along_x(1.1 * bound_bohr, 1.0), false),
         (moved_along_x(0.0, 1.0 + 1e-6), false),
+        (moved_along_x(0.0, 10.0), false),
     ]
     .into_iter()
     .enumerate()
@@ -1403,13 +1404,25 @@ fn a_variant_inherits_its_bases_skip_and_calibration_only_within_the_generators_
         let held =
             std::env::temp_dir().join(format!("xtask-variants-bound-{n}-{}", std::process::id()));
         crate::write(&held, "1_a/input.toml", &variant);
-        let (_, record) = claim_with_variants(&root, "1_a", &held);
+        let (outcome, record) = claim_with_variants(&root, "1_a", &held);
         let _ = std::fs::remove_dir_all(&held);
         let entry = &record["held_out"][0];
+        let abinit = (record["speed"].as_array().into_iter().flatten())
+            .find(|b| b["code"] == "abinit" && b["input"] == "held-out-input")
+            .map(|b| b["accuracy"].clone())
+            .unwrap_or_default();
+        let own = "held-out held-out-input: no calibration of its own; run `cargo xtask rivals calibrate --cell benchmarks/1_a/inputs/held-out-input.toml`";
+        let refused = matches!(&outcome, Outcome::Fail(f) if f.contains(own));
         match inherits {
             true => {
                 assert_eq!(entry["base"], "input", "{n}: {record}");
                 assert_eq!(timed_by(&record, "qe"), Vec::<&str>::new(), "{n}: {record}");
+                assert_eq!(
+                    abinit["basis"], "borrowed from benchmarks/1_a/input.toml",
+                    "{n}: {record}"
+                );
+                assert_eq!(abinit["e_ha_per_atom"], 1e-6, "{n}: {record}");
+                assert!(!refused, "{n}: {outcome:?}");
             }
             false => {
                 assert!(entry["base"].is_null(), "{n}: {record}");
@@ -1418,6 +1431,11 @@ fn a_variant_inherits_its_bases_skip_and_calibration_only_within_the_generators_
                     "{n}: {record}"
                 );
                 assert_eq!(timed_by(&record, "qe"), ["held-out-input"], "{n}: {record}");
+                assert!(
+                    abinit["basis"].is_null() && abinit["e_ha_per_atom"].is_null(),
+                    "{n}: {record}"
+                );
+                assert!(refused, "{n}: {outcome:?}");
             }
         }
     }

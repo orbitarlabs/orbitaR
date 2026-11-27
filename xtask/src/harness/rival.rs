@@ -860,6 +860,23 @@ impl Rivals {
         }
     }
 
+    pub(crate) fn calibrated_own(
+        &self,
+        code: Rival,
+        path: &str,
+        cutoff: f64,
+    ) -> Option<(Row, String)> {
+        (self
+            .tuned
+            .of(code)
+            .calibration
+            .get(path)
+            .into_iter()
+            .flatten())
+        .find(|r| r[0] == cutoff && !r[1].is_nan())
+        .map(|r| (*r, path.to_owned()))
+    }
+
     pub(crate) fn calibrated(
         &self,
         code: Rival,
@@ -874,7 +891,7 @@ impl Rivals {
                 .map(|r| (*r, cell.to_owned()))
         };
         if rows.contains_key(path) {
-            return Ok(at(path));
+            return Ok(self.calibrated_own(code, path, cutoff));
         }
         let (mut worst, mut worst_p): (Option<(Row, String)>, f64) = (None, f64::NEG_INFINITY);
         for other in rows.keys() {
