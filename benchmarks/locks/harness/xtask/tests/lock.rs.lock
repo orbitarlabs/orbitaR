@@ -1,3 +1,3 @@
-sha256 = "11e66732066c41e67dbd4777b1c50aa108e6692de9ccd8577a8524e35241fbb1"
+sha256 = "299efffa2ae60648b232d962c22984be670a77c151d6cc3b975b922202710c30"
 reviewer = "PENDING"
-reason = "lock-split: the lock is one file per hashed file under benchmarks/locks, so PRs that change different files stop conflicting; S5 and S9 read it, S9 also an old one-file LOCK at the base; the old benchmarks/LOCK moved with every review kept"
+reason = "lock-split round 2: S9 needs a review not at the base for each new, changed, moved or revived entry; the move stages into benchmarks/locks.partial and finishes a move whose old file stayed; hashed paths refuse control characters, git cat-file reads NUL-framed paths"
