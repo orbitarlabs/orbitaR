@@ -63,6 +63,50 @@ fn the_integral_of_a_constant_is_the_constant_times_the_volume_to_the_last_bits(
 }
 
 #[test]
+fn a_repeat_of_sixty_four_cells_integrates_to_sixty_four_times_one_cell_to_the_last_bits() {
+    let cell = fcc(10.26);
+    let repeat = scaled(
+        [[0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]],
+        [4.0 * 10.26; 3],
+    );
+    let (one, many) = (Grid::coarse(&cell, 6.0), Grid::coarse(&repeat, 6.0));
+    assert_eq!((one.dims(), many.dims()), ([16; 3], [64; 3]));
+    let values: Vec<f64> = (one.points().iter())
+        .map(|f| {
+            0.05 + 0.02 * (TAU * (f[0] + f[1])).cos()
+                + 0.015 * (TAU * (2.0 * f[2] - f[0]) + 0.3).sin()
+        })
+        .collect();
+    let tiled = (0..64 * 64 * 64).map(|i| {
+        let (i1, i2, i3) = (i / 4096 % 16, i / 64 % 64 % 16, i % 64 % 16);
+        values[(i1 * 16 + i2) * 16 + i3]
+    });
+    let (cell_integral, repeat_integral) =
+        (one.integral(values.iter().copied()), many.integral(tiled));
+    let expected = 64.0 * cell_integral;
+    assert!(
+        ((repeat_integral - expected) / expected).abs() < 8.0 * f64::EPSILON,
+        "{repeat_integral} against {expected}"
+    );
+}
+
+#[test]
+fn the_integral_of_values_near_the_largest_float_stays_finite() {
+    let cell = scaled(
+        [[0.0, 0.5, 0.5], [0.5, 0.0, 0.5], [0.5, 0.5, 0.0]],
+        [10.2; 3],
+    );
+    let grid = Grid::coarse(&cell, 0.01);
+    assert_eq!(grid.points().len(), 8);
+    let integral = grid.integral(std::iter::repeat_n(1e305, 8));
+    let exact = 1e305 * cell.volume();
+    assert!(
+        ((integral - exact) / exact).abs() < 4.0 * f64::EPSILON,
+        "{integral} against {exact}"
+    );
+}
+
+#[test]
 #[should_panic(expected = "one value per grid point")]
 fn an_integral_of_another_number_of_values_is_refused() {
     let grid = Grid::coarse(&fcc(10.26), 5.0);

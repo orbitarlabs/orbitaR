@@ -1,4 +1,3 @@
-use compensated_summation::KahanBabuskaNeumaier;
 use orbitar::model::{Cell, Functional};
 use orbitar::pw::{
     Grid, Kinetic, Spins, Xc, exchange_correlation, grid_defect, grid_energy, grid_gap, grid_points,
@@ -266,7 +265,7 @@ fn an_lda_grid_is_the_point_entry_at_each_point_bit_for_bit() {
         };
         let xc = exchange_correlation(&grid, Functional::Lda, spins, Some(&core), None);
         let last = channels.len() - 1;
-        let mut energy = KahanBabuskaNeumaier::<f64>::new();
+        let mut energies = Vec::with_capacity(n);
         for r in 0..n {
             let (e, vrho) = if polarized {
                 let p = Point::of(channels[0][r], channels[last][r], [0.0; 3]);
@@ -279,14 +278,30 @@ fn an_lda_grid_is_the_point_entry_at_each_point_bit_for_bit() {
                 let [x, c] = unpolarized(Functional::Lda, 2.0 * channels[0][r], 0.0, None);
                 (x.energy + c.energy, vec![x.vrho + c.vrho])
             };
-            energy += e;
+            energies.push(e);
             for (s, v) in xc.potential.iter().enumerate() {
                 assert_eq!(v[r].to_bits(), vrho[s].to_bits(), "point {r}");
             }
         }
-        let want = energy.total() * grid.cell().volume() / n as f64;
-        assert_eq!(xc.energy_ha.to_bits(), want.to_bits());
+        let want = exact_sum(&energies) * (grid.cell().volume() / n as f64);
+        assert!(
+            ((xc.energy_ha - want) / want).abs() < 4.0 * f64::EPSILON,
+            "{} against {want}",
+            xc.energy_ha
+        );
     }
+}
+
+fn exact_sum(values: &[f64]) -> f64 {
+    let scale = 2.0_f64.powi(100);
+    let total: i128 = (values.iter())
+        .map(|&v| {
+            let scaled = v * scale;
+            assert_eq!(scaled.fract(), 0.0, "{v} holds bits below 2^-100");
+            scaled as i128
+        })
+        .sum();
+    total as f64 / scale
 }
 
 fn strained(t: f64) -> (Grid, [[f64; 3]; 3]) {

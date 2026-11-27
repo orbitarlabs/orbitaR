@@ -188,8 +188,8 @@ impl Grid {
     pub fn integral(&self, values: impl ExactSizeIterator<Item = f64>) -> f64 {
         let n = self.len();
         assert_eq!(values.len(), n, "one value per grid point");
-        let sum = values.sum::<KahanBabuskaNeumaier<f64>>().total();
-        sum * self.cell.volume() / n as f64
+        let element = self.cell.volume() / n as f64;
+        values.sum::<KahanBabuskaNeumaier<f64>>().total() * element
     }
 
     pub fn synthesized(

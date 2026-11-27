@@ -3,6 +3,7 @@ use super::species::largest_moment;
 use super::{Species, real_ylm, solid_harmonics};
 use crate::pw::{Grid, Mat, per_point};
 use crate::xc::{DENSITY_FLOOR_PER_BOHR3, Point, Rung, evaluate, unpolarized};
+use compensated_summation::KahanBabuskaNeumaier;
 use std::f64::consts::PI;
 use std::sync::Arc;
 
@@ -366,12 +367,13 @@ impl Sphere {
     pub fn potential_d(&self, v: &[f64]) -> Mat<f64> {
         let species = &self.species;
         let count = self.values.first().map_or(0, Vec::len);
-        let mut projected = vec![0.0; count];
+        let mut sums = vec![KahanBabuskaNeumaier::<f64>::new(); count];
         for (&index, values) in self.points.iter().zip(&self.values) {
-            for (p, g) in projected.iter_mut().zip(values) {
-                *p += v[index] * g * self.volume;
+            for (sum, g) in sums.iter_mut().zip(values) {
+                *sum += v[index] * g;
             }
         }
+        let projected: Vec<f64> = sums.iter().map(|s| s.total() * self.volume).collect();
         let n = species.orbitals().len();
         Mat::from_fn(n, n, |i, j| {
             (0..count)
