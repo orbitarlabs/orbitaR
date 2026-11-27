@@ -1,4 +1,4 @@
-# harness reviewer=int2-fix, captain to review reason=PR 18 green on Linux, on integration-2 as its reviewers passed it: a run's guarded peak (the memory guard, its size estimates, a failed run's kept peak) is the larger of wait4's RSS high-water mark and the Pss samples, which miss a peak between two 50 ms polls; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH, a symlink to the probed file, then the wrapped command's own PATH or /usr/bin:/bin; a test runs both rivals in a scope beside a decoy tool on their own PATH
+# harness reviewer=int2-fix, captain to review reason=PR 18 green on Linux, on integration-2 as its reviewers passed it: a run's guarded peak (the memory guard, its size estimates, a failed run's kept peak) is the larger of wait4's RSS high-water mark and the Pss samples, which miss a peak between two 50 ms polls; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH, a symlink to the probed file, then the wrapped command's own PATH or /usr/bin:/bin; a test runs both rivals in a scope beside a decoy tool on their own PATH; tests catch the mutants of the claim tools, size series and cards that CI's first full mutants run missed, with the cards' bytes pinned as card.rs at 6039ee3 draws them
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -49,18 +49,18 @@ b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk
 37df1f7f7b9a18c49ea5fe978fc0613f55a0cd4c6a6c08edf2b0bad1a795d06d  xtask/tests/case.rs
 b7eeebba385d0d02a1867c7b9c39b97336923dc72ddaf878fe4f40517187bde7  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
-25ec6db2a159d935252be2af718def70c600a6c34e8779b8a37fc69b5c4829be  xtask/tests/harness.rs
+0d97cee7c2d91d6aced20e7e35e9fa2de6bdaa900fd38eaba0442893bc28b0e1  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
 34bb356c822a8e35907af2fdbd5033f4fb84d7525f941599a30694a0995cf02e  xtask/tests/harness/datasets.rs
 3a76633569c2153ae6114e2157563e635df9c12c3204da6d4cbcab29a0118629  xtask/tests/harness/engine.rs
 ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/harness/eos.rs
-34801334b9ae70ef5de3d307c17bad6eec2ed1a47efc8f4d782348e59ae96dca  xtask/tests/harness/load.rs
+4ec752a236e077eeb08b42765c2ba87d9452acaefc3097ad98a3b5ef81934e38  xtask/tests/harness/load.rs
 c8355dd07f4f62c40ee8103e9d86da41dbe1f3a73d33fbd047df699db9b5420a  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
-f1185cc01e165ad8c348c161e30a4dea063df738a0002b5b666606ad2e1c4db8  xtask/tests/harness/rival.rs
+fa6f9d2504c5953bde3bb626a5dac6351fe8e1292655750d48131c1d538c1057  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
-00f59f70bde782e6d4f2e07834780b0ffec923c4c0e5c1d624cacd0b9d809d6b  xtask/tests/harness/speed.rs
+2dff0603874423323dc92df43ba0a7f1ece8abb716a87e25edcecbafcb76ca03  xtask/tests/harness/speed.rs
 33467b75f6e238946868cd25d6d62922bbb10c6d99ee156bab47117d798cbae5  xtask/tests/layers.rs
 749f8ec5618c7c1d46dda9faec5dc7fc4a987489d187a4c5b57f1654439a58dc  xtask/tests/layout.rs
 933c6330d7d6ff1bf6d6ab6c39ae0ac94039b853ddfa6736edf39a8179891d26  xtask/tests/lib.rs
@@ -74,9 +74,9 @@ c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/no
 8b7427ba6f297cb2fa085a161a4657762243d5b3df7ce54cc521d0a0c28d1fc5  xtask/tests/release.rs
 498f547694fa6d58e456bc4c4ad8488ae6d5877e14ce6fb84fc0cf37826894be  xtask/tests/release/mac.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
-f30a3bf7c45f766f290d893e0d5c44efbfa4437b9f42901f3f2de4f17ea8d99f  xtask/tests/results.rs
-71cf93861bed06de27578bac74029f3928936b845dab287db54ad5eb9c927f7c  xtask/tests/results/card.rs
-d83457c370b37255ecdfacd0d5618c80f58a78d893ea776e6a24c191f79076b4  xtask/tests/results/claim.rs
+b006ba5bdf2cadf498ccce6924780a9a25a2887bcafac1e605e3c857aabd4c84  xtask/tests/results.rs
+3f5c85d8663aeaf69b6a6acbd27e0253ecb3dda6e3089674ce3dd84218ba1813  xtask/tests/results/card.rs
+e599d4738c60c6e92a48885415ffcbe85283d8509f16f33b346064773b525978  xtask/tests/results/claim.rs
 830a1dd7ff8024b5dd4bb93394a481f1aa5d3ac06293f108cab5f6484219db48  xtask/tests/same.rs
 2bf0a126bec3b439381931c88bc4dcaebd8eeeedeb8171a25e5682e1a2126a74  xtask/tests/science.rs
 6bcca93c807b7b6679490eaed489d281586f529b98f819daea4489957b337a57  xtask/tests/strain.rs
