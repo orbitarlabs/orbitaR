@@ -108,6 +108,7 @@ fn a_product_in_blocks_has_the_bits_of_faers_whole_product_at_any_thread_count_i
         (128, 40, 4),
         (3000, 18, 1),
         (600, 1, 1000),
+        (1500, 300, 300),
     ]
     .into_iter()
     .enumerate()
@@ -213,6 +214,57 @@ fn accumulate_adds_each_term_in_order_with_the_bits_of_one_sum_per_term_in<T: Pa
     assert_eq!(bits(sum().as_ref()), bits(expected.as_ref()));
     for _ in 0..10 {
         assert_eq!(bits(pool.install(sum).as_ref()), bits(expected.as_ref()));
+    }
+}
+
+#[test]
+fn a_product_has_the_same_bits_at_any_thread_count() {
+    within(|| {
+        a_product_has_the_same_bits_at_any_thread_count_in::<c64>();
+        a_product_has_the_same_bits_at_any_thread_count_in::<f64>();
+    });
+}
+
+fn a_product_has_the_same_bits_at_any_thread_count_in<T: Parts>() {
+    let pools: Vec<_> = [1, 2, 3, 4, 8]
+        .into_iter()
+        .map(|n| ThreadPoolBuilder::new().num_threads(n).build().unwrap())
+        .collect();
+    let cancelling = Mat::from_fn(20_000, 4, |_, j| {
+        entry::<T>([1e16, 1.0, -1e16, 1.0][j], 0.0)
+    });
+    let ones = Mat::from_fn(4, 1, |_, _| entry::<T>(1.0, 0.0));
+    let mut cases: Vec<(Mat<T>, Mat<T>, bool)> = vec![(cancelling, ones, false)];
+    for (seed, (n, k, q)) in [
+        (4000, 200, 200),
+        (1500, 300, 300),
+        (20_000, 4, 1),
+        (3000, 1, 700),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let seed = 2 * seed as u64 + 31;
+        cases.push((random::<T>(n, k, seed), random::<T>(n, q, seed + 1), true));
+    }
+    for (a, b, adjoint) in &cases {
+        let product = || match adjoint {
+            true => times(a.adjoint(), b.as_ref()),
+            false => times(a.as_ref(), b.as_ref()),
+        };
+        let alone = bits(product().as_ref());
+        for pool in &pools {
+            assert_eq!(
+                bits(pool.install(product).as_ref()),
+                alone,
+                "{}×{}·{}×{} on {} threads",
+                a.ncols(),
+                a.nrows(),
+                b.nrows(),
+                b.ncols(),
+                pool.current_num_threads()
+            );
+        }
     }
 }
 

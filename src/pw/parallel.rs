@@ -208,6 +208,9 @@ fn pooled() -> bool {
 const NANO: usize = 16 * 16 * 16;
 const TALL: usize = 256;
 const SHORT: usize = 8;
+const SQUARE: usize = 64;
+const WIDE: usize = 64;
+const FEW_ROW_TILES: usize = 16;
 
 fn block_rows(rows: usize, columns: usize, inners: &[usize]) -> (usize, usize) {
     let size = if rows >= 2 * TALL { TALL } else { SHORT };
@@ -232,16 +235,64 @@ fn per_block<T: Send>(
     per_part(parts, || (), |(), (start, block)| f(start, block));
 }
 
+fn spans(length: usize, size: usize) -> Vec<(usize, usize)> {
+    let count = (length / size.max(1)).max(1);
+    (0..count)
+        .map(|i| {
+            let start = i * size;
+            (start, if i + 1 == count { length - start } else { size })
+        })
+        .collect()
+}
+
+fn tiles(rows: usize, columns: usize, inner: usize) -> [Vec<(usize, usize)>; 2] {
+    let row = match rows {
+        r if r >= 2 * TALL => TALL,
+        r if r >= 2 * SQUARE => SQUARE,
+        r => r,
+    };
+    let few = rows / row.max(1) < FEW_ROW_TILES;
+    let column = if few && columns >= 2 * WIDE {
+        WIDE
+    } else {
+        columns
+    };
+    if row * column * inner <= NANO {
+        return [vec![(0, rows)], vec![(0, columns)]];
+    }
+    [spans(rows, row), spans(columns, column)]
+}
+
 pub fn product<T, A, B>(target: MatMut<'_, T>, a: MatRef<'_, A>, b: MatRef<'_, B>)
 where
     T: ComplexField,
     A: Conjugate<Canonical = T>,
     B: Conjugate<Canonical = T>,
 {
-    per_block(target, &[a.ncols()], |start, block| {
-        let a = a.subrows(start, block.nrows());
-        matmul(block, Accum::Replace, a, b, one::<T>(), Par::Seq);
-    });
+    let [rows, columns] = tiles(target.nrows(), target.ncols(), a.ncols());
+    let mut parts = Vec::with_capacity(rows.len() * columns.len());
+    let mut below = target;
+    for &(row, height) in &rows {
+        let (band, rest) = below.split_at_row_mut(height);
+        below = rest;
+        let mut right = band;
+        for &(column, width) in &columns {
+            let (tile, rest) = right.split_at_col_mut(width);
+            right = rest;
+            parts.push((row, column, tile));
+        }
+    }
+    per_part(
+        parts,
+        || (),
+        |(), (row, column, tile)| {
+            let (a, b) = (
+                a.subrows(row, tile.nrows()),
+                b.subcols(column, tile.ncols()),
+            );
+            matmul(tile, Accum::Replace, a, b, one::<T>(), Par::Seq);
+        },
+    );
 }
 
 pub fn times<T, A, B>(a: MatRef<'_, A>, b: MatRef<'_, B>) -> Mat<T>
