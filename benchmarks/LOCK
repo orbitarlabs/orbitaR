@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=rival-reuse round 3 (#22 review round 2, owner's decision): reuse serves pilots alone and a claim refuses ORBITAR_RIVAL_RECORDS; the claim verifier and results refuse any reused block; the runtime key lists libraries with ldd under the rival's own cold environment and refuses reuse when they cannot be listed; the key holds a held-out variant's paired input digest and the harness's and user service's cgroup limits; pilot blocks judged by pilot rules
+# harness reviewer=captain-final-call after codex-review3-22 reason=rival-reuse final (#22 after review round 3): reuse serves pilots alone and every claim times its rivals fresh; the verifier, results collect, render and S11 refuse any record or carried-forward row that holds a reused block; the runtime key lists libraries with ldd under the rival's own cold environment and resolves an env-named interpreter on the rival's PATH, else no reuse; the key holds the held-out paired digest and the harness's and user service's cgroup limits; the systemd scope's slice limits are a named pilot-only limit
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -15,7 +15,7 @@ ab5678c69b56aff8db61dab1b665ffd5c35a633e7bd7b8b2808d9b8b6d06962d  xtask/src/harn
 9d7b0897887b019c739251fe3c3aa7f544c526bef039b3ad23ca973e48de4b54  xtask/src/harness/record.rs
 c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harness/relax.rs
 abfff5207e38df0f8024b7c61e25e9d60be3952427081393ff98ff0ec81fb37b  xtask/src/harness/reuse.rs
-a55451b366e14f99035c8e9ac49cc7c0fd7c265d5a3ad9a454ca5d10943fc14c  xtask/src/harness/rival.rs
+45105ed0bd06fda66d205c783f5b232fe4df5d225dc24e5272caedc625f3a237  xtask/src/harness/rival.rs
 832e4d829b61ed81c03204e298754a9ca5f7b6f88385d4d477aedda04ec751bb  xtask/src/harness/rival/abinit.rs
 22e53eda5ff78cec6077c4becbd15ada0b53efe844cd27e3eea96b522039fc24  xtask/src/harness/rival/qe.rs
 a975f3aa461fa356b16d8a1803582c3d6835106873382c1f2d5c82eb7073a584  xtask/src/harness/speed.rs
@@ -32,7 +32,7 @@ a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_t
 9ae32a6167bbfc7b985e63fa43c65d45ecee51a25434a8410ebf9929e6c4093d  xtask/src/release.rs
 69753ec74301a7e1248c342a8ff4c99df60229e7228674269fb0bb51bac47739  xtask/src/release/mac.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
-b653ce9f9ab983f0399a2cb4711d44d3b7cec2dee8a28f66b44a9acc2fae14fc  xtask/src/results.rs
+52ca1fc17d18a8882a5ed1d0b099dfbf06def6a27067ddcc2cfa999a3d304346  xtask/src/results.rs
 947636281b235c44cd68fb6ac3ddfa82b291a34a0d9b4c7f5e32406c7c9a88f4  xtask/src/results/card.rs
 f3ce054ed915c646928fb23e6ea48fdddfbbc8ac776d147f10978bafa592086a  xtask/src/results/claim.rs
 0ae1508724aecc0270cdee93ee50d335329a255e76d1c9cd4a7f0cb2394346ae  xtask/src/same.rs
@@ -58,7 +58,7 @@ ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/ha
 34801334b9ae70ef5de3d307c17bad6eec2ed1a47efc8f4d782348e59ae96dca  xtask/tests/harness/load.rs
 1433c0de12d03c68058c667a912056b43808f0fdaae54985aeafbdbac7bd60fe  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
-eaa38811565369f5520ac2f74bce13a984eab0d05bc225ea2a5e097d4bd9cfb7  xtask/tests/harness/reuse.rs
+8bd6e8d3b1f4f7e33396c08a1765649b3263e41e3c920ab5246099c1ebe66274  xtask/tests/harness/reuse.rs
 f1185cc01e165ad8c348c161e30a4dea063df738a0002b5b666606ad2e1c4db8  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
@@ -78,7 +78,7 @@ c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/no
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 f30a3bf7c45f766f290d893e0d5c44efbfa4437b9f42901f3f2de4f17ea8d99f  xtask/tests/results.rs
 71cf93861bed06de27578bac74029f3928936b845dab287db54ad5eb9c927f7c  xtask/tests/results/card.rs
-1097dac0c8d4d16e129e196695ef6d14db0ba38064d1aba18db631d4187bd75e  xtask/tests/results/claim.rs
+deaa42a7d9a088293e8247779b702c8db06bedc23e4d349849154008fe0279bb  xtask/tests/results/claim.rs
 830a1dd7ff8024b5dd4bb93394a481f1aa5d3ac06293f108cab5f6484219db48  xtask/tests/same.rs
 2bf0a126bec3b439381931c88bc4dcaebd8eeeedeb8171a25e5682e1a2126a74  xtask/tests/science.rs
 6bcca93c807b7b6679490eaed489d281586f529b98f819daea4489957b337a57  xtask/tests/strain.rs
