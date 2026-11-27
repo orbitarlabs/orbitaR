@@ -1,4 +1,4 @@
-# harness reviewer=integration-1 of #6 codex-review3-6, #7 captain-final-call after codex-review3-7, #8 captain after codex-review2-8 (test-only addition), #10/#11 codex-review2-1011, #12 captain-final-call after codex-review2-12; conflicts resolved by the integration; maturin Mac hashes for 1.11.5 by the integration reason=integration-1 lands PRs 6, 7, 8, 10, 11 and 12 on main 4f7c98d, whose harness change PR 9 (codex-review-pr9) stays; each PR's harness change as its review passed it; conflicts: release.rs keeps PR 12's install plan of Invocation steps and runs PR 8's install in it (sealed of UV_ and PIP_ variables, offline, no cache, no uv config, the hash-pinned wheelhouse with the local wheels, orbitar alone), in_venv takes venv_run's sealed offline flags; the release tests take PR 11's member order (the engine at index 4) for PR 12's tests; docs.rs CONTRIBUTING.md budget 59 for the 5 lines of PR 6 and the 2 of PR 7; the macOS maturin wheel hashes in release/mac.rs are 1.11.5's (PyPI), and a test holds their version to the pyproject.toml and Dockerfile pin
+# harness reviewer=captain after codex-review3-19 (tests for CI mutants) reason=repro-wheels: the Mac wheel build turns off rustc's post-link strip (rust-objcopy loads libLLVM only through DYLD_FALLBACK_LIBRARY_PATH, so the strip ran on CI and failed on a Mac), builds the data wheel with the hash-pinned uv 0.13.7 (uv_build==0.13.7), wheel --check holds the Mac engine to SDK 27.2 and exactly one ld record, ld 27106.1, of the Command Line Tools 27.2.0.0.1792721180 that CI's mac-wheel job selects on xcode-27; wheel --same passes only when the two files are one byte stream that reads as a release wheel: local headers, stored data, central headers and the end record cover every byte, no member uses a data descriptor or a ZIP64 extra field (maturin and uv_build write neither), and Python's zipfile reads each member with its CRC; that equal-input check and the hash listing report a zipfile failure in one line; on a difference --same names the first differing byte with its member and field and each differing local header, stored data, central header and end record by field name, never by value; member names print escaped; --same conflicts with --check and --target; CI's same-jth job runs it on the Linux and the Mac data wheel; publish allows xcode-27 and actions/download-artifact; listed is public so a test holds its findings
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -19,16 +19,17 @@ f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harn
 ec4c980211c7243e37508ee3af8f242b298661ef4684a599f4ba93559a607b76  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
-714bff22787c3193af736807c79bed94c782abc960b26934dc2cc482a8075d20  xtask/src/lib.rs
+d7768397efdd07b5dcf41e79b461da61d4de0d1844a3e61c33ba7c01a95a4861  xtask/src/lib.rs
 d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
 7b9668521afebc2a339451a67f56046865cf41b19322ead20b100f1ba493da20  xtask/src/native.rs
 f530929261fe8c539fedeb0c983726a7d98d6abaaf1df032b9e22ddd8576649b  xtask/src/node.rs
 a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_text.rs
-61555ff273ebe6fccb87cd8e2b6e1c0bff47246b4be9782e8cfbafea8e89a750  xtask/src/publish.rs
-9ae32a6167bbfc7b985e63fa43c65d45ecee51a25434a8410ebf9929e6c4093d  xtask/src/release.rs
-69753ec74301a7e1248c342a8ff4c99df60229e7228674269fb0bb51bac47739  xtask/src/release/mac.rs
+36b99e5a53344bbe4f2da44f7bcd646c07adc1c8af5ed64905bc465ac6a20e37  xtask/src/publish.rs
+1ebe6d2fe4d15388e4c3f68be9934fd2dd8e8fbd465e5183ad4b471284ed9e11  xtask/src/release.rs
+58ae1a4318862fd2a9f574fa1ade4c0cb28a01a2f55200f35f44e14b60b47889  xtask/src/release/archive.rs
+e39c9e39f45f11364aeca1051ee4e75e5122dae7d62459ce9b7dd919d2ad56a3  xtask/src/release/mac.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
 70747986eb676692dccad69e5b12b3417d6b7e19e9adb7fdcb8a2b7e0240cdff  xtask/src/results.rs
 0ae1508724aecc0270cdee93ee50d335329a255e76d1c9cd4a7f0cb2394346ae  xtask/src/same.rs
@@ -66,9 +67,10 @@ fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/ha
 c42a2e5450ddcbdc637f26637bcd8a869c26f3a206edf8fe0d5d1e802a8b3087  xtask/tests/native.rs
 c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/node.rs
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
-3c2ea0d64e25ff4fb8e11f6a6c444629424470bd13776d1c0e08dc9ad257277e  xtask/tests/publish.rs
-8b7427ba6f297cb2fa085a161a4657762243d5b3df7ce54cc521d0a0c28d1fc5  xtask/tests/release.rs
-498f547694fa6d58e456bc4c4ad8488ae6d5877e14ce6fb84fc0cf37826894be  xtask/tests/release/mac.rs
+adbbdc00ab51db5acb2968db1f53f8b3b022c4ff5a885bc26c697a133bf313be  xtask/tests/publish.rs
+9b9f3220b49c3f47d25873de7410b06de25ad6a1954bd1b0621b86e907538201  xtask/tests/release.rs
+fc2f0e2d82c9a12dcd8947f645e4eafd8eaea82d55fe6a80853c3e15383976ca  xtask/tests/release/archive.rs
+445712a3248ffe26d7f8ae34898d83a8f60657603ef9b4b1df3e6942619b88ed  xtask/tests/release/mac.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 2fa5406c310212330ec85de4db654fd788127734cfa88b654f4ebae7dd28e3ae  xtask/tests/results.rs
 830a1dd7ff8024b5dd4bb93394a481f1aa5d3ac06293f108cab5f6484219db48  xtask/tests/same.rs
@@ -88,7 +90,7 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/version-
 25c05a1ee1c58ca7a2667e5a94eeffe983abf96c387d0c81e6eff62cbe2fe5f0  .config/nextest.toml
 170e990fbecd92a2790e88cd82074156a7d9a28482a2be86cdabbc8110f06632  clippy.toml
 1b163dc0af0ee6ec9ccd7608ec3d27d85e642bc0fc218b693a3b3600bf1cfb61  .github/workflows/ci.yml
-09f2b1de21e526e61e5af0190d3bc2d895d5ed400b1ad0410ce23f47e2dc4d5a  .github/workflows/package.yml
+14ecbeceb664c563314e72ffa5ca2f177fdf19770160afc0fb5f722d93924e13  .github/workflows/package.yml
 78670b960043d5292fddc44dfbf1e1177fce02ef77b415f6cdca7b37c2199c2f  .github/workflows/text.yml
 8f17496d6bc593407b195136d75b7f4cf035c668eefec6bfef0a1a7410f0415f  Cargo.toml
 de836b60f523429179a0b1e7d4cb19ae5461df6ac535a28c022abef0ea8d3c66  Cargo.lock
