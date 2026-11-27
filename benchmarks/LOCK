@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=maturin 1.11.5 writes the wheel members in path order; xtask wheel refuses a wheel out of that order in its central directory or in its stored entries (header offsets)
+# harness reviewer=codex-review2-1011 reason=maturin 1.11.5 writes the wheel members in path order; xtask wheel refuses a wheel out of that order in its central directory or in its stored entries (header offsets)
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
