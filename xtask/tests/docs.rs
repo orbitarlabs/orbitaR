@@ -581,6 +581,9 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
         "<img src=\"assets/untracked.svg\" alt=\"Logo\">",
         "<a href=\"benchmarks/README.md\">",
         "</a>",
+        "",
+        "- [Fixture](probe*.bin)",
+        "- [Odd](odd*name.txt)",
     ];
     let readme = format!("{README}\n{}\n", lines.join("\n"));
     let root = docs_tree(
@@ -595,10 +598,13 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
             (".gitattributes", "private/ export-ignore\n"),
             ("assets/tracked.svg", svg),
             ("benchmarks/README.md", "# B\n"),
+            ("probe-tracked.bin", ""),
+            ("odd*name.txt", ""),
         ],
     );
     tracked(&root);
     write(&root, "NOTES", "x\n");
+    write(&root, "probe*.bin", "");
     write(&root, "assets/untracked.svg", svg);
     let html = "HTML comes from the allowlist only: a picture under assets/, <details>, <summary>";
     let gone = |n: usize, target: &str| {
@@ -614,6 +620,7 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
             gone(1, "NOTES"),
             gone(2, "private/plan.toml"),
             gone(3, "private/"),
+            gone(9, "probe*.bin"),
         ]
     );
     git(&root, &["rm", "-q", "--cached", "benchmarks/README.md"]);
@@ -625,6 +632,7 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
             gone(1, "NOTES"),
             gone(2, "private/plan.toml"),
             gone(3, "private/"),
+            gone(9, "probe*.bin"),
         ]
     );
 }
@@ -649,14 +657,21 @@ fn readme_html_that_the_parser_sees_must_stand_on_its_own_line_whatever_the_back
 }
 
 #[test]
-fn a_bare_web_address_outside_code_is_a_link_out_of_the_tree() {
+fn any_web_or_mail_address_outside_code_is_a_link_out_of_the_tree() {
+    let mail = format!("- Mail someone{0}example.org or (ops{0}example.org).", '@');
+    let code = format!(
+        "- Code `https://example.com`, `www.example.com`, and `a{}example.org` pass; so does [text](LICENSE).",
+        '@'
+    );
     let f = readme_findings(
-        "docs-readme-bare",
+        "docs-readme-addresses",
         &[
             "- See https://example.com/a for more.",
             "- Or (www.example.com) and *HTTP://EXAMPLE.COM*.",
-            "- Code `https://example.com` and [text](LICENSE) are fine; so is https:// alone.",
-            "- [https://example.com/text](LICENSE) is a link; then https://example.com/after is not.",
+            "- See(https://example.org/) for details.",
+            &mail,
+            "- [https://example.com/text](LICENSE) is a link with an address in its text.",
+            &code,
             "",
             "```text",
             "https://example.com/in/a/block",
@@ -674,9 +689,29 @@ fn a_bare_web_address_outside_code_is_a_link_out_of_the_tree() {
             gone(0, "https://example.com/a"),
             gone(1, "HTTP://EXAMPLE.COM"),
             gone(1, "www.example.com"),
-            gone(3, "https://example.com/after"),
+            gone(2, "See(https://example.org/"),
+            gone(3, &format!("ops{}example.org", '@')),
+            gone(3, &format!("someone{}example.org", '@')),
+            gone(4, "https://example.com/text"),
         ]
     );
+}
+
+#[test]
+fn an_allowlisted_anchor_around_plain_text_passes() {
+    let f = readme_findings(
+        "docs-readme-anchor",
+        &[
+            "<a href=\"benchmarks/README.md\">",
+            "Benchmark results",
+            "</a>",
+            "",
+            "- A plain line after it.",
+        ],
+        &[("benchmarks/README.md", "# B\n")],
+    );
+    let readme: Vec<&String> = f.iter().filter(|x| x.contains("README.md:")).collect();
+    assert!(readme.is_empty(), "{readme:?}");
 }
 
 #[test]

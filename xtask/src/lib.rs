@@ -78,7 +78,8 @@ impl Env {
 enum Cli {
     /// Print the commands, the layout, the layer order, and the tier policy
     Help,
-    /// The CHECK cargo steps, then the levers layout, layers, manifest, docs, science, native, version, publish
+    /// The CHECK cargo steps, then the levers layout, layers, manifest, docs, science, native, version, and the
+    /// file rules of publish; `cargo xtask publish --base <rev> --head <rev>` reads the commits of a range
     Check,
     /// Prove It Works: build the release engine, run the push cases, check their records
     Smoke,
@@ -306,7 +307,7 @@ const LEVERS: [Lever; 8] = [
     |root| science::check(root, None),
     native::check,
     version::check,
-    |root| publish::check(root, publish::BASE, publish::HEAD),
+    publish::tree,
 ];
 
 pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {

@@ -294,7 +294,7 @@ fn one<'a>(role: &str, values: &[&'a str]) -> Result<Who<'a>, String> {
 
 fn identities(headers: &str) -> Result<[(&'static str, Who<'_>); 2], String> {
     let (mut authors, mut committers) = (Vec::new(), Vec::new());
-    for line in headers.lines() {
+    for line in headers.split('\n') {
         if let Some(value) = line.strip_prefix("author ") {
             authors.push(value);
         } else if let Some(value) = line.strip_prefix("committer ") {
@@ -375,8 +375,13 @@ fn commits(root: &Path, base: &str, head: &str) -> Findings {
 }
 
 pub(crate) fn check(root: &Path, base: &str, head: &str) -> Findings {
-    let mut findings = files(root);
+    let mut findings = tree(root);
     findings.extend(commits(root, base, head));
+    findings
+}
+
+pub(crate) fn tree(root: &Path) -> Findings {
+    let mut findings = files(root);
     for file in walk::files(root, WORKFLOWS) {
         let text = walk::read(root, &file);
         let lines: Vec<&str> = text.lines().map(uncommented).collect();

@@ -1,5 +1,5 @@
 use crate::{
-    Findings, commands, git, layers, layout, results,
+    Findings, commands, git, layers, layout, release, results,
     syntax::{self, Tree},
     walk,
 };
@@ -230,23 +230,36 @@ fn in_tree(root: &Path, path: &str) -> bool {
 }
 
 fn public(root: &Path, path: &str) -> bool {
-    let quiet = ["-c", "core.quotePath=false"];
-    let Ok(tracked) = git(root, &[&quiet[..], &["ls-files", "--", path]].concat()) else {
+    let literal = ["--literal-pathspecs", "-c", "core.quotePath=false"];
+    let Ok(tracked) = git(
+        root,
+        &[&literal[..], &["ls-files", "-z", "--", path]].concat(),
+    ) else {
         return false;
     };
-    let files: Vec<&str> = tracked.lines().collect();
+    let dir = format!("{}/", path.trim_end_matches('/'));
+    let files: Vec<&str> = (tracked.split('\0'))
+        .filter(|f| *f == path || f.starts_with(&dir))
+        .collect();
     let within = |file: &str| -> Vec<String> {
         let dirs = (file.match_indices('/')).map(|(at, _)| file[..=at].to_owned());
         dirs.chain([file.to_owned()]).collect()
     };
     let asked: BTreeSet<String> = files.iter().flat_map(|f| within(f)).collect();
     let asked: Vec<&str> = asked.iter().map(String::as_str).collect();
-    let ask = [&quiet[..], &["check-attr", "export-ignore", "--"], &asked].concat();
+    let ask = [
+        &literal[..],
+        &["check-attr", "-z", "export-ignore", "--"],
+        &asked,
+    ]
+    .concat();
     let Ok(out) = git(root, &ask) else {
         return false;
     };
-    let ignored: BTreeSet<&str> = (out.lines())
-        .filter_map(|l| l.strip_suffix(": export-ignore: set"))
+    let fields: Vec<&str> = out.split('\0').collect();
+    let ignored: BTreeSet<&str> = (fields.chunks(3))
+        .filter(|f| matches!(f, [_, "export-ignore", "set"]))
+        .map(|f| f[0])
         .collect();
     (files.iter()).any(|f| within(f).iter().all(|p| !ignored.contains(p.as_str())))
 }
@@ -457,13 +470,15 @@ fn outside_code(line: &str) -> impl Iterator<Item = &str> {
     line.split('`').step_by(2)
 }
 
+fn markup(text: &str) -> bool {
+    let chars: Vec<char> = text.chars().collect();
+    chars
+        .windows(2)
+        .any(|w| w[0] == '<' && (w[1].is_ascii_alphabetic() || matches!(w[1], '/' | '!')))
+}
+
 fn inline_html(line: &str) -> bool {
-    outside_code(line).any(|part| {
-        let chars: Vec<char> = part.chars().collect();
-        chars
-            .windows(2)
-            .any(|w| w[0] == '<' && (w[1].is_ascii_alphabetic() || matches!(w[1], '/' | '!')))
-    })
+    outside_code(line).any(markup)
 }
 
 const REFERENCE: &str =
@@ -474,18 +489,14 @@ struct Parsed {
     html: BTreeSet<usize>,
 }
 
-const BARE: [&str; 3] = ["http://", "https://", "www."];
-
-fn bare_urls(text: &str) -> Vec<&str> {
-    (text.split_whitespace())
-        .map(|word| {
-            (word.trim_start_matches(['*', '_', '~', '(']))
-                .trim_end_matches(['.', ',', ':', ';', '!', '?', ')', '*', '_', '~', '"', '\''])
-        })
+fn addresses(prose: &str) -> Vec<&str> {
+    let edge = |c: char| "\"'()[]<>.,;:!?*_~".contains(c);
+    (prose.split_whitespace())
+        .map(|word| word.trim_matches(edge))
         .filter(|word| {
-            let lower = word.to_ascii_lowercase();
-            BARE.iter()
-                .any(|b| lower.starts_with(b) && lower.len() > b.len())
+            word.contains("://")
+                || word.to_ascii_lowercase().contains("www.")
+                || release::email(word)
         })
         .collect()
 }
@@ -495,24 +506,31 @@ fn parse_readme(root: &Path, text: &str) -> Parsed {
     let gone = |target: &str| format!("the link `{target}` names no file of the tree");
     let unresolved = |_: BrokenLink<'_>| Some((CowStr::from(""), CowStr::from("")));
     let parser = Parser::new_with_broken_link_callback(text, Options::empty(), Some(unresolved));
-    let mut found: Vec<(usize, String)> = (parser.reference_definitions().iter())
+    let mut found: BTreeSet<(usize, String)> = (parser.reference_definitions().iter())
         .map(|(_, definition)| (line(definition.span.start), REFERENCE.to_owned()))
         .collect();
     let mut html = BTreeSet::new();
-    let (mut code, mut linked) = (0, 0);
+    let mut code = 0;
+    let mut prose: Option<(usize, String)> = None;
     for (event, span) in parser.into_offset_iter() {
+        if let Event::Text(words) = &event
+            && code == 0
+        {
+            prose
+                .get_or_insert_with(|| (line(span.start), String::new()))
+                .1 += words;
+            continue;
+        }
+        if let Some((at, run)) = prose.take() {
+            found.extend(addresses(&run).into_iter().map(|a| (at, gone(a))));
+        }
         match event {
-            Event::Html(_) | Event::InlineHtml(_) => {
-                html.insert(line(span.start));
+            Event::Html(raw) | Event::InlineHtml(raw) => {
+                let tagged = (raw.split('\n').enumerate()).filter(|(_, l)| markup(l));
+                html.extend(tagged.map(|(k, _)| line(span.start) + k));
             }
             Event::Start(Tag::CodeBlock(_)) => code += 1,
             Event::End(TagEnd::CodeBlock) => code -= 1,
-            Event::End(TagEnd::Link | TagEnd::Image) => linked -= 1,
-            Event::Text(words) if code == 0 && linked == 0 => {
-                for url in bare_urls(&words) {
-                    found.push((line(span.start), gone(url)));
-                }
-            }
             Event::Start(
                 Tag::Link {
                     link_type,
@@ -524,22 +542,23 @@ fn parse_readme(root: &Path, text: &str) -> Parsed {
                     dest_url,
                     ..
                 },
-            ) => {
-                linked += 1;
-                match link_type {
-                    LinkType::ShortcutUnknown => {}
-                    LinkType::Inline | LinkType::Autolink | LinkType::Email => {
-                        if !in_tree(root, &dest_url) {
-                            found.push((line(span.start), gone(&dest_url)));
-                        }
+            ) => match link_type {
+                LinkType::ShortcutUnknown => {}
+                LinkType::Inline | LinkType::Autolink | LinkType::Email => {
+                    if !in_tree(root, &dest_url) {
+                        found.insert((line(span.start), gone(&dest_url)));
                     }
-                    _ => found.push((line(span.start), REFERENCE.to_owned())),
                 }
-            }
+                _ => {
+                    found.insert((line(span.start), REFERENCE.to_owned()));
+                }
+            },
             _ => {}
         }
     }
-    found.sort();
+    if let Some((at, run)) = prose {
+        found.extend(addresses(&run).into_iter().map(|a| (at, gone(a))));
+    }
     Parsed {
         links: (found.into_iter())
             .map(|(n, what)| format!("docs: README.md:{n}: {what}"))

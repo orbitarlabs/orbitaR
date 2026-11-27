@@ -1,4 +1,4 @@
-use crate::{Tree, has, lever, tree};
+use crate::{Tree, cargo_stub_read_by_shell, has, lever, tree};
 use std::{path::Path, process::Command};
 
 const WORKFLOW: &str = "name: package\npermissions:\n  contents: read\njobs:\n  package:\n    runs-on: ubuntu-latest # never self-hosted\n    steps:\n      - uses: actions/checkout@0123 # v7\n      - run: cargo xtask wheel\n";
@@ -565,6 +565,33 @@ fn a_named_range_reads_only_its_commits_and_a_missing_end_is_reported() {
 }
 
 #[test]
+fn check_reads_no_commit_history_and_the_event_range_is_the_one_that_publish_reads() {
+    let (root, base, _) = branch("publish-check-range");
+    let ahead = commit_as(&root, CLAUDE, MAINTAINER, &[&base], "on the target branch");
+    let pr = commit_as(&root, PERSON, PERSON, &[&ahead], "the pull request");
+    git_as(&root, MAINTAINER, MAINTAINER, &["update-ref", "HEAD", &pr]);
+    assert_eq!(
+        lever(&["publish", "--base", &ahead, "--head", &pr], &root),
+        Vec::<String>::new()
+    );
+    assert!(
+        has(&lever(&["publish"], &root), "holds the Claude address"),
+        "the default range reaches the target branch's commit"
+    );
+    let checked = xtask::run(
+        &["check"],
+        &root,
+        &cargo_stub_read_by_shell(&root, false, "exit 0"),
+    );
+    assert!(
+        !checked
+            .iter()
+            .any(|f| f.starts_with("publish: commit") || f.contains("names no commit")),
+        "{checked:?}"
+    );
+}
+
+#[test]
 fn ci_reads_the_exact_range_of_a_pull_request_and_of_a_push() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let ci = std::fs::read_to_string(repo.join(".github/workflows/ci.yml")).unwrap();
@@ -669,6 +696,7 @@ fn an_identity_line_that_git_fsck_refuses_fails_and_the_claude_address_in_any_he
         (format!("x <{me}> 1764100000 +00000"), false),
         (format!("x <{me}> 1764100000 +0000 x"), false),
         (format!("x <{me}> 1764100000"), false),
+        (format!("x <{me}> 1764100000 +0000\r"), false),
     ] {
         let (id, strict) = written(&object(&author, "\n"));
         assert_eq!(strict, fine, "git and this test disagree on `{author}`");
