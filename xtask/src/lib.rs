@@ -31,6 +31,7 @@ mod reproduce;
 mod results;
 mod same;
 mod science;
+pub mod shard;
 mod strain;
 mod syntax;
 mod tune;
@@ -87,7 +88,14 @@ enum Cli {
     Help,
     /// The CHECK cargo steps, then the levers layout, layers, manifest, docs, science, native, version, and the
     /// file rules of publish; `cargo xtask publish --base <rev> --head <rev>` reads the commits of a range
-    Check,
+    Check {
+        /// every part but the test step (CI runs it beside the shards of --unit)
+        #[arg(long, conflicts_with = "unit")]
+        lint: bool,
+        /// the test step alone: shard <k> of the ones `cargo xtask help` counts, each test binary under the mutants cap
+        #[arg(long, value_name = "k")]
+        unit: Option<usize>,
+    },
     /// Prove It Works: build the release engine, run the push cases, check their records
     Smoke,
     /// bench <tier> [case]: the same for one tier, or for one case of it; `cargo xtask help` lists the tiers
@@ -348,7 +356,10 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
     };
     match command {
         Cli::Help => help(),
-        Cli::Check => check(root, env),
+        Cli::Check { lint, unit } => match unit {
+            Some(k) => unit_shard(root, env, k),
+            None => check(root, env, lint),
+        },
         Cli::Smoke => bench::tier(root, "push", None, env),
         Cli::Bench { tier, case } => bench::tier(root, &tier, case.as_deref(), env),
         Cli::NewCase { slug, reference } => layout::new_case(root, &slug, &reference),
@@ -450,6 +461,11 @@ fn help() -> Findings {
         println!("  cargo {}", step.join(" "));
     }
     println!("  (locally the package step adds --allow-dirty; with CI=true it does not)");
+    println!(
+        "  --lint: every step but test · --unit <k>: the test step alone, shard k of {}, under",
+        shard::SHARDS
+    );
+    println!("    {}", shard::CAP.join(" "));
     println!("  cargo deny check   (cargo-deny {DENY_VERSION}; CI uses the pinned action)");
     println!("\nlayout:\n{}", layout::MAP);
     println!("\nlayer order (a layer uses only layers before it):");
@@ -483,9 +499,9 @@ fn help() -> Findings {
     Vec::new()
 }
 
-fn check(root: &Path, env: &Env) -> Findings {
+fn check(root: &Path, env: &Env, lint: bool) -> Findings {
     let mut findings = Vec::new();
-    for step in CHECK {
+    for step in CHECK.iter().filter(|s| !(lint && s[0] == "test")) {
         let mut step = step.to_vec();
         if step[0] == "package" && !env.ci {
             step.push("--allow-dirty");
@@ -509,6 +525,34 @@ fn check(root: &Path, env: &Env) -> Findings {
         findings.extend(lever(root));
     }
     findings
+}
+
+fn unit_shard(root: &Path, env: &Env, k: usize) -> Findings {
+    let filter = match shard::filter(k) {
+        Ok(filter) => filter,
+        Err(e) => return vec![e],
+    };
+    let version = match Command::new(&env.cargo)
+        .arg("-vV")
+        .current_dir(root)
+        .output()
+    {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).into_owned(),
+        Ok(out) => return vec![format!("cargo -vV exited with {}", out.status)],
+        Err(e) => return vec![format!("cargo -vV: {e}")],
+    };
+    let var = match shard::runner_var(&version) {
+        Ok(var) => var,
+        Err(e) => return vec![e],
+    };
+    let step = (CHECK.iter().find(|s| s[0] == "test")).map_or(&[][..], |s| *s);
+    let args = [step, &["--"], &filter].concat();
+    cargo(
+        env,
+        root,
+        &args,
+        &[(var.as_str(), shard::CAP.join(" ").into())],
+    )
 }
 
 fn deny_version(root: &Path, env: &Env) -> Findings {

@@ -23,6 +23,7 @@ mod reproduce;
 mod results;
 mod same;
 mod science;
+mod shard;
 mod strain;
 mod syntax;
 mod tune;
