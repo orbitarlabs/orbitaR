@@ -834,7 +834,7 @@ pub(crate) fn download(
             digest(&bytes)
         ));
     }
-    fs::rename(&part, &local).map_err(|e| format!("{}: {e}", local.display()))?;
+    fs::rename(&part, local).map_err(|e| format!("{}: {e}", local.display()))?;
     Ok(bytes)
 }
 
