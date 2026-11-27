@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=TEST_RUNNER sets MALLOC_ARENA_MAX=1 under the unchanged 2 GiB cap: glibc reserves 64 MiB of address space per arena, so the unit tests at 4 threads reach 2417 MiB with no arena limit and 905 MiB with one
+# harness reviewer=PENDING reason=the check job's timeout-minutes goes from 90 to 150: in PR 9 run 45937730783, cargo xtask check took 56 min and the capped unit suite then ran 34 min until the 90-minute timeout cancelled it; on 4 cores that suite takes 1816 to 1847 s; TEST_RUNNER sets MALLOC_ARENA_MAX=1 under the unchanged 2 GiB cap: the unit tests at 4 threads reach 2417 MiB of address space with no arena limit and 905 MiB with one
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -85,7 +85,7 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/version-
 ef65a734756cf21624842590e40d3132e4a22fcc4a46fd044141e17414b4767c  .cargo/mutants.toml
 25c05a1ee1c58ca7a2667e5a94eeffe983abf96c387d0c81e6eff62cbe2fe5f0  .config/nextest.toml
 170e990fbecd92a2790e88cd82074156a7d9a28482a2be86cdabbc8110f06632  clippy.toml
-cffe10c06dc0c13a6f280c67d8f724e38b66dbe997f47dfe6d60785c2f4cb5f2  .github/workflows/ci.yml
+b82ec60cd626d94a7820364ff02e4bfc2e3e901a13a9a26689bffe93a12c3734  .github/workflows/ci.yml
 98cd159b42d550a3bc63b6a20cdf01635ed422564ffaf0257f3c5f386725b5e5  .github/workflows/package.yml
 78670b960043d5292fddc44dfbf1e1177fce02ef77b415f6cdca7b37c2199c2f  .github/workflows/text.yml
 8f17496d6bc593407b195136d75b7f4cf035c668eefec6bfef0a1a7410f0415f  Cargo.toml
