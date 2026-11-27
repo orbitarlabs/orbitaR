@@ -1,3 +1,4 @@
+mod archive;
 mod mac;
 
 use crate::{has, lever, tree, write};
@@ -38,10 +39,30 @@ const PLATFORM_MACOS: u32 = 1;
 const PLATFORM_IOS: u32 = 2;
 const LC_BUILD_VERSION: u32 = 0x32;
 
-fn build_version(platform: u32, (major, minor, patch): (u8, u8, u8)) -> (u32, u32, Vec<u8>) {
+const TOOL_LD: u32 = 3;
+const SDK_27_2: u32 = 0x001b_0200;
+const LD_27106_1: u32 = 0x69e2_0100;
+
+fn build_version(platform: u32, minos: (u8, u8, u8)) -> (u32, u32, Vec<u8>) {
+    linked_build_version(platform, minos, SDK_27_2, &[(TOOL_LD, LD_27106_1)])
+}
+
+fn linked_build_version(
+    platform: u32,
+    (major, minor, patch): (u8, u8, u8),
+    sdk: u32,
+    tools: &[(u32, u32)],
+) -> (u32, u32, Vec<u8>) {
     let mut body = platform.to_le_bytes().to_vec();
-    body.extend([patch, minor, major, 0, 0, 0, 15, 0, 0, 0, 0, 0]);
-    (LC_BUILD_VERSION, 24, body)
+    body.extend([patch, minor, major, 0]);
+    body.extend(sdk.to_le_bytes());
+    body.extend(u32::try_from(tools.len()).unwrap().to_le_bytes());
+    for (tool, version) in tools {
+        body.extend(tool.to_le_bytes());
+        body.extend(version.to_le_bytes());
+    }
+    let size = u32::try_from(8 + body.len()).unwrap();
+    (LC_BUILD_VERSION, size, body)
 }
 
 fn macho_bytes(cpu: u32, filetype: u32, commands: &[(u32, u32, Vec<u8>)]) -> Vec<u8> {
@@ -1814,4 +1835,15 @@ fn stage_refuses_a_fetch_directory_that_exists() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert!(!root.join("package/orbitar_jth/stale.xml").exists());
+}
+
+#[test]
+fn wheel_same_with_check_or_target_fails_before_any_work() {
+    let root = tree("same-conflict", &[]);
+    for extra in [["--check", "a.whl"], ["--target", "aarch64-apple-darwin"]] {
+        let args = [&["wheel", "--same", "a.whl", "b.whl"], extra.as_slice()].concat();
+        let found = lever(&args, &root);
+        assert_eq!(found.len(), 1, "{extra:?}: {found:?}");
+        assert!(has(&found, "cannot be used with"), "{extra:?}: {found:?}");
+    }
 }

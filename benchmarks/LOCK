@@ -1,4 +1,4 @@
-# harness reviewer=captain after codex-review3-23 (tests for CI mutants) reason=metadata: tests that kill the readme_block mutants (a python block before ## ASE, an ASE title at level 1, a subheading in the ASE section); test-only addition after captain-final-call after codex-review3-23
+# harness reviewer=PENDING reason=merge of main cf0ae67 (#19, the Mac wheel equals CI byte for byte) into #23 (metadata: project links, citation URLs, a Colab quickstart; captain after codex-review3-23)
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -19,16 +19,17 @@ f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harn
 ec4c980211c7243e37508ee3af8f242b298661ef4684a599f4ba93559a607b76  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
-0ec2e85991910305cef11e6dbac35c95924062cb42ecb9e15d92c3de4f3176c2  xtask/src/lib.rs
+dd77ce30ccdaf200cd0c495006429ab4b7c1a577f60a8e7d77214ee267cc4929  xtask/src/lib.rs
 d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
 7b9668521afebc2a339451a67f56046865cf41b19322ead20b100f1ba493da20  xtask/src/native.rs
 f530929261fe8c539fedeb0c983726a7d98d6abaaf1df032b9e22ddd8576649b  xtask/src/node.rs
 a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_text.rs
-61555ff273ebe6fccb87cd8e2b6e1c0bff47246b4be9782e8cfbafea8e89a750  xtask/src/publish.rs
-4428df21f8787fe872c53976ab7f55848e576a1af7592c2010cd9f9c67901dde  xtask/src/release.rs
-69753ec74301a7e1248c342a8ff4c99df60229e7228674269fb0bb51bac47739  xtask/src/release/mac.rs
+36b99e5a53344bbe4f2da44f7bcd646c07adc1c8af5ed64905bc465ac6a20e37  xtask/src/publish.rs
+9228c5ecc9f1e0f631f001c8cdfb58003e2f73d63aa26bd21e5fcaf0a114095e  xtask/src/release.rs
+58ae1a4318862fd2a9f574fa1ade4c0cb28a01a2f55200f35f44e14b60b47889  xtask/src/release/archive.rs
+e39c9e39f45f11364aeca1051ee4e75e5122dae7d62459ce9b7dd919d2ad56a3  xtask/src/release/mac.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
 70747986eb676692dccad69e5b12b3417d6b7e19e9adb7fdcb8a2b7e0240cdff  xtask/src/results.rs
 0ae1508724aecc0270cdee93ee50d335329a255e76d1c9cd4a7f0cb2394346ae  xtask/src/same.rs
@@ -66,9 +67,10 @@ fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/ha
 c42a2e5450ddcbdc637f26637bcd8a869c26f3a206edf8fe0d5d1e802a8b3087  xtask/tests/native.rs
 c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/node.rs
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
-b38aa216da9a4a823e8d2dc8789e03b86bc11ec99ce4852d9096365ec0a108af  xtask/tests/publish.rs
-02e54eb7276a912fb8c2ca2bcf301be5b6c03f1a4436403feb5822a5c712a449  xtask/tests/release.rs
-498f547694fa6d58e456bc4c4ad8488ae6d5877e14ce6fb84fc0cf37826894be  xtask/tests/release/mac.rs
+fe57141061444a45651ca103b466b9519114680063bb5be04f92107b211df1b6  xtask/tests/publish.rs
+6ab081f062c153d9af141a69305a91b2069f3f435d0604983f8c6d1fcb7d88e5  xtask/tests/release.rs
+fc2f0e2d82c9a12dcd8947f645e4eafd8eaea82d55fe6a80853c3e15383976ca  xtask/tests/release/archive.rs
+445712a3248ffe26d7f8ae34898d83a8f60657603ef9b4b1df3e6942619b88ed  xtask/tests/release/mac.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 2fa5406c310212330ec85de4db654fd788127734cfa88b654f4ebae7dd28e3ae  xtask/tests/results.rs
 830a1dd7ff8024b5dd4bb93394a481f1aa5d3ac06293f108cab5f6484219db48  xtask/tests/same.rs
@@ -88,7 +90,7 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/version-
 25c05a1ee1c58ca7a2667e5a94eeffe983abf96c387d0c81e6eff62cbe2fe5f0  .config/nextest.toml
 170e990fbecd92a2790e88cd82074156a7d9a28482a2be86cdabbc8110f06632  clippy.toml
 1b163dc0af0ee6ec9ccd7608ec3d27d85e642bc0fc218b693a3b3600bf1cfb61  .github/workflows/ci.yml
-09f2b1de21e526e61e5af0190d3bc2d895d5ed400b1ad0410ce23f47e2dc4d5a  .github/workflows/package.yml
+14ecbeceb664c563314e72ffa5ca2f177fdf19770160afc0fb5f722d93924e13  .github/workflows/package.yml
 78670b960043d5292fddc44dfbf1e1177fce02ef77b415f6cdca7b37c2199c2f  .github/workflows/text.yml
 8f17496d6bc593407b195136d75b7f4cf035c668eefec6bfef0a1a7410f0415f  Cargo.toml
 de836b60f523429179a0b1e7d4cb19ae5461df6ac535a28c022abef0ea8d3c66  Cargo.lock
