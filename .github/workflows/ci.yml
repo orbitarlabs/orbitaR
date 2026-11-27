@@ -273,15 +273,37 @@ jobs:
           fallback: none
       - name: One shard per 8 mutants of the changed lines, at most 8; a count that fails runs all 8
         id: plan
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          MERGE: ${{ github.sha }}
         run: |
-          git diff origin/main... > "$RUNNER_TEMP/pr.diff"
-          count=$(cargo mutants --list --json --in-diff "$RUNNER_TEMP/pr.diff" --workspace | jq length) || count=""
+          shards="[0,1,2,3,4,5,6,7]"
+          count=""
+          if git diff "$BASE" "$MERGE" > "$RUNNER_TEMP/pr.diff" \
+            && cargo mutants --list --json --in-diff "$RUNNER_TEMP/pr.diff" --workspace > "$RUNNER_TEMP/mutants.json"; then
+            if [ ! -s "$RUNNER_TEMP/mutants.json" ]; then
+              count=0
+            else
+              count=$(jq -e 'if type == "array" then length else error("not one JSON array") end' "$RUNNER_TEMP/mutants.json") || count=""
+            fi
+          fi
           case "$count" in
-            "" | *[!0-9]*) shards=8 ;;
-            *) shards=$(( (count + 7) / 8 )); if [ "$shards" -gt 8 ]; then shards=8; fi ;;
+            "" | *[!0-9]*) count="" ;;
+            *)
+              n=$(( (count + 7) / 8 ))
+              if [ "$n" -gt 8 ]; then n=8; fi
+              list=""
+              i=0
+              while [ "$i" -lt "$n" ]; do
+                list="$list${list:+,}$i"
+                i=$((i + 1))
+              done
+              shards="[$list]"
+              ;;
           esac
-          echo "mutants-plan: ${count:-no count} mutants of the changed lines, $shards shards"
-          echo "shards=$(jq -cn --argjson n "$shards" '[range($n)]')" >> "$GITHUB_OUTPUT"
+          printf 'mutants-plan: %s mutants of the changed lines, shards %s\n' "${count:-no count}" "$shards"
+          printf 'shards=%s\n' "$shards" >> "$GITHUB_OUTPUT"
 
   mutants:
     needs: mutants-plan
@@ -331,8 +353,10 @@ jobs:
       - name: A test fails for each mutant of a changed line
         env:
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: ${{ env.TEST_RUNNER }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          MERGE: ${{ github.sha }}
         run: |
-          git diff origin/main... > "$RUNNER_TEMP/pr.diff"
+          git diff "$BASE" "$MERGE" > "$RUNNER_TEMP/pr.diff"
           status=0
           timeout 320m cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --workspace \
             --shard ${{ matrix.shard }}/${{ strategy.job-total }} --sharding round-robin --jobs 2 --minimum-test-timeout 60 \
