@@ -176,6 +176,7 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
     let found = checked("requires", NAME, |m| {
         m[4].1 = METADATA.replace("ase==3.29.0", "ase==3.28.0")
     });
+    assert!(has(&found, "{\"ase==3.28.0\"} has no pin"), "{found:?}");
     assert!(has(&found, "differs from python/pylock.toml"), "{found:?}");
     for metadata in [
         METADATA.replace("Requires-Dist: orbitar-jth==2.0.0\n", ""),
@@ -195,6 +196,14 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         let found = checked("extra", NAME, |m| m[4].1 = metadata.clone());
         assert!(has(&found, needle), "{field}: {found:?}");
     }
+}
+
+#[test]
+fn a_wheel_that_requires_a_part_of_the_locked_closure_passes() {
+    let closure = "[[packages]]\nname = \"ase\"\nversion = \"3.29.0\"\n\n\
+                   [[packages]]\nname = \"matplotlib\"\nversion = \"3.11.2\"\n";
+    let found = checked_beside("closure", NAME, &[("python/pylock.toml", closure)], |_| {});
+    assert_eq!(found, Vec::<String>::new());
 }
 
 #[test]
@@ -960,6 +969,10 @@ fn a_data_wheel_without_the_family_entry_point_or_at_another_version_fails() {
 }
 
 fn installable(name: &str, data: bool) -> crate::Tree {
+    installable_with(name, data, "")
+}
+
+fn installable_with(name: &str, data: bool, requires: &str) -> crate::Tree {
     let root = tree(
         &format!("install-{name}"),
         &[
@@ -990,7 +1003,9 @@ fn installable(name: &str, data: bool) -> crate::Tree {
         ),
         (
             "orbitar-0.1.0.dist-info/METADATA",
-            "Metadata-Version: 2.1\nName: orbitar\nVersion: 0.1.0\nRequires-Dist: orbitar-jth==2.0.0\n".into(),
+            format!(
+                "Metadata-Version: 2.1\nName: orbitar\nVersion: 0.1.0\nRequires-Dist: orbitar-jth==2.0.0\n{requires}"
+            ),
         ),
         ("orbitar-0.1.0.dist-info/WHEEL", tag.into()),
         ("orbitar-0.1.0.dist-info/RECORD", String::new()),
@@ -1043,6 +1058,82 @@ fn pip_install_orbitar_from_the_local_wheels_brings_the_data_package_into_the_ve
     );
     assert_eq!(install.version_printed, "orbitar 0.1.0 (commit abc)");
     assert_eq!(install.version_wanted, install.version_printed);
+}
+
+const DEP: &str = "dep-1.0-py3-none-any.whl";
+
+fn locked_dep(name: &str, sha: Option<&str>) -> crate::Tree {
+    let root = installable_with(name, true, "Requires-Dist: dep==1.0\n");
+    let tag = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n";
+    let dep: Vec<(&str, String)> = vec![
+        ("dep/__init__.py", String::new()),
+        (
+            "dep-1.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: dep\nVersion: 1.0\n".into(),
+        ),
+        ("dep-1.0.dist-info/WHEEL", tag.into()),
+        ("dep-1.0.dist-info/RECORD", String::new()),
+    ];
+    wheel(&root, DEP, &dep);
+    let bytes = std::fs::read(root.join(DEP)).unwrap();
+    let digest = sha256(&bytes);
+    let pin = sha.unwrap_or(&digest);
+    let url = format!("file://{}", root.join(DEP).display());
+    write(
+        &root,
+        "python/pylock.toml",
+        &format!(
+            "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n[[packages]]\nname = \"dep\"\nversion = \"1.0\"\n\
+             wheels = [{{ url = \"{url}\", hashes = {{ sha256 = \"{pin}\" }} }}]\n"
+        ),
+    );
+    root
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+#[test]
+fn pip_install_orbitar_resolves_its_locked_dependencies_from_the_wheelhouse_alone() {
+    let root = locked_dep("dep", None);
+    write(
+        &root,
+        "target/wheel/house/dep-0.9-py3-none-any.whl",
+        "stale",
+    );
+    xtask::install(&root, "abc").unwrap();
+    let site = root.join("target/wheel/venv/lib/python3.12/site-packages");
+    assert!(site.join("dep/__init__.py").is_file());
+    assert!(root.join("target/wheel/house").join(DEP).is_file());
+    assert!(
+        !root
+            .join("target/wheel/house/dep-0.9-py3-none-any.whl")
+            .exists()
+    );
+}
+
+#[test]
+fn pip_install_orbitar_refuses_a_locked_wheel_off_its_pin() {
+    let root = locked_dep("dep-off-pin", Some(&"0".repeat(64)));
+    let Err(found) = xtask::install(&root, "abc") else {
+        panic!("a wheel off its pin entered the wheelhouse")
+    };
+    assert!(has(&found, "python/pylock.toml pins 0000"), "{found:?}");
+}
+
+#[test]
+fn pip_install_orbitar_fails_when_the_lock_lacks_a_dependency() {
+    let root = installable_with("dep-unlocked", true, "Requires-Dist: dep==1.0\n");
+    let Err(found) = xtask::install(&root, "abc") else {
+        panic!("orbitar installed without its dependency dep")
+    };
+    assert!(has(&found, "pip install orbitar exited with"), "{found:?}");
+    assert!(has(&found, "dep"), "{found:?}");
 }
 
 #[test]
