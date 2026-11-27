@@ -116,7 +116,7 @@ dd5af61e184f59edef1bda54eba1165a7cf2a9b73f7731489a884ff587ba02dc  benchmarks/2_e
 91b42f357dd06300cdf14d268b70a8b7fbb65e6d8b7d284e382ab7dd7b4c01f9  benchmarks/3_hartree_gaussians/input.toml
 550e92ef3ce587b5b1b6aaecd6aea5b7b71311e1ce175bf517c1b8c058f9f5f8  benchmarks/3_hartree_gaussians/inputs/skewed.toml
 17405ce559db7fbfc4ba765bf6d1502424cd8935ff59c712805c22049ad4286c  tests/benchmarks/3_hartree_gaussians/case.rs
-# 4_xc_libxc reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 4_xc_libxc reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 72a4b400ad1e7225b8ce56b8958c77949a547e1c82b4e292276ffb0b143dac54  benchmarks/4_xc_libxc/case.toml
 89f00a67d43eedf0c68f5fdf0645b3e37d4ab248eef746f560f65945fa46e2c8  benchmarks/4_xc_libxc/input.toml
 1759a9336b6ed79628ea4731445edfe3d793098d5daa8feffda5a9c28b5afd50  benchmarks/4_xc_libxc/inputs/pbe.toml
@@ -125,12 +125,12 @@ dd5af61e184f59edef1bda54eba1165a7cf2a9b73f7731489a884ff587ba02dc  benchmarks/2_e
 0d77d084ab17e148543b796c2d1c005c26ffd0033dbd08f9b525a651fc89bb34  benchmarks/4_xc_libxc/reference/table.json
 ca776a6475ac239d4d61f6ccab9f754a1da9251a53a9e2940ad8b914b86c3be4  benchmarks/4_xc_libxc/reference/table.py
 d67621b4410f679158bb408a589c9dd0dbdd6c2ef74bc544f7a11345fcd5e179  tests/benchmarks/4_xc_libxc/case.rs
-# 5_lobpcg_dense reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 5_lobpcg_dense reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 189cbee0f614c236a10c7a33ba274af090fe7c6e69a79534554035e4984e35e7  benchmarks/5_lobpcg_dense/case.toml
 1187fafad1b4dfddea33f60146b36a7fa8f75288ef6755adc3337ef38b52e723  benchmarks/5_lobpcg_dense/input.toml
 19128bd89ee82b8f62a764b0eb458da946f26037d32251351eadd49d4169a342  benchmarks/5_lobpcg_dense/inputs/dense.toml
 829cbcbc2db9e612e7be2cbba20e388fc925bd18c450ba7ea7e37f0590ea2149  tests/benchmarks/5_lobpcg_dense/case.rs
-# 6_abinit_jth reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 6_abinit_jth reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 a182efb2c6a7aeb38f80b967fc14208c8e3a08d77bbb36572f4e517d6cf1ca17  benchmarks/6_abinit_jth/case.toml
 fbfcdf0ca5047cdf7131eef48daf9b3e472a3fc3460263b76d712b764962021f  benchmarks/6_abinit_jth/input.toml
 34541dd3728ed256f22389527e4910ddc413b8cb25ae4dcb23c81464bbacfb3b  benchmarks/6_abinit_jth/inputs/afm.toml
@@ -154,7 +154,7 @@ c6314e4534d80255d7b28552318aa143f1d13a20b6b591d046b05074ad9e7efb  benchmarks/6_a
 4b155cec9bbee6fd004c4724b367651ae6d0819d9a4ca1706c6851ed94ef65e0  benchmarks/6_abinit_jth/reference/reference.py
 39c30c081b58fed68a67c455ae14868af9cd79e93baaa8ca541e7a07e0f3db9a  benchmarks/6_abinit_jth/reference/run.sh
 9871883d4ec4fb44e85fcc74a719ff5d4fcc88c0adf08cf3906b87d6c3c3b018  tests/benchmarks/6_abinit_jth/case.rs
-# 7_symmetry reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 7_symmetry reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 8f503671fd29fb61c95f704fe01921904fecd25f3d703abb6aa5557b7b11ff80  benchmarks/7_symmetry/case.toml
 562be3c56dcd0f55f27a28be8044e5927e07fddb52e6f5495de073ef7b2688e2  benchmarks/7_symmetry/input.toml
 22b4d8e6ee59e24162883f8d8fdd7dfdd263a32339ca918ffbdd5b793d6ca556  benchmarks/7_symmetry/inputs/afm-full.toml
@@ -165,21 +165,21 @@ fc66b807e85c1a7c076ee02c9fc72dc26c610a2f64a35c7bfd3d6819b7c765dd  benchmarks/7_s
 b9f80b8753699f3bf9ec6b3671faf4805eb41eb15192468c55b5d198ef7318b0  benchmarks/7_symmetry/inputs/l12.toml
 30016429fbb15238cfb1132ab9eff5ef563c9dd6d42fd84681eb80af6a1e2fe7  benchmarks/7_symmetry/inputs/si-full.toml
 80e90508d0cdd44e4716ef81416873a9ca372ebdda3c2e68a3e453db19f4330d  tests/benchmarks/7_symmetry/case.rs
-# 8_supercell_invariance reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 8_supercell_invariance reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 a8f193d68982b457c70041fbab1b9b7237769e9ab91b890f455ef91c82664dfe  benchmarks/8_supercell_invariance/case.toml
 789d2252711aa495803ac8d585e6cc03372c1e1e23a6d7e3644765a393e11f8c  benchmarks/8_supercell_invariance/input.toml
 cef4d15868c36311c6060a3a26e51c2b1404c7c47dbc057265a2a828be6f43e3  benchmarks/8_supercell_invariance/inputs/fe-double.toml
 c682bb02c6099ac53adc7e65eed0ad139ef0bfef059a4a80d02b0022f358ccc5  benchmarks/8_supercell_invariance/inputs/fe.toml
 1c78ca56b89f946ad0af2be41cd3f093b5573093dd548789cbfed34669efa579  benchmarks/8_supercell_invariance/inputs/si-double.toml
 a3cf1531cd89bb5989d1139ae97f8fd0791ed1d9f4e1c4940d5888879e6d4809  tests/benchmarks/8_supercell_invariance/case.rs
-# 9_thread_invariance reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 9_thread_invariance reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 a8eb710c33375708a56d79283223b26173bb4dbfda0c3db67eddcd6f12c9c7d7  benchmarks/9_thread_invariance/case.toml
 0846df1ae327b51a2fa660b44cd5dd172acea353c438442359fb46295af5938b  benchmarks/9_thread_invariance/input.toml
 1152f48b92fd4145dffeea0ac4d74c397c701bf00ae2dd17f6bed33020dcae0d  benchmarks/9_thread_invariance/inputs/afm-1.toml
 302bdd0dd95819cbcb5d4dc2b9654153e6c71fc6dd0aa3eaa41b0bc60bfb5c12  benchmarks/9_thread_invariance/inputs/afm-4.toml
 7858d5c3125645ddc2844ed75d62d2ee9d09df472f44fe1315a3c91424d55400  benchmarks/9_thread_invariance/inputs/al-4.toml
 127df33b7425857d5d58386129d1651d70b43069e1e4b6f677274bbdcc6dd192  tests/benchmarks/9_thread_invariance/case.rs
-# 10_acwf_subset reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 10_acwf_subset reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 3f4955bbbcf45bdde1ac132cf22ecfbc4c24b2ee0afb385ba5f6158aed0af3e5  benchmarks/10_acwf_subset/case.toml
 4bd1a0433d3318f61704c8cbcc4c1fa6766850c07542e78101b56ac27f58ebf6  benchmarks/10_acwf_subset/crystals.json
 12d6e929a028a6de6f824ad1269948e9ecc1e87f279f0e4715bfd896fe96db0b  benchmarks/10_acwf_subset/reference/LICENSE-acwf-verification-scripts
@@ -189,7 +189,7 @@ f290f3bfbcfd260bc562f9a2b09f2098f71c06b5bd20573953cab83516ad9c81  benchmarks/10_
 af533f99f4aa317aa16ecc15385145ec2ea9ddb7b25564cdc2b7329fcf5c8aa3  benchmarks/10_acwf_subset/reference/acwf-qe-sssp-1.3.json
 7a6fe9e4442cae722768dff5ec7d3eabd8f519f6c3665ae0a90cd8924d3f25ea  benchmarks/10_acwf_subset/reference/acwf-vasp.json
 efa4fce399f577cd345952edeb4571492e34814b73dd569ef57f4434adc47d43  tests/benchmarks/10_acwf_subset/case.rs
-# 11_speed_scaling reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 11_speed_scaling reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 f3d0cdfc7d006f8fd18cffe0d6b317b099ab64cb8efb37137f1e0ca83563dde8  benchmarks/11_speed_scaling/case.toml
 7b06175434fecb08c7fb9aee4cababe563b3627e3732a10a26beb714a4c23800  benchmarks/11_speed_scaling/input.toml
 1114b991f0c455c6d5840025b5cc9c1336e5fa110635fb56ce22c8da79ae560c  benchmarks/11_speed_scaling/inputs/al2o3.toml
@@ -215,7 +215,7 @@ eff2a786a361c68bad968623e491b17cb760e9cf5a4e3daa0ae0944b7fefd079  benchmarks/12_
 3ae30d6df5f3a956f749ad25cdaf65108299d497c5065e361582f40466607f0c  benchmarks/12_memory_scaling/inputs/si32.toml
 2719754d18181ee2df523d20303f5aced6814422461a167318602a6c414b740a  benchmarks/12_memory_scaling/inputs/si8.toml
 a0296121ee8ff14ba02a995f9a08eabe6ae1018754f7784762212cc841de77a6  tests/benchmarks/12_memory_scaling/case.rs
-# 13_forces_derivative reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 13_forces_derivative reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 ca7c9807728a088485c629e37fa561c6f962bf87db25c1295d7a0252438f915c  benchmarks/13_forces_derivative/case.toml
 0d77870010eab936b204fdd81f3ae7dad7a4b7d1652c7863d4b7565f21c73b2d  benchmarks/13_forces_derivative/input.toml
 3636a2d77a9a1d883ae0b87285192f8561b9815e4450673b1615548a87949aa9  benchmarks/13_forces_derivative/inputs/fe-lda-minus.toml
@@ -233,7 +233,7 @@ dd3ab6567de7a89761c0f14d2c4cfb40000bbf9e3ffe43f0b28b4cc050f2163f  benchmarks/13_
 cdef23c02c13a8dc98c02f03e1ffd959d4e33c25486c6c671799d16d14b060f9  benchmarks/13_forces_derivative/inputs/gaas-plus.toml
 af3633d8f25678c563f6714bcd54a7a673d33eac8c1fba1a1f6ddb7d25857320  benchmarks/13_forces_derivative/reference/SOURCE.toml
 d52e4b4e89177dcfeb7e2faf1e51ba98ed14487b4c1cdfe0035e9c49b4dbbf62  tests/benchmarks/13_forces_derivative/case.rs
-# 14_set_w reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 14_set_w reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 56d792ac31bec36835eaa492b4ba81ba4036009412cbd6e78eb3974df5fc43bd  benchmarks/14_set_w/case.toml
 eb57a24313bcc05557f7113e841acef4b7c4e98502954237705e41c5f4d9ffe5  benchmarks/14_set_w/inputs/al2o3_40.toml
 f96a3585c4dea772e12b45aa62591c5b4b1fb28716e76408bfe228ed56a14e2c  benchmarks/14_set_w/inputs/al2o3_slab.toml
@@ -270,7 +270,7 @@ c11a7f525bc542823634d236f7a5e0246718a0e4472cbfd58f1cb0d59f602499  benchmarks/14_
 bbae998effc0e86b9e488d6ba81f62cd916a6c821f089a4ce470672db1fe5de2  benchmarks/14_set_w/tuning/fe2o3_10.toml
 8f03718d2896f6ed9730f79a74698ba6820de18dd6233ae9d2b3560481b8f884  benchmarks/14_set_w/tuning/sto5.toml
 c693a7a3f261419f54ce7b3b48aacb62fc9f6f1001a04d2d1e38f4cebb2ccd68  tests/benchmarks/14_set_w/case.rs
-# 15_stress_derivative reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 15_stress_derivative reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 d6bcc6deecb27f57af7f2d7ccb44818787ecee9bd82905e9d027b1cb644fa3fe  benchmarks/15_stress_derivative/case.toml
 b609dc94a0fd8a51beba92b9792fa7f402c39e5ad8b01e309cfa21fb1076ed70  benchmarks/15_stress_derivative/input.toml
 b00ea5d45a135bd5207ade8154979002dc0de0c1f49bf8cf916e8e61c17ccaba  benchmarks/15_stress_derivative/inputs/afm-minus.toml
@@ -302,7 +302,7 @@ d894d4e994a104ca6461c7340f7008ed32640a4796342c292d34595d7bb0a38e  benchmarks/16_
 ef205213e449fe8217f6b024f5f7cecabcc5a32b8fe29f1b2d4304a51ca3b6e5  benchmarks/16_relax_endpoint/inputs/si-ions.toml
 de31a836c7a526f4654dbb7b814b93018e98e925e5a8fbf84ff6f7c5b44e8a85  benchmarks/16_relax_endpoint/reference/SOURCE.toml
 e1141985ffeb1503f2c4fde7c879fa74ebdfa2b1c988e4d9df7c63ed2970e748  tests/benchmarks/16_relax_endpoint/case.rs
-# 17_magnetic_ae reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 17_magnetic_ae reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 387ecc2bee071736a97c010f277fa24184d6449bc50904d17a657f85cdce5f80  benchmarks/17_magnetic_ae/case.toml
 202278aa77cb463b6e4e02ae4be4f16edd7c09ae78ee2fd6d1d6c087ad5001e5  benchmarks/17_magnetic_ae/inputs/co-v0.94-e10.toml
 82e504a5dc09815640edfb530f48adfe7046b542bd59c4bc674bb16f40a58d75  benchmarks/17_magnetic_ae/inputs/co-v0.94-e20.toml
@@ -417,7 +417,7 @@ fd6e4d6307780ae07c07db62d2f68ab289323f46fcdd0e21e62746d6272e3c20  benchmarks/17_
 e6d5fd6fab7f328095d61a0aeec41068f238ec8a5439446456722ea3d7c76b6b  benchmarks/17_magnetic_ae/reference/SOURCE.toml
 8d8fa64ead2b95e9fe06cd2ce16ed71921d2eda61191d2bee54f6d2db02e4682  benchmarks/17_magnetic_ae/reference/wien2k.json
 a79152e5c822e4c13c6b9f3baa19d19690227182310de99afbdbe1611b584ea6  tests/benchmarks/17_magnetic_ae/case.rs
-# 18_acwf_tune reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 18_acwf_tune reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 28cac6a01fee2e2abda41a6a8a3c6b8dacfbebcf40e199de93ec631e71b0af02  benchmarks/18_acwf_tune/case.toml
 e54bd73bd696fe5c1af995c195351401160453b59c0c5e68d2cf59fec42556e5  benchmarks/18_acwf_tune/crystals.json
 12d6e929a028a6de6f824ad1269948e9ecc1e87f279f0e4715bfd896fe96db0b  benchmarks/18_acwf_tune/reference/LICENSE-acwf-verification-scripts
@@ -426,7 +426,7 @@ a28e2d266cc5e6d8012163320a8992d68c2669c69f66667e1d453656ba39f0dc  benchmarks/18_
 d1f9522b77ebfa839394876999e04c3d91597028e6ed87ecf0ae2fda5a8ea6e3  benchmarks/18_acwf_tune/reference/acwf-vasp.json
 9135a496746f5e8dc6b7e59a1c35ce57601ec01f8e52bf3be17a01e3f30b79fd  benchmarks/18_acwf_tune/table.toml
 88a145ca6b1cbe0a0152159c4b6a6e8063969948c1583ef804ef638df0f05531  tests/benchmarks/18_acwf_tune/case.rs
-# 19_family_v0 reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 19_family_v0 reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 ef8b0bf368da7a459159b7f233d81aa5367d2399f2d3fc542741acc015b91961  benchmarks/19_family_v0/case.toml
 d06e2cb73f2b264bf06e862ded7b3d6cdc3260fdecd969c38641fabab1cabbaf  benchmarks/19_family_v0/input.toml
 3d56946b1839834ab66f650eb8e5bf5abbd2da16be791b0920f9c673d711fe82  benchmarks/19_family_v0/inputs/v0.toml
@@ -464,7 +464,7 @@ cc17d875739576ce4897c3c252d1fb194c48f67edd7f2d8a10cb0c392ed94a27  benchmarks/20_
 14e5a5551be1c3bff702475f2e9391fcb69af2a5c2bdf7d641ea542ad6d7b147  benchmarks/20_abinit_r2scan/reference/si8.abi
 8c1b897da63ed62f6ff787c55968ff04c3086f21d1dcba7e598584057bf54f2c  benchmarks/20_abinit_r2scan/reference/si8.json
 afe9e364fd7e5d5e6d47312c33a248307876ee2350e0e2072bb9b3d48b25a876  tests/benchmarks/20_abinit_r2scan/case.rs
-# 21_symmetry_r2scan reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 21_symmetry_r2scan reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 4db443fcd2152c1804a88be7ccfe3b6c6e972699564d32f26f97d1e936c8732a  benchmarks/21_symmetry_r2scan/case.toml
 889dc9dc1e768bcb906d7d1c4847da1f832f90848f605f4dcbf50e241c27afc6  benchmarks/21_symmetry_r2scan/input.toml
 03dc4d3bfba252560a1e03afff2d286d114ea1e07d15773d50cc93eff09a19ee  benchmarks/21_symmetry_r2scan/inputs/fe-full.toml
@@ -473,7 +473,7 @@ d5ca563aeaa517efd334e1e54564aa59549483541374fee00397d51d8b4c6eff  benchmarks/21_
 b1ce20603204137f2d0e8ef8d689568b84652baf1f5d741daf89de28aaef958d  benchmarks/21_symmetry_r2scan/inputs/si-r2scan-full.toml
 4262be511bba9d48797c461d96bfeccfd1312b92530d5a1170318e0537d74a7c  benchmarks/21_symmetry_r2scan/inputs/si-r2scan.toml
 d656c3d7ed04b46a1d295e76ba1b2337ce35f42d29504da7f91719806b2fb1aa  tests/benchmarks/21_symmetry_r2scan/case.rs
-# 22_r2scan_derivatives reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+# 22_r2scan_derivatives reviewer=codex-review-pr6 reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 cc39ce048249277509c6de5cedb3b90b9d0e2b88706a0a31931e5a82cfa80542  benchmarks/22_r2scan_derivatives/case.toml
 9146858b7706817273454cf8735aea48ed62e309b79c210d87d73e02c11ef127  benchmarks/22_r2scan_derivatives/input.toml
 609a3b018d123b9d608325f47193cd9b8356fe0ee3ac8c453cbca9509a5bf676  benchmarks/22_r2scan_derivatives/inputs/fe-strain-minus.toml
