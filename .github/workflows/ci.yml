@@ -53,7 +53,7 @@ jobs:
           cache-python: true
           cache-dependency-glob: |
             python/pylock.toml
-      - name: Install the hash-pinned Python wheels (no plotting stack)
+      - name: Install the hash-pinned Python wheels (ase and its whole closure)
         run: |
           uv pip install --no-build -r python/pylock.toml
           python3 -I -c 'import sys, ase, numpy, scipy; print(sys.version.split()[0], ase.__version__, numpy.__version__, scipy.__version__)'
@@ -157,7 +157,7 @@ jobs:
           cache-python: true
           cache-dependency-glob: |
             python/pylock.toml
-      - name: Install the hash-pinned Python wheels (no plotting stack)
+      - name: Install the hash-pinned Python wheels (ase and its whole closure)
         run: |
           uv pip install --no-build -r python/pylock.toml
           python3 -I -c 'import sys, ase, numpy, scipy; print(sys.version.split()[0], ase.__version__, numpy.__version__, scipy.__version__)'
@@ -229,7 +229,7 @@ jobs:
           enable-cache: true
           cache-python: true
           cache-dependency-glob: python/pylock.toml
-      - name: Install the hash-pinned Python wheels (no plotting stack)
+      - name: Install the hash-pinned Python wheels (ase and its whole closure)
         run: |
           uv pip install --no-build -r python/pylock.toml
           python3 -I -c 'import sys, ase, numpy, scipy; print(sys.version.split()[0], ase.__version__, numpy.__version__, scipy.__version__)'
