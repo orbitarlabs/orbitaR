@@ -207,12 +207,14 @@ pub fn machine(bytes: &[u8]) -> Option<Machine> {
 
 pub fn linker(bytes: &[u8]) -> Option<Linker> {
     let build = macho(bytes)?.build;
-    let ld = (build
+    let tools = build
         .get(BUILD_VERSION_SIZE..)?
-        .chunks_exact(BUILD_TOOL_SIZE))
-    .find(|tool| u32_in(tool, 0) == Some(TOOL_LD))
-    .and_then(|tool| u32_in(tool, 4))
-    .map(dotted);
+        .as_chunks::<BUILD_TOOL_SIZE>()
+        .0;
+    let ld = (tools.iter())
+        .find(|tool| u32_in(*tool, 0) == Some(TOOL_LD))
+        .and_then(|tool| u32_in(tool, 4))
+        .map(dotted);
     Some(Linker {
         sdk: dotted(u32_in(build, 16)?),
         ld,
