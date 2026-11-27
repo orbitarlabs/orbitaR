@@ -503,7 +503,7 @@ fn parse_readme(root: &Path, text: &str) -> Parsed {
     for (event, span) in parser.into_offset_iter() {
         match event {
             Event::Html(_) | Event::InlineHtml(_) => {
-                html.extend(line(span.start)..=line(span.end.max(span.start + 1) - 1));
+                html.insert(line(span.start));
             }
             Event::Start(Tag::CodeBlock(_)) => code += 1,
             Event::End(TagEnd::CodeBlock) => code -= 1,

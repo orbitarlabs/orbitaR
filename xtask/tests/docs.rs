@@ -656,6 +656,7 @@ fn a_bare_web_address_outside_code_is_a_link_out_of_the_tree() {
             "- See https://example.com/a for more.",
             "- Or (www.example.com) and *HTTP://EXAMPLE.COM*.",
             "- Code `https://example.com` and [text](LICENSE) are fine; so is https:// alone.",
+            "- [https://example.com/text](LICENSE) is a link; then https://example.com/after is not.",
             "",
             "```text",
             "https://example.com/in/a/block",
@@ -673,6 +674,7 @@ fn a_bare_web_address_outside_code_is_a_link_out_of_the_tree() {
             gone(0, "https://example.com/a"),
             gone(1, "HTTP://EXAMPLE.COM"),
             gone(1, "www.example.com"),
+            gone(3, "https://example.com/after"),
         ]
     );
 }
@@ -949,6 +951,7 @@ fn readme_html_is_a_picture_under_assets_or_a_fold_one_tag_per_line() {
     ];
     let bad = [
         "<img src=\"assets/brand/missing.svg\" alt=\"Logo\">",
+        "<img src=\"assets/brand/.hidden.svg\" alt=\"Logo\">",
         "<img src=\"https://example.com/x.svg\" alt=\"Logo\">",
         "<img src=\"assets/brand/logo-light.svg\" alt=\"\">",
         "<img src=\"assets/brand/logo-light.svg\" alt=\"Logo\" width=\"wide\">",
@@ -976,6 +979,7 @@ fn readme_html_is_a_picture_under_assets_or_a_fold_one_tag_per_line() {
             ("README.md", &readme),
             ("assets/brand/logo-light.svg", svg),
             ("assets/brand/logo-dark.svg", svg),
+            ("assets/brand/.hidden.svg", svg),
             ("benchmarks/README.md", "# B\n"),
             ("tests/main.rs", "readme_block(\"Run\")\n"),
         ],
