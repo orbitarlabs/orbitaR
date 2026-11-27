@@ -124,7 +124,8 @@ enum Cli {
     Layers,
     /// Exact pins in every dependency table, members, no build script, one version per tool
     Manifest,
-    /// Prose files, symlinks, line kinds and length, sentences, voice, terms, paths, commands, README proofs, a linked private method
+    /// Prose files, symlinks, line kinds and length, sentences, voice, terms, paths, commands, README proofs, a linked private method,
+    /// the quickstart notebook: no outputs, its code cell README's `## ASE` block
     /// With --base <rev>, also check added code comments
     Docs {
         #[arg(long)]
@@ -157,7 +158,8 @@ enum Cli {
         head: String,
     },
     /// Cargo.toml's version equals origin/main's or its patch + 1; xtask/version-steps.toml names any other step;
-    /// CITATION.cff cites Cargo.toml's version and license
+    /// CITATION.cff cites Cargo.toml's version and license; CITATION.cff and both pyproject files name release.rs's
+    /// project links alone
     Version,
     /// A local manifest names a provider, proof, and the options tried for every dependency and code file
     Native,

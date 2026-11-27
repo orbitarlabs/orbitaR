@@ -79,20 +79,26 @@ pub(crate) fn check(root: &Path) -> Findings {
             );
         }
     }
+    findings.extend(crate::release::project_links(root));
     findings
 }
 
 fn citation(root: &Path, version: &str, license: &str) -> Findings {
     let text = crate::walk::read(root, CITATION);
     let mut findings = Vec::new();
-    for (key, want) in [("version", version), ("license", license)] {
+    for (key, want) in [
+        ("version", version),
+        ("license", license),
+        ("repository-code", crate::release::SOURCE),
+        ("url", crate::release::HOMEPAGE),
+    ] {
         let values: Vec<&str> = (text.lines())
             .filter_map(|l| l.strip_prefix(key)?.strip_prefix(':'))
             .map(|v| v.trim().trim_matches(['"', '\'']))
             .collect();
         if values != [want] {
             findings.push(format!(
-                "version: {CITATION} {key} {values:?} must be Cargo.toml's {want:?}, once at the top level"
+                "version: {CITATION} {key} {values:?} must be {want:?} (Cargo.toml, release.rs), once at the top level"
             ));
         }
     }

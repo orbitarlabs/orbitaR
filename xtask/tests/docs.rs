@@ -1619,3 +1619,91 @@ fn docs_base_finds_a_comment_after_a_yaml_single_quoted_value() {
     assert!(has(&findings, "a.yaml:1: an added comment"), "{findings:?}");
     assert_eq!(comment_findings(&findings).len(), 1, "{findings:?}");
 }
+
+const ASE: &str = "from ase.build import bulk\n# a line\natoms = bulk(\"Si\")";
+const NOTEBOOK: &str = "notebooks/quickstart.ipynb";
+
+fn cell(source: &str) -> serde_json::Value {
+    serde_json::json!({
+        "cell_type": "code", "execution_count": null, "id": "c", "metadata": {}, "outputs": [],
+        "source": source.split_inclusive('\n').collect::<Vec<_>>(),
+    })
+}
+
+fn notebook_findings(name: &str, cells: Vec<serde_json::Value>) -> Vec<String> {
+    let book =
+        serde_json::json!({"cells": cells, "metadata": {}, "nbformat": 4, "nbformat_minor": 5});
+    let text = serde_json::to_string_pretty(&book).unwrap();
+    readme_findings(
+        name,
+        &["## ASE", "", "```python", ASE, "```"],
+        &[
+            (NOTEBOOK, &text),
+            ("tests/ase.rs", "readme_block(\"ASE\")\n"),
+        ],
+    )
+}
+
+fn quickstart() -> Vec<serde_json::Value> {
+    vec![
+        cell("%pip install orbitar"),
+        cell(ASE),
+        cell("print(atoms)"),
+    ]
+}
+
+#[test]
+fn a_quickstart_notebook_that_installs_and_runs_the_readme_ase_block_without_outputs_passes() {
+    let f = notebook_findings("notebook-good", quickstart());
+    assert!(f.is_empty(), "{f:?}");
+}
+
+#[test]
+fn a_quickstart_notebook_that_drifts_from_the_readme_or_stores_outputs_fails() {
+    let mut drifted = quickstart();
+    drifted[1] = cell(&ASE.replace("Si", "Ge"));
+    let f = notebook_findings("notebook-drift", drifted);
+    assert!(
+        has(
+            &f,
+            &format!("{NOTEBOOK} cell 2 is not README.md's `## ASE` block")
+        ),
+        "{f:?}"
+    );
+    let mut run = quickstart();
+    run[2]["outputs"] =
+        serde_json::json!([{"output_type": "stream", "name": "stdout", "text": ["x"]}]);
+    run[0]["execution_count"] = serde_json::json!(1);
+    let f = notebook_findings("notebook-outputs", run);
+    for n in [1, 3] {
+        assert!(
+            has(&f, &format!("{NOTEBOOK} cell {n} stores outputs")),
+            "{n}: {f:?}"
+        );
+    }
+    let mut prose = quickstart();
+    prose.push(
+        serde_json::json!({"cell_type": "markdown", "id": "m", "metadata": {}, "source": ["x"]}),
+    );
+    prose[0] = cell("%pip install orbitar==0.0.0");
+    let f = notebook_findings("notebook-prose", prose);
+    for needle in [
+        "cell 4 is no code cell",
+        "holds 4 cells, not 3",
+        "cell 1 is not `%pip install orbitar`",
+    ] {
+        assert!(has(&f, needle), "{needle}: {f:?}");
+    }
+}
+
+#[test]
+fn a_notebook_that_does_not_parse_or_another_notebook_fails() {
+    let f = readme_findings(
+        "notebook-other",
+        &[],
+        &[(NOTEBOOK, "{\n"), ("notebooks/other.ipynb", "{}\n")],
+    );
+    assert!(has(&f, &format!("{NOTEBOOK} does not parse")), "{f:?}");
+    assert!(has(&f, "notebooks/other.ipynb is extra prose"), "{f:?}");
+    assert!(!has(&f, &format!("{NOTEBOOK} is extra prose")), "{f:?}");
+}

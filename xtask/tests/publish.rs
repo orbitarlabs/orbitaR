@@ -274,6 +274,16 @@ fn a_file_that_names_someone_or_holds_a_home_or_an_owners_file_fails() {
             named,
         ),
         (
+            format!("see https://github.com/{}/orbitaR-fork", "orbitarlabs"),
+            format!("https://github.com/{}/orbitaR-fork", "orbitarlabs"),
+            named,
+        ),
+        (
+            format!("see https://github.com/{}/orbitaR2/issues", "orbitarlabs"),
+            format!("https://github.com/{}/orbitaR2/issues", "orbitarlabs"),
+            named,
+        ),
+        (
             format!("see https://{}/code/session_0123", "claude.ai"),
             format!("https://{}/code/session_0123", "claude.ai"),
             named,
@@ -314,12 +324,14 @@ fn a_file_that_names_someone_or_holds_a_home_or_an_owners_file_fails() {
 }
 
 #[test]
-fn a_file_with_the_maintainer_noreply_a_source_plain_urls_or_no_user_passes() {
+fn a_file_with_the_maintainer_noreply_a_source_the_project_repository_plain_urls_or_no_user_passes()
+{
     let text = format!(
         "by orbitar-admin <360476282+orbitar-admin@users.noreply.github.com>\nmerged by NoReply@GitHub.com\n\
          source = \"registry+https://github.com/rust-lang/crates.io-index\"\n\
          locator = \"https://github.com/molmod/DeltaCodesDFT/tree/f9b6693763dea92d43ee48f172c02bc506876f06\"\n\
          see https://docs.rs/ndarray and /work/case/input.toml\n\
+         Source = \"https://github.com/orbitarlabs/orbitaR\"; see github.com/orbitarlabs/orbitar/issues\n\
          HOME=/{0}/ and /{1}//x and /{0} and --home-dir /{0}/orbitar\n",
         "home", "Users"
     );

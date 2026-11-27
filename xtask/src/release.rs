@@ -170,14 +170,22 @@ pub fn machine(bytes: &[u8]) -> Option<Machine> {
     })
 }
 
-const PERSONAL: [&str; 6] = [
+const PERSONAL: [&str; 5] = [
     "Author-email:",
     "Maintainer:",
     "Maintainer-email:",
     "Home-page:",
-    "Project-URL:",
     "Download-URL:",
 ];
+pub(crate) const HOMEPAGE: &str = "https://orbitarlabs.org";
+pub(crate) const SOURCE: &str = "https://github.com/orbitarlabs/orbitaR";
+pub(crate) const LINKS: [(&str, &str); 3] = [
+    ("Homepage", HOMEPAGE),
+    ("Source", SOURCE),
+    ("Issues", "https://github.com/orbitarlabs/orbitaR/issues"),
+];
+const JTH_LINKS: [(&str, &str); 2] = [LINKS[0], LINKS[1]];
+const PROJECT_URL: &str = "Project-URL:";
 const AUTHOR: &str = "Author: The orbitaR developers";
 const DATASET_SUFFIXES: [&str; 3] = ["-JTH.xml", ".UPF", ".upf"];
 
@@ -212,6 +220,66 @@ struct Listing {
     entry_points: Option<String>,
     #[serde(default)]
     paw: Vec<String>,
+}
+
+fn project_urls(what: &str, fields: &[&str], links: &[(&str, &str)]) -> Findings {
+    let held: Vec<&str> = (fields.iter())
+        .filter_map(|f| f.strip_prefix(PROJECT_URL))
+        .map(str::trim)
+        .collect();
+    let wanted: Vec<String> = (links.iter())
+        .map(|(label, url)| format!("{label}, {url}"))
+        .collect();
+    let mut findings = Vec::new();
+    for entry in held.iter().filter(|h| !wanted.iter().any(|w| w == *h)) {
+        findings.push(format!(
+            "{what}: METADATA holds `{PROJECT_URL} {entry}`; no person, address, or URL but the project links (release.rs LINKS)"
+        ));
+    }
+    for entry in &wanted {
+        let count = held.iter().filter(|h| **h == entry).count();
+        if count != 1 {
+            findings.push(format!(
+                "{what}: METADATA holds `{PROJECT_URL} {entry}` {count} times, not once (release.rs LINKS)"
+            ));
+        }
+    }
+    findings
+}
+
+pub(crate) fn project_links(root: &Path) -> Findings {
+    let mut findings = Vec::new();
+    for (path, links) in [
+        ("pyproject.toml".to_owned(), &LINKS[..]),
+        (format!("{JTH}/pyproject.toml"), &JTH_LINKS[..]),
+    ] {
+        let manifest = match toml::from_str::<toml::Table>(&walk::read(root, &path)) {
+            Ok(manifest) => manifest,
+            Err(e) => {
+                findings.push(format!("release: {path} does not parse: {e}"));
+                continue;
+            }
+        };
+        let Some(project) = manifest.get("project") else {
+            continue;
+        };
+        let held: BTreeMap<&str, Option<&str>> = (project.get("urls"))
+            .and_then(toml::Value::as_table)
+            .into_iter()
+            .flatten()
+            .map(|(label, url)| (label.as_str(), url.as_str()))
+            .collect();
+        let wanted: BTreeMap<&str, Option<&str>> = links
+            .iter()
+            .map(|&(label, url)| (label, Some(url)))
+            .collect();
+        if held != wanted {
+            findings.push(format!(
+                "release: {path} [project.urls] is {held:?}, not the project links {wanted:?} (release.rs LINKS)"
+            ));
+        }
+    }
+    findings
 }
 
 fn version(root: &Path) -> Result<String, String> {
@@ -432,6 +500,7 @@ fn contents(
             "wheel: METADATA does not hold Version: {version} (Cargo.toml)"
         ));
     }
+    findings.extend(project_urls("wheel", &fields, &LINKS));
     for field in &fields {
         if PERSONAL.iter().any(|p| field.starts_with(p)) {
             findings.push(format!(
@@ -761,6 +830,7 @@ fn jth_contents(root: &Path, file: &str, listing: &Listing) -> Findings {
             findings.push(format!("wheel {file}: METADATA does not hold `{field}`"));
         }
     }
+    findings.extend(project_urls(&format!("wheel {file}"), &fields, &JTH_LINKS));
     for field in &fields {
         let personal = PERSONAL.iter().any(|p| field.starts_with(p));
         let author = field.starts_with("Author:") && *field != AUTHOR;
@@ -1277,7 +1347,11 @@ fn account(word: &str, binary: bool) -> bool {
     let bare = lower
         .split_once("://")
         .map_or(lower.as_str(), |(_, rest)| rest);
-    if SOURCES.iter().any(|s| bare.starts_with(s)) {
+    let own = (SOURCE.split_once("://").map_or(SOURCE, |(_, rest)| rest)).to_lowercase();
+    if SOURCES.iter().any(|s| bare.starts_with(s))
+        || bare == own
+        || bare.starts_with(&format!("{own}/"))
+    {
         return false;
     }
     let (authority, path) = bare.split_once('/').unwrap_or((bare, ""));

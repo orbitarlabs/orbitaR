@@ -20,6 +20,13 @@ const PROSE: [(&str, usize); 5] = [
     ("SECURITY.md", 4),
 ];
 const LOCAL: &str = "CLAUDE.local.md";
+const NOTEBOOK: &str = "notebooks/quickstart.ipynb";
+const NOTEBOOK_CELLS: [&str; 3] = [
+    "%pip install orbitar",
+    "README.md's `## ASE` block",
+    "the printout",
+];
+const NOTEBOOK_BLOCK: &str = "ASE";
 const MARKER: (&str, &str) = ("<!-- local ", " -->");
 
 #[derive(Deserialize)]
@@ -120,6 +127,7 @@ pub(crate) fn check(root: &Path) -> Findings {
             || file == "CLAUDE.md"
             || file == LOCAL
             || file == results::PAGE
+            || file == NOTEBOOK
             || local.iter().any(|(path, _)| *path == file)
             || file.starts_with(".agents/skills/");
         if prose && !allowed {
@@ -189,6 +197,7 @@ pub(crate) fn check(root: &Path) -> Findings {
     }
     findings.extend(readme(root));
     let readme = walk::read(root, "README.md");
+    findings.extend(notebook(root, &readme));
     for (path, rules) in &local {
         let text = walk::read(root, path);
         if !text.is_empty() {
@@ -412,6 +421,69 @@ fn html(root: &Path, line: &str) -> bool {
         }
         _ => false,
     }
+}
+
+fn readme_block(readme: &str, heading: &str) -> Option<String> {
+    let section = readme.split(&format!("\n## {heading}\n")).nth(1)?;
+    let example = section.split("```").nth(1)?;
+    Some(example.lines().skip(1).collect::<Vec<_>>().join("\n"))
+}
+
+fn notebook(root: &Path, readme: &str) -> Findings {
+    let text = walk::read(root, NOTEBOOK);
+    if text.is_empty() {
+        return Vec::new();
+    }
+    let book: serde_json::Value = match serde_json::from_str(&text) {
+        Ok(book) => book,
+        Err(e) => return vec![format!("docs: {NOTEBOOK} does not parse: {e}")],
+    };
+    let mut findings = Vec::new();
+    if book["nbformat"] != 4 {
+        findings.push(format!("docs: {NOTEBOOK} is no nbformat 4 notebook"));
+    }
+    let cells = book["cells"].as_array().map_or(&[][..], Vec::as_slice);
+    let mut sources = Vec::new();
+    for (n, cell) in (1..).zip(cells) {
+        if cell["cell_type"] != "code" {
+            findings.push(format!(
+                "docs: {NOTEBOOK} cell {n} is no code cell; the notebook holds code alone"
+            ));
+        }
+        let outputs = cell["outputs"].as_array().is_some_and(Vec::is_empty);
+        if !outputs || !cell["execution_count"].is_null() {
+            findings.push(format!(
+                "docs: {NOTEBOOK} cell {n} stores outputs or an execution count; clear them"
+            ));
+        }
+        sources.push(match &cell["source"] {
+            serde_json::Value::String(line) => line.clone(),
+            serde_json::Value::Array(lines) => (lines.iter())
+                .filter_map(serde_json::Value::as_str)
+                .collect(),
+            _ => String::new(),
+        });
+    }
+    if sources.len() != NOTEBOOK_CELLS.len() {
+        findings.push(format!(
+            "docs: {NOTEBOOK} holds {} cells, not {}: {NOTEBOOK_CELLS:?}",
+            sources.len(),
+            NOTEBOOK_CELLS.len()
+        ));
+    }
+    if sources.first().map(String::as_str) != Some(NOTEBOOK_CELLS[0]) {
+        findings.push(format!(
+            "docs: {NOTEBOOK} cell 1 is not `{}`",
+            NOTEBOOK_CELLS[0]
+        ));
+    }
+    if sources.get(1).is_none() || sources.get(1) != readme_block(readme, NOTEBOOK_BLOCK).as_ref() {
+        findings.push(format!(
+            "docs: {NOTEBOOK} cell 2 is not {}, byte for byte",
+            NOTEBOOK_CELLS[1]
+        ));
+    }
+    findings
 }
 
 fn readme(root: &Path) -> Findings {
