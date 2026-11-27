@@ -8,10 +8,10 @@ id = "1_free_electron"
 what = "free-electron eigenvalues vs analytic"
 unit = "Ha"
 tier = "push"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "basis_size_error"
@@ -34,10 +34,10 @@ id = "2_ewald_madelung"
 what = "Ewald energy vs Madelung constants"
 unit = ""
 tier = "push"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "madelung_error"
@@ -53,10 +53,10 @@ id = "3_hartree_gaussians"
 what = "Hartree energy of Gaussians vs analytic"
 unit = "relative"
 tier = "push"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "hartree_relative_error"
@@ -72,10 +72,10 @@ id = "4_xc_libxc"
 what = "XC energy densities vs Libxc"
 unit = "relative"
 tier = "push"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "xc_relative_error"
@@ -91,10 +91,10 @@ id = "5_lobpcg_dense"
 what = "LOBPCG SCF vs dense eigensolver"
 unit = "Ha"
 tier = "push"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "eigenvalue_difference_ha"
@@ -117,10 +117,10 @@ id = "6_abinit_jth"
 what = "PAW SCF vs ABINIT, same datasets"
 unit = "Ha"
 tier = "pr"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "eigenvalue_error_ha"
@@ -164,10 +164,10 @@ id = "7_symmetry"
 what = "symmetry-reduced vs full k mesh"
 unit = "Ha"
 tier = "pr"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "eigenvalue_difference_ha"
@@ -211,10 +211,10 @@ id = "8_supercell_invariance"
 what = "supercell vs primitive cell"
 unit = "Ha"
 tier = "pr"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "fermi_level_difference_ha"
@@ -245,10 +245,10 @@ what = "1 vs 4 threads, bit for bit"
 unit = ""
 tier = "pr"
 exact = "bit-identical at 1 and 4 threads"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "basis_size_difference"
@@ -328,10 +328,10 @@ id = "13_forces_derivative"
 what = "forces vs finite differences of F"
 unit = "Ha/Bohr"
 tier = "pr"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "fe_lda_force_difference_ha_bohr"
@@ -382,10 +382,10 @@ id = "15_stress_derivative"
 what = "stress vs strain differences of F"
 unit = "Ha/Bohr³"
 tier = "pr"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "afm_order_share"
@@ -464,10 +464,10 @@ id = "16_relax_endpoint"
 what = "relaxation endpoints vs cold runs"
 unit = "(share of bound)"
 tier = "pr"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "fe_cell_fmax_share"
@@ -596,10 +596,10 @@ id = "19_family_v0"
 what = "rebuilt O dataset vs JTH v2.0 on MgO"
 unit = "Ha"
 tier = "push"
-run = "pr"
+run = "nightly"
 outcome = "pass"
-commit = "cbc3a1ccf0638f38d0c1d140cb4c896adae2a42b"
-engine_sha256 = "f2ed4e9c6f4fdacb7e892b080319bfd51cfda7c689114af14cb6a97907455e76"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
 
 [[case.metric]]
 name = "fermi_level_difference_ha"
@@ -622,3 +622,172 @@ limit = 2e-8
 measured = 4.5265888815038124e-9
 ratio = 2.2632944407519062e-1
 headline = true
+
+[[case]]
+number = 20
+id = "20_abinit_r2scan"
+what = "r2SCAN PAW SCF vs ABINIT, same datasets"
+unit = "Ha"
+tier = "pr"
+run = "nightly"
+outcome = "pass"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+
+[[case.metric]]
+name = "eigenvalue_error_ha"
+bound = "max"
+limit = 1e-10
+measured = 1.8980816918201526e-11
+ratio = 1.8980816918201526e-1
+
+[[case.metric]]
+name = "fermi_level_error_ha"
+bound = "max"
+limit = 5e-11
+measured = 5.668743252584818e-12
+ratio = 1.1337486505169636e-1
+
+[[case.metric]]
+name = "force_error_ha_bohr"
+bound = "max"
+limit = 1e-10
+measured = 1.4490340093727301e-11
+ratio = 1.44903400937273e-1
+
+[[case.metric]]
+name = "force_mean_error_ha_bohr"
+bound = "max"
+limit = 1e-8
+measured = 4.5839658893660545e-9
+ratio = 4.5839658893660545e-1
+
+[[case.metric]]
+name = "free_energy_error_ha"
+bound = "max"
+limit = 5e-10
+measured = 2.0193624550302047e-10
+ratio = 4.0387249100604095e-1
+headline = true
+
+[[case.metric]]
+name = "magnetization_error_bohr_magneton"
+bound = "max"
+limit = 1e-9
+measured = 6.66622312905929e-12
+ratio = 6.66622312905929e-3
+
+[[case.metric]]
+name = "paw_xc_d_error_ha"
+bound = "max"
+limit = 5e-12
+measured = 4.4231285301066237e-13
+ratio = 8.846257060213247e-2
+
+[[case.metric]]
+name = "paw_xc_energy_error_ha"
+bound = "max"
+limit = 1e-11
+measured = 1.5134560271690134e-12
+ratio = 1.5134560271690134e-1
+
+[[case.metric]]
+name = "term_error_ha"
+bound = "max"
+limit = 1e-9
+measured = 3.134488224532106e-10
+ratio = 3.134488224532106e-1
+
+[[case]]
+number = 21
+id = "21_symmetry_r2scan"
+what = "r2SCAN symmetry-reduced vs full k mesh"
+unit = "Ha"
+tier = "nightly"
+run = "nightly"
+outcome = "pass"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+
+[[case.metric]]
+name = "eigenvalue_difference_ha"
+bound = "max"
+limit = 5e-11
+measured = 4.376943252282217e-12
+ratio = 8.753886504564434e-2
+
+[[case.metric]]
+name = "fermi_level_difference_ha"
+bound = "max"
+limit = 2e-11
+measured = 1.2569112417537553e-12
+ratio = 6.284556208768777e-2
+
+[[case.metric]]
+name = "magnetization_difference_bohr_magneton"
+bound = "max"
+limit = 1e-10
+measured = 1.865174681370263e-13
+ratio = 1.865174681370263e-3
+
+[[case.metric]]
+name = "term_difference_ha"
+bound = "max"
+limit = 5e-10
+measured = 1.9767298908845987e-11
+ratio = 3.9534597817691974e-2
+headline = true
+
+[[case.metric]]
+name = "weighted_eigenvalue_difference_ha"
+bound = "max"
+limit = 2e-10
+measured = 2.2250645770327537e-11
+ratio = 1.1125322885163769e-1
+
+[[case]]
+number = 22
+id = "22_r2scan_derivatives"
+what = "r2SCAN stress vs strain differences of F"
+unit = "Ha/Bohr³"
+tier = "nightly"
+run = "nightly"
+outcome = "pass"
+commit = "631c179424c6f79da323426f4b71dff321dc0103"
+engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+
+[[case.metric]]
+name = "fe_stress_difference_ha_bohr3"
+bound = "max"
+limit = 2e-9
+measured = 1.1332542867366421e-10
+ratio = 5.66627143368321e-2
+
+[[case.metric]]
+name = "gaas_force_difference_ha_bohr"
+bound = "max"
+limit = 5e-8
+measured = 6.391223542158356e-9
+ratio = 1.2782447084316712e-1
+
+[[case.metric]]
+name = "gaas_stress_difference_ha_bohr3"
+bound = "max"
+limit = 2e-9
+measured = 2.6461886004755296e-10
+ratio = 1.3230943002377646e-1
+headline = true
+
+[[case.metric]]
+name = "gaas_volume_stress_difference_ha_bohr3"
+bound = "max"
+limit = 5e-9
+measured = 5.98748062418732e-10
+ratio = 1.197496124837464e-1
+
+[[case.metric]]
+name = "moment_spread_bohr_magneton"
+bound = "max"
+limit = 1e-3
+measured = 1.8855978582976718e-5
+ratio = 1.8855978582976718e-2
