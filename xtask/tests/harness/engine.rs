@@ -382,12 +382,13 @@ fn a_run_is_timed_by_the_shim_from_the_engines_spawn_to_its_exit_not_by_its_own(
             .unwrap()
             .as_secs_f64()
     };
-    let stamped = "date +%s.%N > s0; sleep 1; date +%s.%N > s1";
+    let stamped = "date +%s.%N > s0; sleep 1; date +%s.%N > s1; sleep 0.5";
     let spawned = now();
     let mut shim = std::process::Command::new(env!("CARGO_BIN_EXE_xtask"))
         .args(["--peak-rss-shim", "stderr", "20000", "sh", "-c", stamped])
         .current_dir(&*dir)
         .env("ORBITAR_SHIM_HOLD_MS", "1000")
+        .env("ORBITAR_SHIM_HOLD_TRACE", dir.join("holds"))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
@@ -402,23 +403,32 @@ fn a_run_is_timed_by_the_shim_from_the_engines_spawn_to_its_exit_not_by_its_own(
     assert!(shim.wait().unwrap().success());
     let reported = now();
     drop(control);
-    let stamp = |name: &str| -> f64 {
-        std::fs::read_to_string(dir.join(name))
+    let read = |name: &str| -> Vec<f64> {
+        (std::fs::read_to_string(dir.join(name))
             .unwrap()
-            .trim()
-            .parse()
-            .unwrap()
+            .split_whitespace())
+        .map(|v| v.parse().unwrap())
+        .collect()
     };
-    let (start, end) = (stamp("s0"), stamp("s1"));
+    let (start, end) = (read("s0")[0], read("s1")[0]);
+    let holds = read("holds");
+    let [first_hold_end, second_hold_start] = holds[..] else {
+        panic!("{holds:?}")
+    };
     let report: serde_json::Value = serde_json::from_str(&report).unwrap();
     let engine = report["Ok"]["seconds"].as_f64().unwrap();
     assert!(
-        start - spawned >= 1.0 && reported - end >= 1.0,
-        "{spawned} {start} {end} {reported}"
+        first_hold_end >= 1.0 && start - spawned >= 1.0,
+        "{first_hold_end} {spawned} {start}"
     );
     assert!(
-        engine >= end - start && engine < end - start + 1.0,
-        "{engine}: {start} {end}"
+        reported - spawned >= second_hold_start + 1.0,
+        "{spawned} {second_hold_start} {reported}"
+    );
+    assert!(engine >= end - start + 0.5, "{engine}: {start} {end}");
+    assert!(
+        engine <= second_hold_start - first_hold_end,
+        "{engine}: between the holds {first_hold_end} to {second_hold_start}"
     );
 }
 
