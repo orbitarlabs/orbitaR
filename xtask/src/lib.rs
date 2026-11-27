@@ -7,8 +7,8 @@ pub use release::mac::{
 };
 pub use release::{
     Image, Install, Invocation, Linker, Machine, PAW_SCAN, PAW_SCAN_BYTES, Program, Wheels, baked,
-    clear, host_paths, image_verdict, in_venv, install, install_plan, install_verdict, linker,
-    listed, machine, readme_lines, same,
+    clear, hashes, host_paths, image_verdict, in_venv, install, install_plan, install_verdict,
+    linker, machine, readme_lines, same,
 };
 pub use reproduce::stamp;
 
@@ -100,7 +100,7 @@ enum Cli {
         #[arg(long)]
         reason: String,
     },
-    /// wheel [--check <file>] [--target <Mac>] [--same <a> <b>]: build orbitar's and orbitar-jth's wheels (in manylinux_2_28 or on a Mac), check each, install both, run README; --same: two wheels are one file, or each differing member
+    /// wheel [--check <file>] [--target <Mac>] [--same <a> <b>]: build orbitar's and orbitar-jth's wheels (in manylinux_2_28 or on a Mac), check each, install both, run README; --same: two wheels are one byte stream, or the first differing byte with its member and field, and each differing member, header field and record
     Wheel {
         #[arg(long)]
         check: Option<PathBuf>,
@@ -349,7 +349,7 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
             target,
             same,
         } => match same.as_deref() {
-            Some([a, b]) => release::same(&root.join(a), &root.join(b)),
+            Some([a, b]) => release::same(root, a, b),
             _ => release::wheel(root, check.as_deref(), target.as_deref(), env),
         },
         Cli::Image { scan } => release::image(root, scan.as_deref()),

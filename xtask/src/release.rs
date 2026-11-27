@@ -1,3 +1,4 @@
+mod archive;
 pub(crate) mod mac;
 
 use crate::{
@@ -6,6 +7,8 @@ use crate::{
     lock::hex,
     walk,
 };
+use archive::listed;
+pub use archive::{hashes, same};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -869,114 +872,6 @@ pub(crate) fn wheel(
             Err(e) => vec![e],
         },
     }
-}
-
-type Headers = Vec<(String, BTreeMap<String, serde_json::Value>)>;
-
-fn headers(wheel: &Path) -> Result<(String, Headers), String> {
-    let script = "import hashlib, json, sys, zipfile\n\
-        z = zipfile.ZipFile(sys.argv[1])\n\
-        print(json.dumps([z.comment.hex(), [[i.filename, {'sha256': hashlib.sha256(z.read(i)).hexdigest(), \
-        'size': i.file_size, 'compressed size': i.compress_size, 'method': i.compress_type, \
-        'date': list(i.date_time), 'attributes': i.external_attr, 'system': i.create_system, \
-        'versions': [i.create_version, i.extract_version], 'flags': i.flag_bits, 'extra': i.extra.hex(), \
-        'comment': i.comment.hex(), 'stored at': sorted(z.infolist(), key=lambda j: j.header_offset).index(i)}] \
-        for i in z.infolist()]]))";
-    let out = run(
-        Command::new("python3")
-            .args(["-I", "-c", script])
-            .arg(wheel),
-        "python3 zipfile",
-    )?;
-    serde_json::from_slice(&out.stdout).map_err(|e| format!("{}: {e}", wheel.display()))
-}
-
-pub fn listed(wheel: &Path) -> Findings {
-    match (fs::read(wheel), headers(wheel)) {
-        (Ok(bytes), Ok((_, members))) => {
-            println!(
-                "wheel: {} ({} bytes, sha256 {})",
-                wheel.display(),
-                bytes.len(),
-                hex(&Sha256::digest(&bytes))
-            );
-            for (name, fields) in &members {
-                let sha = fields.get("sha256").and_then(serde_json::Value::as_str);
-                println!("  {}  {name}", sha.unwrap_or_default());
-            }
-            Vec::new()
-        }
-        (Err(e), _) => vec![format!("{}: {e}", wheel.display())],
-        (_, Err(e)) => vec![e],
-    }
-}
-
-pub fn same(a: &Path, b: &Path) -> Findings {
-    let digest = |wheel: &Path| {
-        fs::read(wheel)
-            .map(|bytes| hex(&Sha256::digest(&bytes)))
-            .map_err(|e| format!("wheel --same: {}: {e}", wheel.display()))
-    };
-    let (sha_a, sha_b) = match (digest(a), digest(b)) {
-        (Ok(sha_a), Ok(sha_b)) => (sha_a, sha_b),
-        (Err(e), _) | (_, Err(e)) => return vec![e],
-    };
-    if sha_a == sha_b {
-        println!("wheel --same: both are {sha_a}");
-        return Vec::new();
-    }
-    let ((comment_a, members_a), (comment_b, members_b)) = match (headers(a), headers(b)) {
-        (Ok(a), Ok(b)) => (a, b),
-        (Err(e), _) | (_, Err(e)) => return vec![e],
-    };
-    let mut findings = vec![format!(
-        "wheel --same: {} is {sha_a}, but {} is {sha_b}",
-        a.display(),
-        b.display()
-    )];
-    let names =
-        |members: &Headers| -> Vec<String> { members.iter().map(|(n, _)| n.clone()).collect() };
-    let (names_a, names_b) = (names(&members_a), names(&members_b));
-    for (name, held, lacks) in (names_a.iter().map(|n| (n, "first", &names_b)))
-        .chain(names_b.iter().map(|n| (n, "second", &names_a)))
-    {
-        if !lacks.contains(name) {
-            findings.push(format!("wheel --same: {name} is in the {held} wheel alone"));
-        }
-    }
-    if let Some((got, want)) = (names_a.iter().zip(&names_b)).find(|(x, y)| x != y) {
-        findings.push(format!(
-            "wheel --same: the central directories part at {got} and {want}"
-        ));
-    }
-    let fields_b: BTreeMap<&String, &BTreeMap<String, serde_json::Value>> =
-        members_b.iter().map(|(n, f)| (n, f)).collect();
-    for (name, fields) in &members_a {
-        let Some(other) = fields_b.get(name) else {
-            continue;
-        };
-        let differ: Vec<String> = (fields.iter())
-            .filter_map(|(key, value)| {
-                let theirs = other.get(key).unwrap_or(&serde_json::Value::Null);
-                (theirs != value).then(|| format!("{key} {value} and {theirs}"))
-            })
-            .collect();
-        if !differ.is_empty() {
-            findings.push(format!("wheel --same: {name}: {}", differ.join("; ")));
-        }
-    }
-    if comment_a != comment_b {
-        findings.push(format!(
-            "wheel --same: the archive comments differ: {comment_a:?} and {comment_b:?}"
-        ));
-    }
-    if findings.len() == 1 {
-        findings.push(
-            "wheel --same: every member and its central-directory header agree; the local headers differ"
-                .to_owned(),
-        );
-    }
-    findings
 }
 
 const WHEELS: [&str; 2] = ["wheel", "jth-wheel"];
