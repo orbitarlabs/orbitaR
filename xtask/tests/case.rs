@@ -277,11 +277,17 @@ fn the_why_groups_need_their_table_and_their_inputs() {
         Some("benchmarks/1_a/inputs/b.toml"),
     );
     assert!(f.is_empty(), "{f:?}");
+    let f = why_findings(
+        "case-why-crystals",
+        &inputs,
+        Some("benchmarks/1_a/crystals.json"),
+    );
+    assert!(f.is_empty(), "{f:?}");
     let f = why_findings("case-why-no-input", &inputs, None);
     assert!(
         has(
             &f,
-            "[why].inputs names the case's input files, but benchmarks/1_a holds neither input.toml nor inputs/<stem>.toml"
+            "[why].inputs names the case's inputs, but benchmarks/1_a holds no input.toml, inputs/<stem>.toml, or crystals.json"
         ),
         "{f:?}"
     );
@@ -299,12 +305,18 @@ fn the_why_groups_need_their_table_and_their_inputs() {
 }
 
 #[test]
-fn the_readme_example_of_why_names_values_of_its_case() {
+fn the_contributing_example_of_why_names_values_of_its_case() {
+    let contributing =
+        std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../CONTRIBUTING.md"))
+            .unwrap();
+    for line in crate::WHY_EXAMPLE {
+        assert!(contributing.lines().any(|l| l.trim() == line), "{line}");
+    }
     let case = format!(
-        "{}\n{}\n",
+        "{}\n[why]\n{}\n",
         crate::harness::CASE,
-        crate::readme_block("Benchmark case")
+        crate::WHY_EXAMPLE.join("\n")
     );
-    let f = why_findings("case-why-readme", &case, Some(INPUT_TOML));
+    let f = why_findings("case-why-contributing", &case, Some(INPUT_TOML));
     assert!(f.is_empty(), "{f:?}");
 }

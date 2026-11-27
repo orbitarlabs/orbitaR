@@ -13,9 +13,9 @@ use std::{
 
 const PROSE: [(&str, usize); 5] = [
     ("AGENTS.md", 22),
-    ("CONTRIBUTING.md", 52),
+    ("CONTRIBUTING.md", 57),
     ("container/README.md", 73),
-    ("README.md", 139),
+    ("README.md", 126),
     ("SECURITY.md", 4),
 ];
 const LOCAL: &str = "CLAUDE.local.md";

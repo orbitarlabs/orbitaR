@@ -207,14 +207,11 @@ impl Case {
         let path = format!("benchmarks/{id}/case.toml");
         let text = fs::read_to_string(root.join(&path)).map_err(|e| format!("{path}: {e}"))?;
         let case = Case::parse(&text).map_err(|e| format!("{path}: {e}"))?;
-        let dir = root.join(format!("benchmarks/{id}"));
-        let toml = |entry: &fs::DirEntry| entry.path().extension().is_some_and(|e| e == "toml");
-        let held = dir.join("input.toml").is_file()
-            || fs::read_dir(dir.join("inputs"))
-                .is_ok_and(|mut entries| entries.flatten().any(|e| toml(&e)));
-        if case.why.contains_key(WHY_INPUTS) && !held {
+        if case.why.contains_key(WHY_INPUTS)
+            && !holds_inputs(&root.join(format!("benchmarks/{id}")))
+        {
             return Err(format!(
-                "{path}: [why].{WHY_INPUTS} names the case's input files, but benchmarks/{id} holds neither input.toml nor inputs/<stem>.toml"
+                "{path}: [why].{WHY_INPUTS} names the case's inputs, but benchmarks/{id} holds no {INPUT_FILE}, {INPUTS_DIR}/<stem>.toml, or {CRYSTALS}"
             ));
         }
         Ok(case)
@@ -424,6 +421,18 @@ pub(crate) fn ids(root: &Path) -> Result<Vec<String>, String> {
         }
     }
     Ok(ids.into_iter().map(|(_, id)| id).collect())
+}
+
+pub(crate) const INPUT_FILE: &str = "input.toml";
+pub(crate) const INPUTS_DIR: &str = "inputs";
+pub(crate) const CRYSTALS: &str = "crystals.json";
+
+fn holds_inputs(dir: &Path) -> bool {
+    let toml = |entry: &fs::DirEntry| entry.path().extension().is_some_and(|e| e == "toml");
+    dir.join(INPUT_FILE).is_file()
+        || dir.join(CRYSTALS).is_file()
+        || fs::read_dir(dir.join(INPUTS_DIR))
+            .is_ok_and(|entries| entries.flatten().any(|e| toml(&e)))
 }
 
 const WHY_INPUTS: &str = "inputs";

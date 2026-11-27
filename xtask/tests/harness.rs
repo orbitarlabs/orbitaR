@@ -113,7 +113,7 @@ fn an_honest_case_passes_and_leaves_a_record() {
 
 #[test]
 fn a_record_carries_the_why_of_its_case() {
-    let case = format!("{CASE}\n{}\n", crate::readme_block("Benchmark case"));
+    let case = format!("{CASE}\n[why]\n{}\n", crate::WHY_EXAMPLE.join("\n"));
     let (outcome, root) = run_case("harness-why", &case, INPUT, GOOD, honest);
     assert_eq!(outcome, Outcome::Pass);
     let record: serde_json::Value =
@@ -122,7 +122,7 @@ fn a_record_carries_the_why_of_its_case() {
     assert_eq!(
         record["why"],
         serde_json::json!({
-            "error_max": "the worst seen is 4e-13; the margin is for another libm's last digits",
+            "error_max": "the worst seen is 4e-13; the margin is for another libm",
             "status": "active: its bound passed in the run that promoted it",
         }),
         "{record}"

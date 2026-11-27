@@ -503,7 +503,7 @@ fn readme_prose_escapes_the_sentence_rules_but_not_the_line_length_or_the_cap() 
         "# A\n",
         &format!("# R\n{GATES}"),
         STACK,
-        &[("README.md", &lines(139))],
+        &[("README.md", &lines(126))],
     );
     assert!(at.is_empty(), "{at:?}");
     let over = docs(
@@ -511,9 +511,9 @@ fn readme_prose_escapes_the_sentence_rules_but_not_the_line_length_or_the_cap() 
         "# A\n",
         &format!("# R\n{GATES}"),
         STACK,
-        &[("README.md", &lines(140))],
+        &[("README.md", &lines(127))],
     );
-    assert_eq!(over, ["docs: README.md has 140 lines > 139"]);
+    assert_eq!(over, ["docs: README.md has 127 lines > 126"]);
 }
 
 #[test]
