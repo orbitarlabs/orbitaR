@@ -108,6 +108,19 @@ fn a_mac_header_reads_its_cpu_file_type_platform_and_full_lowest_version() {
 }
 
 #[test]
+fn a_load_command_of_its_head_alone_is_read_past() {
+    let bytes = macho_bytes(
+        CPU_ARM64,
+        MH_EXECUTE,
+        &[
+            (0x19, 8, Vec::new()),
+            build_version(PLATFORM_MACOS, (12, 0, 0)),
+        ],
+    );
+    assert!(xtask::machine(&bytes).is_some());
+}
+
+#[test]
 fn a_build_version_with_its_tool_records_reads() {
     let (cmd, _, mut body) = build_version(PLATFORM_MACOS, (12, 0, 0));
     body[12] = 1;
@@ -169,7 +182,7 @@ fn a_mac_engine_that_holds_a_path_under_a_host_root_fails_with_one_finding() {
 fn a_mac_engine_finds_each_host_path_of_a_span_once() {
     let found = mac_engine_holding(
         "host-two",
-        "/Volumes/first/src/lib.rs /Volumes/second/home/x/src/main.rs",
+        "/Volumes/first/Volumes/x/src/lib.rs /Volumes/second/src/main.rs",
     );
     assert_eq!(
         found,
