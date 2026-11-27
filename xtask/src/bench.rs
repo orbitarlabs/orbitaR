@@ -53,7 +53,7 @@ pub(crate) fn tier(root: &Path, name: &str, case: Option<&str>, env: &Env) -> Fi
         return findings;
     }
     let records = records_dir(root, tier);
-    clear_records(&records);
+    clear_records(&records, case);
     let mut test = vec![
         "test",
         "--locked",
@@ -127,10 +127,11 @@ pub(crate) fn records_dir(root: &Path, tier: Tier) -> PathBuf {
     root.join("target/benchmarks").join(tier.name())
 }
 
-fn clear_records(dir: &Path) {
+fn clear_records(dir: &Path, case: Option<&str>) {
     for file in fs::read_dir(dir).into_iter().flatten().flatten() {
         let path = file.path();
-        if path.extension().is_some_and(|x| x == "json") {
+        let selected = case.is_none_or(|id| path.file_stem().is_some_and(|s| s == id));
+        if selected && path.extension().is_some_and(|x| x == "json") {
             let _ = fs::remove_file(path);
         }
     }
