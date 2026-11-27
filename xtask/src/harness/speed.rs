@@ -156,7 +156,7 @@ pub(crate) fn time(
                 bytes: bytes as f64,
             };
             peaks.borrow_mut().push((b.comparable(), peak));
-            if bytes as f64 > limit {
+            if past_the_guard(bytes as f64, limit) {
                 let why = format!(
                     "{}: refused after a run: its measured peak {:.2} GB passes the {} GB guard",
                     b.at(),
@@ -568,13 +568,9 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
 }
 
 pub fn log_log_slope(points: &[(f64, f64)]) -> f64 {
-    let n = points.len() as f64;
-    let (mx, my) = (
-        points.iter().map(|p| p.0).sum::<f64>() / n,
-        points.iter().map(|p| p.1).sum::<f64>() / n,
-    );
-    let sxx: f64 = points.iter().map(|p| (p.0 - mx) * (p.0 - mx)).sum();
-    let sxy: f64 = points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
+    let mx = points.iter().map(|p| p.0).sum::<f64>() / points.len() as f64;
+    let sxx: f64 = points.iter().map(|p| (p.0 - mx) * p.0).sum();
+    let sxy: f64 = points.iter().map(|p| (p.0 - mx) * p.1).sum();
     match sxx > 0.0 {
         true => sxy / sxx,
         false => f64::NAN,
@@ -606,6 +602,10 @@ pub fn estimated_peak(smaller: &[Peak], atoms: usize, in_flight: usize) -> Optio
     Some(m.bytes * dense.max(fitted))
 }
 
+fn past_the_guard(bytes: f64, limit: f64) -> bool {
+    bytes > limit
+}
+
 pub(crate) fn peak_bytes([rss, pss]: [u64; 2]) -> u64 {
     rss.max(pss)
 }
@@ -621,7 +621,7 @@ fn refusal(b: &Block, peaks: &[(Comparable, Peak)], limit: f64) -> Result<Option
         .map(|(_, peak)| *peak)
         .collect();
     let estimate = estimated_peak(&smaller, b.atoms, b.in_flight()?);
-    Ok(estimate.filter(|&e| e > limit).map(|e| {
+    Ok(estimate.filter(|&e| past_the_guard(e, limit)).map(|e| {
         format!(
             "{}: refused before it runs: its peak memory estimate {:.2} GB from the smaller sizes of {} passes the {} \
              GB guard",
