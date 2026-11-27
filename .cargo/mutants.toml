@@ -14,7 +14,7 @@ exclude_re = [
   # (`python_plan`, `tools_plan`, `about_plan`, `maturin_plan`, `data_plan`, `floor_plan`, `metadata_plan`,
   # `readme_plan`, and release.rs `install_plan`), and every decision on what the steps return is in `proof`,
   # `pair_verdict`, `ase_verdict`, or release.rs's checks, each with seeded tests (xtask/tests/release/mac.rs).
-  "^xtask/src/release/mac\\.rs:.*(replace (<impl Steps for Host<'_>>::(build|check|floor|install|readme|tests)|<impl Host<'_>>::run|prove|tool_path) -> | in (<impl Steps for Host<'_>>::(build|check|floor|install|readme|tests)|<impl Host<'_>>::run|prove|tool_path)$)",
+  "^xtask/src/release/mac\\.rs:.*(replace (<impl Steps for Host<'_>>::(build|check|floor|install|readme|tests)|Host<'_>::run|prove|tool_path) -> | in (<impl Steps for Host<'_>>::(build|check|floor|install|readme|tests)|Host<'_>::run|prove|tool_path)$)",
   "^xtask/src/reproduce\\.rs:.*(replace twice -> | in twice$)",
   # `how` is read only inside `head != base && …`, where head < base and head <= base agree.
   "^xtask/src/version\\.rs:.*replace < with <= in check$",
