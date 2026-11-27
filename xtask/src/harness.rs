@@ -1970,7 +1970,132 @@ impl Discretization {
 }
 
 pub use record::{readout, union, verify};
-pub use speed::{G_MIN, G_RESAMPLES, G_SEED, g_interval};
+pub use speed::{G_MIN, G_RESAMPLES, G_SEED, g_interval, log_log_slope};
+
+pub struct Summaries {
+    pub versus: Value,
+    pub series: Value,
+    pub skipped: Value,
+}
+
+pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String> {
+    let id = record["case"].as_str().ok_or("the record names no case")?;
+    let case = Case::load(root, id)?;
+    let settings = rival::settings(root)?;
+    let sweep = (Tier::Claim.policy().speed).map_or(&[][..], |s| &s.threads[..]);
+    let (declared, _) = inputs(root, &root.join("benchmarks").join(id), None)?;
+    let mut atoms: BTreeMap<&str, usize> = BTreeMap::new();
+    for (name, text) in &declared {
+        let table: toml::Table = toml::from_str(text).map_err(|e| format!("{name}: {e}"))?;
+        atoms.insert(name, Input(&table).species()?.len());
+    }
+    let mut manifest: Vec<String> = declared.iter().map(|(name, _)| name.clone()).collect();
+    for h in record["held_out"].as_array().into_iter().flatten() {
+        let name = h["input"]
+            .as_str()
+            .ok_or("a held-out entry names no input")?;
+        manifest.push(name.to_owned());
+    }
+    if record["inputs"] != json!(manifest) {
+        return Err(format!(
+            "the record's inputs {} are not the case's inputs and held-out names {manifest:?}",
+            record["inputs"]
+        ));
+    }
+    let mut blocks: Vec<speed::BlockRecord> = Vec::new();
+    for b in record["speed"].as_array().into_iter().flatten() {
+        blocks.push(
+            serde_json::from_value(b.clone())
+                .map_err(|e| format!("a speed block does not parse: {e}"))?,
+        );
+    }
+    let mut wanted = BTreeSet::new();
+    let mut skipped = Vec::new();
+    for (k, p) in sweep.iter().map(|p| p.get()).enumerate() {
+        for name in &manifest {
+            wanted.insert((speed::Code::Orbitar, name.as_str(), p));
+            for &r in case.rivals() {
+                match settings.skips(r, &rival::input_path(id, name)) {
+                    Some(why) if k == 0 => skipped.push(json!({
+                        "code": r.adapter().name(), "input": name, "reason": why,
+                    })),
+                    Some(_) => {}
+                    None if settings.times(p) => {
+                        wanted.insert((speed::Code::Rival(r), name.as_str(), p));
+                    }
+                    None => {}
+                }
+            }
+        }
+    }
+    let mut seen = BTreeSet::new();
+    let mut sizes: BTreeMap<&str, usize> = BTreeMap::new();
+    for b in &blocks {
+        let at = format!("{} {} at {} threads", b.code, b.input, b.threads);
+        let key = (b.code, b.input.as_str(), b.threads.get());
+        if !wanted.contains(&key) {
+            return Err(format!(
+                "the speed block of {at} is not in the case's manifest"
+            ));
+        }
+        if !seen.insert(key) {
+            return Err(format!("the record holds the speed block of {at} twice"));
+        }
+        let size = *sizes.entry(&b.input).or_insert(b.atoms);
+        let declared = atoms.get(b.input.as_str()).copied().unwrap_or(size);
+        if b.atoms != size || b.atoms != declared {
+            return Err(format!(
+                "the speed block of {at} holds {} atoms, but its cell holds {declared}",
+                b.atoms
+            ));
+        }
+        if b.timing != speed::timing(&b.t_delta_s, &b.peak_rss_bytes, &b.peak_pss_bytes) {
+            return Err(format!(
+                "the speed block of {at} sums up other numbers than its samples give"
+            ));
+        }
+    }
+    if let Some((code, input, p)) = wanted.iter().find(|k| !seen.contains(*k)) {
+        return Err(format!(
+            "the case's manifest calls for a speed block of {code} {input} at {p} threads, which the record lacks"
+        ));
+    }
+    let records: Vec<&speed::BlockRecord> = blocks.iter().collect();
+    let live: Vec<&speed::BlockRecord> = (records.iter())
+        .filter(|b| b.refused.is_none())
+        .copied()
+        .collect();
+    let (versus, failures) = speed::compare(&live, case.milestone());
+    if !failures.is_empty() {
+        return Err(failures.join("; "));
+    }
+    let series = match case.claims().contains(&Claim::Memory) {
+        false => Value::Null,
+        true => {
+            let codes: Vec<speed::Code> = std::iter::once(speed::Code::Orbitar)
+                .chain(case.rivals().iter().map(|&r| speed::Code::Rival(r)))
+                .collect();
+            let expected: Vec<speed::Expected> = (declared.iter())
+                .flat_map(|(name, _)| codes.iter().map(move |&code| (name.as_str(), code)))
+                .map(|(input, code)| speed::Expected {
+                    code,
+                    input,
+                    atoms: atoms[input],
+                    skipped: match code {
+                        speed::Code::Rival(r) => settings.skips(r, &rival::input_path(id, input)),
+                        speed::Code::Orbitar => None,
+                    },
+                })
+                .collect();
+            speed::series_entries(&records, &expected)
+        }
+    };
+    Ok(Summaries {
+        versus: Value::Array(versus),
+        series,
+        skipped: Value::Array(skipped),
+    })
+}
 
 pub fn main(cases: &[(&'static str, Measure)]) -> ! {
     let args = Arguments::from_args();

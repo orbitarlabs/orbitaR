@@ -71,9 +71,11 @@ pub(crate) struct BlockRecord {
     pub(crate) timing: Option<Timing>,
     pub(crate) rival: Option<Value>,
     pub(crate) accuracy: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) refused: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Timing {
     pub(crate) median_t_delta_s: f64,
     pub(crate) range_t_delta_s: [f64; 2],
@@ -221,7 +223,6 @@ pub(crate) fn time(
             }
         }
     }
-    let medians: Vec<f64> = times.iter().map(|t| median(t)).collect();
     Ok((blocks
         .iter()
         .enumerate()
@@ -229,11 +230,8 @@ pub(crate) fn time(
         .zip(times)
         .zip(warmups)
         .zip(losses))
-    .map(|(((((i, b), runs), t), warmup), losses)| {
+    .map(|(((((_, b), runs), t), warmup), losses)| {
         let refused = noisy(&t, losses.len(), repeats);
-        let (low, high) = (t.iter()).fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), &x| {
-            (l.min(x), h.max(x))
-        });
         let rss: Vec<u64> = runs.iter().map(|r| r.peak_rss_bytes).collect();
         let pss: Vec<u64> = runs.iter().map(|r| r.peak_pss_bytes).collect();
         let (e_ref_ha, e_ref_shift_ha, e_ref_steps) = (references[&key(b)].as_ref())
@@ -251,13 +249,7 @@ pub(crate) fn time(
             steps: runs.iter().map(|r| r.steps.len()).collect(),
             e_ref_steps,
             wall_s: runs.iter().map(|r| r.seconds).collect(),
-            timing: (!t.is_empty()).then(|| Timing {
-                median_t_delta_s: medians[i],
-                range_t_delta_s: [low, high],
-                cv_t_delta: number(cv(&t)),
-                median_peak_rss_bytes: median(&rss.iter().map(|&x| x as f64).collect::<Vec<_>>()),
-                median_peak_pss_bytes: median(&pss.iter().map(|&x| x as f64).collect::<Vec<_>>()),
-            }),
+            timing: timing(&t, &rss, &pss),
             peak_rss_bytes: rss,
             peak_pss_bytes: pss,
             losses,
@@ -274,6 +266,7 @@ pub(crate) fn time(
                 })
             }),
             accuracy: None,
+            refused: None,
             noisy: refused,
             t_delta_s: t,
         };
@@ -284,6 +277,156 @@ pub(crate) fn time(
         }
     })
     .collect())
+}
+
+pub(crate) fn timing(t: &[f64], rss: &[u64], pss: &[u64]) -> Option<Timing> {
+    let (low, high) = (t.iter()).fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), &x| {
+        (l.min(x), h.max(x))
+    });
+    let bytes = |b: &[u64]| median(&b.iter().map(|&x| x as f64).collect::<Vec<_>>());
+    (!t.is_empty()).then(|| Timing {
+        median_t_delta_s: median(t),
+        range_t_delta_s: [low, high],
+        cv_t_delta: number(cv(t)),
+        median_peak_rss_bytes: bytes(rss),
+        median_peak_pss_bytes: bytes(pss),
+    })
+}
+
+pub(crate) fn log10(x: f64) -> f64 {
+    match x {
+        x if x.is_nan() || x < 0.0 => return f64::NAN,
+        0.0 => return f64::NEG_INFINITY,
+        f64::INFINITY => return f64::INFINITY,
+        _ => {}
+    }
+    let text = format!("{x:e}");
+    let (mantissa, exponent) = text.split_once('e').unwrap_or((&text, "0"));
+    let m: f64 = mantissa.parse().unwrap_or(1.0);
+    let e = exponent.parse::<i32>().map_or(0.0, f64::from);
+    let y = m.sqrt().sqrt();
+    let z = (y - 1.0) / (y + 1.0);
+    let (mut term, mut sum) = (z, 0.0);
+    for k in 0..30 {
+        sum += term / f64::from(2 * k + 1);
+        term *= z * z;
+    }
+    e + 8.0 * sum / std::f64::consts::LN_10
+}
+
+fn pow10(y: f64) -> f64 {
+    match y {
+        y if y.is_nan() => return y,
+        f64::INFINITY => return y,
+        f64::NEG_INFINITY => return 0.0,
+        _ => {}
+    }
+    let k = y.floor();
+    let whole: f64 = format!("1e{k}").parse().unwrap_or(f64::NAN);
+    let z = (y - k) * std::f64::consts::LN_10 / 256.0;
+    let (mut term, mut sum) = (1.0, 1.0);
+    for n in 1..12 {
+        term *= z / f64::from(n);
+        sum += term;
+    }
+    for _ in 0..8 {
+        sum *= sum;
+    }
+    whole * sum
+}
+
+pub(crate) fn geomean(values: &[f64]) -> f64 {
+    match values.is_empty() {
+        true => f64::NAN,
+        false => pow10(values.iter().map(|&v| log10(v)).sum::<f64>() / values.len() as f64),
+    }
+}
+
+pub(crate) struct Expected<'a> {
+    pub(crate) code: Code,
+    pub(crate) input: &'a str,
+    pub(crate) atoms: usize,
+    pub(crate) skipped: Option<&'a str>,
+}
+
+struct Point<'a> {
+    expected: &'a Expected<'a>,
+    status: String,
+    t_delta_s: Option<f64>,
+    pss_bytes: Option<f64>,
+}
+
+pub(crate) fn series_entries(records: &[&BlockRecord], expected: &[Expected]) -> Value {
+    let mut codes: Vec<Code> = expected.iter().map(|e| e.code).collect();
+    codes.sort();
+    codes.dedup();
+    let mut entries = Vec::new();
+    for code in codes {
+        let mut points = Vec::new();
+        for e in expected.iter().filter(|e| e.code == code) {
+            let record = (records.iter()).find(|r| r.code == code && r.input == e.input);
+            let t_delta = record
+                .and_then(|r| r.timing.as_ref())
+                .map(|t| t.median_t_delta_s);
+            let measured: Vec<f64> = (record.into_iter())
+                .flat_map(|r| r.peak_pss_bytes.iter())
+                .filter(|&&bytes| bytes > 0)
+                .map(|&bytes| bytes as f64)
+                .collect();
+            let pss = (!measured.is_empty()).then(|| median(&measured));
+            let status = match (record, e.skipped) {
+                (None, Some(why)) => format!("skipped: {why}"),
+                (None, None) => "no block".to_owned(),
+                (Some(r), _) if r.refused.is_some() => "refused".to_owned(),
+                (Some(r), _) if t_delta.is_none() => format!("lost: {} losses", r.losses.len()),
+                (Some(_), _) if pss.is_none() => "pss unmeasured: no Pss poll landed".to_owned(),
+                (Some(_), _) => "measured".to_owned(),
+            };
+            points.push(Point {
+                expected: e,
+                status,
+                t_delta_s: t_delta,
+                pss_bytes: pss,
+            });
+        }
+        points.sort_by_key(|p| (p.expected.atoms, p.expected.input));
+        let fit = |y: fn(&Point) -> Option<f64>| {
+            let xy: Vec<(f64, f64)> = (points.iter())
+                .filter_map(|p| Some((log10(p.expected.atoms as f64), log10(y(p)?))))
+                .collect();
+            log_log_slope(&xy)
+        };
+        let (t_alpha, pss_alpha) = (fit(|p| p.t_delta_s), fit(|p| p.pss_bytes));
+        let full = points.iter().all(|p| p.status == "measured");
+        entries.push(json!({
+            "code": code,
+            "coverage": if full { "full" } else { "partial" },
+            "t_delta_exponent": finite(t_alpha),
+            "pss_exponent": finite(pss_alpha),
+            "points": (points.iter()).map(|p| json!({
+                "input": p.expected.input,
+                "atoms": p.expected.atoms,
+                "status": p.status,
+                "median_t_delta_s": p.t_delta_s,
+                "median_peak_pss_bytes": p.pss_bytes,
+            })).collect::<Vec<_>>(),
+        }));
+    }
+    Value::Array(entries)
+}
+
+pub fn log_log_slope(points: &[(f64, f64)]) -> f64 {
+    let n = points.len() as f64;
+    let (mx, my) = (
+        points.iter().map(|p| p.0).sum::<f64>() / n,
+        points.iter().map(|p| p.1).sum::<f64>() / n,
+    );
+    let sxx: f64 = points.iter().map(|p| (p.0 - mx) * (p.0 - mx)).sum();
+    let sxy: f64 = points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
+    match sxx > 0.0 {
+        true => sxy / sxx,
+        false => f64::NAN,
+    }
 }
 
 pub(crate) fn memory(blocks: &[Block], timed: &[Timed]) -> Metrics {
@@ -433,7 +576,7 @@ pub(crate) fn compare(records: &[&BlockRecord], milestone: Milestone) -> (Vec<Va
             }));
         }
         let (n, long) = (pairs.len(), pss_ratios.len());
-        let (g, r) = (t_ratios.geometric_mean(), pss_ratios.geometric_mean());
+        let (g, r) = (geomean(&t_ratios), geomean(&pss_ratios));
         let [low, high] = g_interval(&t_runs, G_RESAMPLES, G_SEED);
         let name = Code::Rival(code);
         if long == 0 {
@@ -503,10 +646,10 @@ pub fn g_interval(pairs: &[[Vec<f64>; 2]], resamples: usize, seed: u64) -> [f64;
     };
     let mut g: Vec<f64> = (0..resamples)
         .map(|_| {
-            (pairs.iter())
+            let ratios: Vec<f64> = (pairs.iter())
                 .map(|[rival, ours]| draw(rival) / draw(ours))
-                .collect::<Vec<_>>()
-                .geometric_mean()
+                .collect();
+            geomean(&ratios)
         })
         .collect();
     g.sort_by(f64::total_cmp);
