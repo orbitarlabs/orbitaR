@@ -1,0 +1,3 @@
+sha256 = "ab99442dc41bebbd5dd2738351bfe7817f7c236cc7969919178a010a33497096"
+reviewer = "codex-review3-6"
+reason = "PR 6 round 1: reduce.py checks its operand count before it reads one, so a short call prints its usage; its output bytes stay the same; no bound, input, or reference value changed"

@@ -1,0 +1,3 @@
+sha256 = "6776f03dff7a982c1647675131a1a752d65f66c4e6630f17c22ebf895d1be049"
+reviewer = "PENDING"
+reason = "lock-split: the lock is one file per hashed file under benchmarks/locks, so PRs that change different files stop conflicting; S5 and S9 read it, S9 also an old one-file LOCK at the base; the old benchmarks/LOCK moved with every review kept"

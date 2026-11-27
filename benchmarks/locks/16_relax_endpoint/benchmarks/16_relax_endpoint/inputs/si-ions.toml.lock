@@ -1,0 +1,3 @@
+sha256 = "ef205213e449fe8217f6b024f5f7cecabcc5a32b8fe29f1b2d4304a51ca3b6e5"
+reviewer = "codex-review3-6"
+reason = "PR 6 round 2: case 16's tolerance reason states the cited SCF test's stops (1e-6 and 1e-8 against 1e-12) and that a term's 0.78 comes from the 1e-8 stop; no bound, input, or record changed"
