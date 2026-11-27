@@ -2,7 +2,7 @@ pub mod acwf;
 pub(crate) mod datasets;
 pub(crate) mod engine;
 pub mod eos;
-mod record;
+pub(crate) mod record;
 pub mod relax;
 pub(crate) mod rival;
 pub(crate) mod speed;
@@ -1363,7 +1363,7 @@ impl Session {
                             &compressed,
                             spin,
                         ));
-                        let (versus, judged) = speed::versus(&blocks, &timed, case.milestone());
+                        let (versus, judged) = speed::versus(&timed, case.milestone());
                         trace.versus = versus;
                         failures.extend(judged);
                     }

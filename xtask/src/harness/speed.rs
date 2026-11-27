@@ -336,24 +336,47 @@ pub const G_RESAMPLES: usize = 10_000;
 pub const G_SEED: u64 = 0x2026_1113_0095_0001;
 const R_POLLS: u32 = 20;
 
-pub(crate) fn versus(
-    blocks: &[Block],
-    timed: &[Timed],
-    milestone: Milestone,
-) -> (Vec<Value>, Vec<String>) {
+pub(crate) fn versus(timed: &[Timed], milestone: Milestone) -> (Vec<Value>, Vec<String>) {
+    let records: Vec<&BlockRecord> = timed.iter().map(|t| &t.record).collect();
+    let (entries, failures) = compare(&records, milestone);
+    for v in &entries {
+        let count = |key: &str| {
+            v["pairs"].as_array().map_or(0, |p| {
+                p.iter()
+                    .filter(|p| key.is_empty() || p[key] == true)
+                    .count()
+            })
+        };
+        println!(
+            "versus {}: R {} (judged, ≥ {R_MIN}) over {} pairs, G {} with 95% CI {} (judged, {}) over {} pairs",
+            v["code"].as_str().unwrap_or(""),
+            v["r"],
+            count("in_r"),
+            v["g"],
+            v["g_ci"],
+            match milestone {
+                Milestone::M3 => format!("lower ≥ {G_MIN}"),
+                Milestone::M4 => format!("M4: G ≥ {G_M4}, lower > {G_MIN}"),
+            },
+            count("")
+        );
+    }
+    (entries, failures)
+}
+
+pub(crate) fn compare(records: &[&BlockRecord], milestone: Milestone) -> (Vec<Value>, Vec<String>) {
     let lost = |i: usize, values: Vec<f64>| -> Vec<f64> {
-        let losses = timed[i].record.losses.len();
+        let losses = records[i].losses.len();
         (values.into_iter())
             .chain(std::iter::repeat_n(f64::INFINITY, losses))
             .collect()
     };
-    let runs = |i: usize| lost(i, timed[i].record.t_delta_s.clone());
+    let runs = |i: usize| lost(i, records[i].t_delta_s.clone());
     let times = |i: usize| median(&runs(i));
     let pss = |i: usize| {
         lost(
             i,
-            timed[i]
-                .record
+            records[i]
                 .peak_pss_bytes
                 .iter()
                 .map(|&b| b as f64)
@@ -361,8 +384,11 @@ pub(crate) fn versus(
         )
     };
     let pss = |i: usize| median(&pss(i));
-    let mut codes: Vec<Rival> = (blocks.iter())
-        .filter_map(|b| b.rival.as_ref().map(|r| r.code))
+    let mut codes: Vec<Rival> = (records.iter())
+        .filter_map(|b| match b.code {
+            Code::Rival(code) => Some(code),
+            Code::Orbitar => None,
+        })
         .collect();
     codes.sort_by_key(|&code| Code::Rival(code));
     codes.dedup();
@@ -370,26 +396,22 @@ pub(crate) fn versus(
     for code in codes {
         let (mut pairs, mut t_ratios, mut pss_ratios) = (Vec::new(), Vec::new(), Vec::new());
         let mut t_runs = Vec::new();
-        for (r, b) in blocks
-            .iter()
-            .enumerate()
-            .filter(|(_, b)| b.rival.as_ref().is_some_and(|j| j.code == code))
-        {
-            let Some(o) = (0..blocks.len()).find(|&o| {
-                blocks[o].rival.is_none()
-                    && blocks[o].input == b.input
-                    && blocks[o].threads == b.threads
+        for (r, b) in (records.iter().enumerate()).filter(|(_, b)| b.code == Code::Rival(code)) {
+            let Some(o) = (0..records.len()).find(|&o| {
+                records[o].code == Code::Orbitar
+                    && records[o].input == b.input
+                    && records[o].threads == b.threads
             }) else {
                 failures.push(format!(
-                    "{}: orbitaR has no block of the same input and threads",
-                    b.at()
+                    "{}: {} at {} threads: orbitaR has no block of the same input and threads",
+                    b.code, b.input, b.threads
                 ));
                 continue;
             };
             let (t_delta, peak_pss) = ([times(r), times(o)], [pss(r), pss(o)]);
             let (t, m) = (t_delta[0] / t_delta[1], peak_pss[0] / peak_pss[1]);
-            let shortest = (timed[r].record.wall_s.iter())
-                .chain(&timed[o].record.wall_s)
+            let shortest = (records[r].wall_s.iter())
+                .chain(&records[o].wall_s)
                 .copied()
                 .fold(f64::INFINITY, f64::min);
             let in_r = shortest >= (engine::POLL * R_POLLS).as_secs_f64();
@@ -400,14 +422,14 @@ pub(crate) fn versus(
             }
             pairs.push(json!({
                 "input": b.input,
-                "threads": b.threads.map_or(1, NonZeroUsize::get),
+                "threads": b.threads.get(),
                 "medians_t_delta_s": t_delta.map(finite),
                 "medians_peak_pss_bytes": peak_pss.map(finite),
                 "t_ratio": finite(t),
                 "pss_ratio": finite(m),
                 "in_r": in_r,
                 "shortest_run_s": finite(shortest),
-                "losses": timed[r].record.losses.len(),
+                "losses": records[r].losses.len(),
             }));
         }
         let (n, long) = (pairs.len(), pss_ratios.len());
@@ -424,10 +446,6 @@ pub(crate) fn versus(
                 "R against {name} = {r} over {long} pairs is below {R_MIN}: orbitaR holds more memory"
             ));
         }
-        let bar = match milestone {
-            Milestone::M3 => format!("lower ≥ {G_MIN}"),
-            Milestone::M4 => format!("M4: G ≥ {G_M4}, lower > {G_MIN}"),
-        };
         if !milestone.g_holds(g, low) {
             failures.push(match milestone {
                 Milestone::M3 => format!(
@@ -440,10 +458,6 @@ pub(crate) fn versus(
                 ),
             });
         }
-        println!(
-            "versus {name}: R {r} (judged, ≥ {R_MIN}) over {long} pairs, G {g} with 95% CI [{low}, {high}] (judged, \
-             {bar}) over {n} pairs"
-        );
         entries.push(json!({
             "code": name,
             "r": finite(r),

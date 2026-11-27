@@ -118,7 +118,7 @@ pub fn verify(root: &Path, tier: Tier, dir: &Path, since: SystemTime) -> Finding
     findings
 }
 
-fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Findings {
+pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Findings {
     let mut findings = Vec::new();
     let times = |key: &str| -> Vec<f64> {
         record[key]
