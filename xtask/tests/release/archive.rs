@@ -13,39 +13,63 @@ struct Spec<'a> {
     members: &'a [(&'a str, &'a str)],
     date: u16,
     comment: &'a str,
-    streamed: bool,
+    variant: &'a str,
 }
 
 const PLAIN: Spec = Spec {
     members: &SAME,
     date: 2026,
     comment: "",
-    streamed: false,
+    variant: "plain",
 };
+
+const WRITE: &str = "import io, json, struct, sys, zipfile
+path, members, year, comment, variant = sys.argv[1:6]
+class Pipe(io.RawIOBase):
+    def __init__(self, f): self.f = f
+    def writable(self): return True
+    def write(self, b): return self.f.write(b)
+with open(path, 'wb') as f:
+    out = f if variant in ('plain', 'zip64') else Pipe(f)
+    with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.comment = comment.encode()
+        for p, t in json.loads(members):
+            info = zipfile.ZipInfo(p, (int(year), 1, 1, 0, 0, 0))
+            with z.open(info, 'w', force_zip64=variant == 'zip64') as m:
+                m.write(t.encode())
+if variant == 'unsigned':
+    data = open(path, 'rb').read()
+    z = zipfile.ZipFile(path)
+    out, moved = b'', {}
+    for i in z.infolist():
+        start = i.header_offset
+        n, m = struct.unpack('<HH', data[start + 26:start + 30])
+        end = start + 30 + n + m + i.compress_size
+        assert data[end:end + 4] == b'PK\\x07\\x08'
+        moved[start] = len(out)
+        out += data[start:end] + data[end + 4:end + 16]
+    directory = len(out)
+    at = z.start_dir
+    for i in z.infolist():
+        n, m, k = struct.unpack('<HHH', data[at + 28:at + 34])
+        entry = bytearray(data[at:at + 46 + n + m + k])
+        entry[42:46] = struct.pack('<I', moved[i.header_offset])
+        out += entry
+        at += len(entry)
+    end = bytearray(data[at:])
+    end[12:20] = struct.pack('<II', len(out) - directory, directory)
+    open(path, 'wb').write(out + end)
+";
 
 fn zipped(root: &Path, name: &str, spec: &Spec) -> PathBuf {
     let path = root.join(name);
     let status = Command::new("python3")
-        .args([
-            "-I",
-            "-c",
-            "import io, json, sys, zipfile\n\
-             class Pipe(io.RawIOBase):\n    \
-             def __init__(self, f): self.f = f\n    \
-             def writable(self): return True\n    \
-             def write(self, b): return self.f.write(b)\n\
-             with open(sys.argv[1], 'wb') as f:\n    \
-             out = Pipe(f) if sys.argv[5] == '1' else f\n    \
-             with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:\n        \
-             z.comment = sys.argv[4].encode()\n        \
-             for p, t in json.loads(sys.argv[2]):\n            \
-             z.writestr(zipfile.ZipInfo(p, (int(sys.argv[3]), 1, 1, 0, 0, 0)), t)",
-        ])
+        .args(["-I", "-c", WRITE])
         .arg(&path)
         .arg(serde_json::to_string(spec.members).unwrap())
         .arg(spec.date.to_string())
         .arg(spec.comment)
-        .arg(if spec.streamed { "1" } else { "0" })
+        .arg(spec.variant)
         .status()
         .unwrap();
     assert!(status.success());
@@ -60,20 +84,20 @@ fn written(root: &Path, name: &str, bytes: &[u8]) -> PathBuf {
 
 fn compared(root: &Path, a: &Path, b: &Path) -> Vec<String> {
     let found = xtask::same(root, a, b);
-    let home = root.display().to_string();
-    assert!(!found.iter().any(|f| f.contains(&home)), "{found:?}");
+    let home = [root.display().to_string(), std::env::var("HOME").unwrap()];
+    for f in &found {
+        assert!(!home.iter().any(|h| f.contains(h.as_str())), "{found:?}");
+        assert!(!f.contains('\n') && !f.contains("Traceback"), "{found:?}");
+    }
     found
 }
 
 #[test]
 fn two_wheels_of_one_byte_stream_are_the_same() {
     let root = tree("same-equal", &[]);
-    for (name, streamed) in [("plain", false), ("streamed", true)] {
-        let spec = Spec { streamed, ..PLAIN };
-        let a = zipped(&root, &format!("{name}-a.whl"), &spec);
-        let b = zipped(&root, &format!("{name}-b.whl"), &spec);
-        assert_eq!(compared(&root, &a, &b), Vec::<String>::new(), "{name}");
-    }
+    let a = zipped(&root, "a.whl", &PLAIN);
+    let b = zipped(&root, "b.whl", &PLAIN);
+    assert_eq!(compared(&root, &a, &b), Vec::<String>::new());
 }
 
 #[test]
@@ -87,10 +111,6 @@ fn one_byte_stream_that_is_no_wheel_is_no_same_wheel() {
     far_directory[end + 16] ^= 1;
     let mut more_entries = full.clone();
     more_entries[end + 10] += 1;
-    let mut descriptor_flag = full.clone();
-    descriptor_flag[6] |= 8;
-    let central = end - 2 * (46 + 12);
-    descriptor_flag[central + 8] |= 8;
     let prefixed = [b"junk!".as_slice(), &full].concat();
     for (name, bytes, want) in [
         (
@@ -103,29 +123,31 @@ fn one_byte_stream_that_is_no_wheel_is_no_same_wheel() {
             full[..full.len() - 10].to_vec(),
             "no end record closes the file",
         ),
-        ("bad-data", bad_data, "python3 zipfile"),
+        (
+            "bad-data",
+            bad_data,
+            "python3 zipfile cannot read it: BadZipFile: Bad CRC-32 for file 'orbitar/a.py'",
+        ),
         (
             "far-directory",
             far_directory,
             "the central directory does not end at the end record",
         ),
         ("more-entries", more_entries, "byte "),
-        (
-            "descriptor-flag",
-            descriptor_flag,
-            "holds no data descriptor",
-        ),
         ("prefixed", prefixed, "the end record"),
     ] {
         let a = written(&root, &format!("{name}-a.whl"), &bytes);
         let b = written(&root, &format!("{name}-b.whl"), &bytes);
         let found = compared(&root, &a, &b);
-        assert_eq!(found.len(), 1, "{name}: {found:?}");
+        assert_eq!(found.len(), 2, "{name}: {found:?}");
         assert!(
-            has(&found, "are one byte stream, but no wheel: "),
+            found[0].starts_with(&format!("wheel {name}-a.whl: ")) && found[0].contains(want),
             "{name}: {found:?}"
         );
-        assert!(has(&found, want), "{name}: {found:?}");
+        assert!(
+            has(&found, "are one byte stream, but no release wheel"),
+            "{name}: {found:?}"
+        );
     }
 }
 
@@ -142,7 +164,7 @@ fn a_wheel_and_its_superset_differ_past_the_end() {
     );
     assert!(has(&found, &want), "{found:?}");
     assert!(
-        has(&found, "wheel --same: the second wheel is no wheel: "),
+        has(&found, "wheel b.whl: no end record closes the file"),
         "{found:?}"
     );
     let found = compared(&root, &b, &a);
@@ -152,7 +174,7 @@ fn a_wheel_and_its_superset_differ_past_the_end() {
     );
     assert!(has(&found, &want), "{found:?}");
     assert!(
-        has(&found, "wheel --same: the first wheel is no wheel: "),
+        has(&found, "wheel b.whl: no end record closes the file"),
         "{found:?}"
     );
 }
@@ -285,37 +307,41 @@ fn two_wheels_that_differ_name_each_differing_member_and_header() {
 }
 
 #[test]
-fn a_data_descriptor_is_compared_as_its_own_part() {
+fn a_wheel_whose_members_use_a_data_descriptor_or_zip64_is_refused_at_the_command() {
     let root = tree("same-descriptor", &[]);
-    let streamed = Spec {
-        streamed: true,
-        ..PLAIN
-    };
-    let a = zipped(&root, "a.whl", &streamed);
-    let b = zipped(
-        &root,
-        "b.whl",
-        &Spec {
-            members: &OTHER_B,
-            ..streamed
-        },
-    );
-    let found = compared(&root, &a, &b);
-    assert!(
-        has(&found, "the stored data, the data descriptor (crc-32"),
-        "{found:?}"
-    );
-    let plain = zipped(&root, "plain.whl", &PLAIN);
-    let found = compared(&root, &plain, &a);
-    assert!(
-        has(&found, "the data descriptor in the second wheel alone"),
-        "{found:?}"
-    );
-    let found = compared(&root, &a, &plain);
-    assert!(
-        has(&found, "the data descriptor in the first wheel alone"),
-        "{found:?}"
-    );
+    zipped(&root, "plain.whl", &PLAIN);
+    for (variant, want) in [
+        (
+            "signed",
+            "uses a data descriptor; the release wheels never do",
+        ),
+        (
+            "unsigned",
+            "uses a data descriptor; the release wheels never do",
+        ),
+        (
+            "zip64",
+            "uses a ZIP64 extra field; the release wheels never do",
+        ),
+    ] {
+        let name = format!("{variant}.whl");
+        let wheel = zipped(&root, &name, &Spec { variant, ..PLAIN });
+        let want = format!("wheel {name}: member orbitar/a.py {want}");
+        let found = lever(&["wheel", "--same", &name, &name], &root);
+        assert_eq!(
+            found,
+            [
+                want.clone(),
+                format!(
+                    "wheel --same: {name} and {name} are one byte stream, but no release wheel"
+                ),
+            ],
+            "{variant}"
+        );
+        let found = lever(&["wheel", "--same", "plain.whl", &name], &root);
+        assert!(has(&found, &want), "{variant}: {found:?}");
+        assert_eq!(xtask::hashes(&wheel), Err(want), "{variant}");
+    }
 }
 
 #[test]
@@ -383,10 +409,17 @@ fn a_listed_wheel_names_its_file_and_the_sha256_of_each_member() {
     let home = root.display().to_string();
     let gone = xtask::hashes(&root.join("gone.whl")).unwrap_err();
     assert!(
-        gone.starts_with("gone.whl: ") && !gone.contains(&home),
+        gone.starts_with("wheel gone.whl: ") && !gone.contains(&home),
         "{gone}"
     );
     let text = written(&root, "text.whl", b"not a wheel");
     let text = xtask::hashes(&text).unwrap_err();
-    assert_eq!(text, "text.whl: no end record closes the file");
+    assert_eq!(text, "wheel text.whl: no end record closes the file");
+    let mut bytes = fs::read(&wheel).unwrap();
+    bytes[42] ^= 1;
+    let bad = written(&root, "bad.whl", &bytes);
+    assert_eq!(
+        xtask::hashes(&bad),
+        Err("wheel bad.whl: python3 zipfile cannot read it: BadZipFile: Bad CRC-32 for file 'orbitar/a.py'".to_owned())
+    );
 }
