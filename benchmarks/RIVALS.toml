@@ -11,6 +11,7 @@ calibration_cells = [
   "benchmarks/11_speed_scaling/inputs/gaas.toml",
   "benchmarks/11_speed_scaling/inputs/nio.toml",
   "benchmarks/11_speed_scaling/inputs/al2o3.toml",
+  "benchmarks/12_memory_scaling/input.toml",
   "benchmarks/14_set_w/tuning/fe2o3_10.toml",
   "benchmarks/14_set_w/tuning/sto5.toml",
 ]
