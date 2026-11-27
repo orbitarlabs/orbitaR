@@ -1,4 +1,4 @@
-# harness reviewer=captain-final-call after codex-integration-review round 3, claude-review-no-comments, codex-last-fixes-review, codex-identity-review reason=release 0.0.1: the harness levers of this release (README levers, pr-text, native manifest private, no comments first with src/SOURCE.toml and docs --base, the JTH data wheel, the results lever); commits only as orbitar-admin <noreply> (the publish lever refuses the Claude identity in any commit field, merges included, and in files); the install proof installs both local wheels with --no-deps. Limits accepted by the captain for the first public PR: docs --base against d7ca05c flags existing reference-script and dataset comments; a README reference definition split over two block-quoted lines passes the link guard; the install proof does not resolve ase's own dependencies; the publish lever's log framing and its range on a direct main push (main takes PRs only); external contributors' commits fail publish until the rule widens
+# harness reviewer=owner (11-26: the light run's bound is relative to the pair), captain reason=the light run's peak Pss bound becomes a tenth of the measured pair (about 16 MB) instead of 5 MB: GitHub's hosted Ubuntu runner measures 5.56 MB for sh and sleep; the test still proves the pair counts shared pages once and the light run holds no harness memory
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -48,7 +48,7 @@ b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk
 2304e09104522f6d6cb88eecfdf1df5356859a4f4c397319faf3a0b937251a24  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
 34bb356c822a8e35907af2fdbd5033f4fb84d7525f941599a30694a0995cf02e  xtask/tests/harness/datasets.rs
-0739faee7795181f7c37e750f90392369e783475d39ee5aa685108506f5bd3f7  xtask/tests/harness/engine.rs
+3a76633569c2153ae6114e2157563e635df9c12c3204da6d4cbcab29a0118629  xtask/tests/harness/engine.rs
 ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/harness/eos.rs
 6ebd879ab8518eb95409684b0c0167ed3e5aa1861b1a02f68b62cdd3aa4fa4fa  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
