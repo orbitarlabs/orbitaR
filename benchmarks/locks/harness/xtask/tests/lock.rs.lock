@@ -1,3 +1,3 @@
-sha256 = "e2b1c1cbc526319466e675a20cbfb0c2043beffcbea70a0e409592cc202354cf"
-reviewer = "PENDING"
-reason = "lock-split round 3: the move takes benchmarks/locks.move for its whole run, stages in benchmarks/locks.<pid>.partial, renames once, re-reads the lock and only then deletes benchmarks/LOCK; a hashed path or an old LOCK entry with a control character is refused by name"
+sha256 = "ca9aca71fa7d5cd468a014ecfb228eb36440e04d30a5397d74285b7647060a9d"
+reviewer = "captain-final-call after codex-review3-21"
+reason = "lock-split round 4: the move publishes only into an empty or absent benchmarks/locks and deletes nothing in it; a rerun after a finished move checks every entry and deletes the old LOCK; the move marker is linked whole and released only by its owner"

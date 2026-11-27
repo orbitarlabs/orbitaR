@@ -1,3 +1,3 @@
 sha256 = "d5d37a4c7bb57fd81fbe715462c58cd870c927e51f73521e757c629f4738d256"
-reviewer = "PENDING"
+reviewer = "captain-final-call after codex-review3-21"
 reason = "lock-split: the lock is one file per hashed file under benchmarks/locks, so PRs that change different files stop conflicting; S5 and S9 read it, S9 also an old one-file LOCK at the base; the old benchmarks/LOCK moved with every review kept"
