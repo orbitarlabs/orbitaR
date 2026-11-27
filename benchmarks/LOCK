@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=merge of main cf0ae67 (#19, the Mac wheel equals CI byte for byte) into #23 (metadata: project links, citation URLs, a Colab quickstart; captain after codex-review3-23)
+# harness reviewer=captain reason=merge of main cf0ae67 (#19, the Mac wheel equals CI byte for byte) into #23 (metadata: project links, citation URLs, a Colab quickstart; captain after codex-review3-23); only LOCK differs from the automatic merge
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
