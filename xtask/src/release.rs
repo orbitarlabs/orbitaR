@@ -170,12 +170,17 @@ pub fn machine(bytes: &[u8]) -> Option<Machine> {
     })
 }
 
-const PERSONAL: [&str; 5] = [
-    "Author-email",
-    "Maintainer",
-    "Maintainer-email",
-    "Home-page",
-    "Download-URL",
+const HEADERS: [&str; 10] = [
+    "Metadata-Version",
+    "Name",
+    "Version",
+    "Summary",
+    "Author",
+    "License-Expression",
+    "License-File",
+    "Requires-Python",
+    "Requires-Dist",
+    "Project-URL",
 ];
 pub(crate) const HOMEPAGE: &str = "https://orbitarlabs.org";
 pub(crate) const SOURCE: &str = "https://github.com/orbitarlabs/orbitaR";
@@ -224,26 +229,26 @@ struct Listing {
 
 type Header = (String, String);
 
-fn headers(metadata: &str) -> Vec<Header> {
-    let mut headers: Vec<Header> = Vec::new();
-    for line in metadata.lines().take_while(|l| !l.is_empty()) {
-        match (line.starts_with([' ', '\t']), headers.last_mut()) {
-            (true, Some((_, value))) => {
-                value.push('\n');
-                value.push_str(line.trim());
-            }
-            _ => {
-                let (name, value) = line.split_once(':').unwrap_or((line, ""));
-                headers.push((name.trim().to_owned(), value.trim().to_owned()));
-            }
+fn headers(what: &str, metadata: &str) -> (Vec<Header>, Findings) {
+    let mut headers = Vec::new();
+    let mut findings = Vec::new();
+    for (n, line) in (1..).zip(metadata.lines().take_while(|l| !l.is_empty())) {
+        let header = (line.split_once(": ")).filter(|(name, value)| {
+            HEADERS.contains(name) && !value.is_empty() && value.trim() == *value
+        });
+        match header {
+            Some((name, value)) => headers.push((name.to_owned(), value.to_owned())),
+            None => findings.push(format!(
+                "{what}: METADATA line {n} `{line}` is no `Name: value` header of {HEADERS:?}; no person, address, or URL"
+            )),
         }
     }
-    headers
+    (headers, findings)
 }
 
 fn values<'a>(headers: &'a [Header], name: &str) -> Vec<&'a str> {
     (headers.iter())
-        .filter(|(held, _)| held.eq_ignore_ascii_case(name))
+        .filter(|(held, _)| held == name)
         .map(|(_, value)| value.as_str())
         .collect()
 }
@@ -258,18 +263,6 @@ fn once(what: &str, headers: &[Header], name: &str, want: &str) -> Findings {
     )]
 }
 
-fn identity(what: &str, headers: &[Header]) -> Findings {
-    let mut findings = once(what, headers, "Author", DEVELOPERS);
-    for (name, value) in headers {
-        if PERSONAL.iter().any(|p| name.eq_ignore_ascii_case(p)) {
-            findings.push(format!(
-                "{what}: METADATA holds `{name}: {value}`; no person, address, or URL"
-            ));
-        }
-    }
-    findings
-}
-
 fn project_urls(what: &str, headers: &[Header], links: &[(&str, &str)]) -> Findings {
     let held = values(headers, PROJECT_URL);
     let wanted: Vec<String> = (links.iter())
@@ -277,7 +270,7 @@ fn project_urls(what: &str, headers: &[Header], links: &[(&str, &str)]) -> Findi
         .collect();
     let mut findings = Vec::new();
     for (name, entry) in headers {
-        if name.eq_ignore_ascii_case(PROJECT_URL) && !wanted.contains(entry) {
+        if name == PROJECT_URL && !wanted.contains(entry) {
             findings.push(format!(
                 "{what}: METADATA holds `{name}: {entry}`; no person, address, or URL but the project links (release.rs LINKS)"
             ));
@@ -552,10 +545,11 @@ fn contents(
             ));
         }
     }
-    let fields = headers(&listing.metadata);
+    let (fields, malformed) = headers("wheel", &listing.metadata);
+    findings.extend(malformed);
     findings.extend(once("wheel", &fields, "Version", &version));
     findings.extend(project_urls("wheel", &fields, &LINKS));
-    findings.extend(identity("wheel", &fields));
+    findings.extend(once("wheel", &fields, "Author", DEVELOPERS));
     findings.extend(once("wheel", &fields, "License-Expression", &license(root)));
     let text = fs::read_to_string(root.join(LICENSE)).unwrap_or_default();
     if listing.license.as_deref() != Some(text.as_str()) {
@@ -578,11 +572,6 @@ fn contents(
         }
     }
     let mut requires = BTreeSet::new();
-    for extra in values(&fields, "Provides-Extra") {
-        findings.push(format!(
-            "wheel: METADATA provides the extra `{extra}`; the wheel has none"
-        ));
-    }
     for dist in values(&fields, "Requires-Dist") {
         let dist = dist.replace([' ', '"'], "").replace('\'', "");
         if dist.contains(';') {
@@ -852,8 +841,9 @@ fn jth_contents(root: &Path, file: &str, listing: &Listing) -> Findings {
             ));
         }
     }
-    let fields = headers(&listing.metadata);
     let what = format!("wheel {file}");
+    let (fields, malformed) = headers(&what, &listing.metadata);
+    findings.extend(malformed);
     for (name, want) in [
         ("Name", "orbitar-jth"),
         ("Version", version.as_str()),
@@ -862,7 +852,7 @@ fn jth_contents(root: &Path, file: &str, listing: &Listing) -> Findings {
         findings.extend(once(&what, &fields, name, want));
     }
     findings.extend(project_urls(&what, &fields, &JTH_LINKS));
-    findings.extend(identity(&what, &fields));
+    findings.extend(once(&what, &fields, "Author", DEVELOPERS));
     for dist in values(&fields, "Requires-Dist") {
         findings.push(format!(
             "{what}: METADATA holds `Requires-Dist: {dist}`; the data wheel has no dependency"

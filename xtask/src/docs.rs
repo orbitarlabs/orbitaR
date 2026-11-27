@@ -4,8 +4,11 @@ use crate::{
     walk,
 };
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
-use pulldown_cmark::{BrokenLink, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{
+    BrokenLink, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, Options, Parser, Tag, TagEnd,
+};
 use serde::Deserialize;
+use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Component, Path},
@@ -21,12 +24,10 @@ const PROSE: [(&str, usize); 5] = [
 ];
 const LOCAL: &str = "CLAUDE.local.md";
 const NOTEBOOK: &str = "notebooks/quickstart.ipynb";
-const NOTEBOOK_CELLS: [&str; 3] = [
-    "%pip install orbitar",
-    "README.md's `## ASE` block",
-    "the printout",
-];
+const NOTEBOOK_INSTALL: &str = "%pip install orbitar";
+const NOTEBOOK_PRINT: &str = "print(\"energy (eV):\", energy)\nprint(\"forces (eV/Å):\", forces)\nprint(\"stress (eV/Å³):\", stress)";
 const NOTEBOOK_BLOCK: &str = "ASE";
+const NOTEBOOK_WRITE: &str = "cargo xtask notebook --write";
 const MARKER: (&str, &str) = ("<!-- local ", " -->");
 
 #[derive(Deserialize)]
@@ -424,142 +425,106 @@ fn html(root: &Path, line: &str) -> bool {
 }
 
 fn readme_block(readme: &str, heading: &str) -> Option<String> {
-    let title = format!("## {heading}");
-    let mut lines = (readme.lines())
-        .skip_while(|l| l.trim_end() != title)
-        .skip(1)
-        .take_while(|l| !l.starts_with("## "));
-    lines.find(|l| l.trim_end() == "```python")?;
-    let closing = |l: &str| {
-        let fence = l.trim_end();
-        fence.len() >= 3 && fence.bytes().all(|b| b == b'`')
-    };
-    let mut body = Vec::new();
-    for line in lines {
-        if closing(line) {
-            return Some(body.join("\n"));
+    let mut title: Option<String> = None;
+    let mut under = false;
+    let mut code: Option<String> = None;
+    for event in Parser::new_ext(readme, Options::empty()) {
+        match event {
+            Event::Start(Tag::Heading { level, .. }) if level <= HeadingLevel::H2 => {
+                title = Some(String::new());
+                under = false;
+            }
+            Event::End(TagEnd::Heading(level)) if level <= HeadingLevel::H2 => {
+                under = level == HeadingLevel::H2 && title.take().as_deref() == Some(heading);
+            }
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info)))
+                if under && code.is_none() && &*info == "python" =>
+            {
+                code = Some(String::new());
+            }
+            Event::End(TagEnd::CodeBlock) if code.is_some() => return code,
+            Event::Text(text) | Event::Code(text) => {
+                if let Some(held) = title.as_mut().or(code.as_mut()) {
+                    held.push_str(&text);
+                }
+            }
+            _ => {}
         }
-        body.push(line);
     }
     None
 }
 
-struct Cell {
-    code: bool,
-    stored: bool,
-    source: String,
-}
-
-fn cells(book: &serde_json::Value) -> Result<Vec<Cell>, String> {
-    use serde_json::Value;
-    let book = book.as_object().ok_or("its top level is no object")?;
-    if book.get("nbformat") != Some(&Value::from(4)) {
-        return Err("nbformat is not 4".into());
-    }
-    let minor = (book.get("nbformat_minor").and_then(Value::as_u64))
-        .ok_or("nbformat_minor is no integer")?;
-    if !book.get("metadata").is_some_and(Value::is_object) {
-        return Err("metadata is no object".into());
-    }
-    let cells = (book.get("cells").and_then(Value::as_array)).ok_or("cells is no array")?;
-    let mut found = Vec::new();
-    for (n, cell) in (1..).zip(cells) {
-        let cell = cell.as_object().ok_or(format!("cell {n} is no object"))?;
-        let kind = (cell.get("cell_type").and_then(Value::as_str))
-            .filter(|k| ["code", "markdown", "raw"].contains(k))
-            .ok_or(format!("cell {n} has no cell_type code, markdown, or raw"))?;
-        if !cell.get("metadata").is_some_and(Value::is_object) {
-            return Err(format!("cell {n} metadata is no object"));
-        }
-        if minor >= 5 && !cell.get("id").is_some_and(Value::is_string) {
-            return Err(format!("cell {n} has no string id"));
-        }
-        let source = match cell.get("source") {
-            Some(Value::String(text)) => text.clone(),
-            Some(Value::Array(lines)) => (lines.iter())
-                .map(|line| {
-                    line.as_str()
-                        .ok_or(format!("cell {n} source holds a non-string element"))
-                })
-                .collect::<Result<String, String>>()?,
-            _ => return Err(format!("cell {n} source is no string or list of strings")),
-        };
-        let code = kind == "code";
-        let outputs = cell.get("outputs").and_then(Value::as_array);
-        let count = cell.get("execution_count");
-        if code && (outputs.is_none() || !count.is_some_and(|c| c.is_null() || c.is_u64())) {
-            return Err(format!(
-                "code cell {n} lacks an outputs list or an execution_count"
-            ));
-        }
-        found.push(Cell {
-            code,
-            stored: outputs.is_some_and(|o| !o.is_empty()) || count.is_some_and(|c| !c.is_null()),
-            source,
-        });
-    }
-    Ok(found)
+fn quickstart(readme: &str) -> Result<Vec<u8>, String> {
+    let block = readme_block(readme, NOTEBOOK_BLOCK).ok_or(format!(
+        "README.md has no python block under `## {NOTEBOOK_BLOCK}`"
+    ))?;
+    let cell = |source: &str| {
+        serde_json::json!({
+            "cell_type": "code",
+            "execution_count": null,
+            "metadata": {},
+            "outputs": [],
+            "source": source.split_inclusive('\n').collect::<Vec<_>>(),
+        })
+    };
+    let book = serde_json::json!({
+        "cells": [
+            cell(NOTEBOOK_INSTALL),
+            cell(block.strip_suffix('\n').unwrap_or(&block)),
+            cell(NOTEBOOK_PRINT),
+        ],
+        "metadata": {
+            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+            "language_info": {"name": "python"},
+        },
+        "nbformat": 4,
+        "nbformat_minor": 4,
+    });
+    let mut bytes = Vec::new();
+    let mut out = serde_json::Serializer::with_formatter(
+        &mut bytes,
+        serde_json::ser::PrettyFormatter::with_indent(b" "),
+    );
+    book.serialize(&mut out).map_err(|e| e.to_string())?;
+    bytes.push(b'\n');
+    Ok(bytes)
 }
 
 fn notebook(root: &Path, readme: &str) -> Findings {
     let path = root.join(NOTEBOOK);
-    if std::fs::symlink_metadata(&path).is_err() {
-        return Vec::new();
+    let kind = std::fs::symlink_metadata(&path).map(|m| m.file_type());
+    if kind.as_ref().is_ok_and(|k| !k.is_file()) {
+        return vec![format!("docs: {NOTEBOOK} is no regular file")];
     }
-    let text = match std::fs::read_to_string(&path) {
-        Ok(text) => text,
-        Err(e) => return vec![format!("docs: {NOTEBOOK} cannot be read: {e}")],
-    };
-    if text.trim().is_empty() {
-        return vec![format!("docs: {NOTEBOOK} is empty")];
+    match (quickstart(readme), kind.and_then(|_| std::fs::read(&path))) {
+        (Err(_), Err(_)) => Vec::new(),
+        (Err(e), Ok(_)) => vec![format!("docs: {NOTEBOOK} has no source: {e}")],
+        (Ok(_), Err(e)) => vec![format!(
+            "docs: {NOTEBOOK} cannot be read ({e}); run `{NOTEBOOK_WRITE}`"
+        )],
+        (Ok(want), Ok(held)) if held == want => Vec::new(),
+        (Ok(_), Ok(_)) => vec![format!(
+            "docs: {NOTEBOOK} is not what `{NOTEBOOK_WRITE}` writes from README.md's `## {NOTEBOOK_BLOCK}` block, byte for byte"
+        )],
     }
-    let book: serde_json::Value = match serde_json::from_str(&text) {
-        Ok(book) => book,
-        Err(e) => return vec![format!("docs: {NOTEBOOK} does not parse: {e}")],
-    };
-    let cells = match cells(&book) {
-        Ok(cells) => cells,
-        Err(e) => {
-            return vec![format!(
-                "docs: {NOTEBOOK} is no valid nbformat 4 notebook: {e}"
-            )];
-        }
-    };
-    let mut findings = Vec::new();
-    for (n, cell) in (1..).zip(&cells) {
-        if !cell.code {
-            findings.push(format!(
-                "docs: {NOTEBOOK} cell {n} is no code cell; the notebook holds code alone"
-            ));
-        }
-        if cell.stored {
-            findings.push(format!(
-                "docs: {NOTEBOOK} cell {n} stores outputs or an execution count; clear them"
-            ));
-        }
+}
+
+pub(crate) fn notebook_lever(root: &Path, write: bool) -> Findings {
+    let readme = walk::read(root, "README.md");
+    if !write {
+        return notebook(root, &readme);
     }
-    if cells.len() != NOTEBOOK_CELLS.len() {
-        findings.push(format!(
-            "docs: {NOTEBOOK} holds {} cells, not {}: {NOTEBOOK_CELLS:?}",
-            cells.len(),
-            NOTEBOOK_CELLS.len()
-        ));
-    }
-    let source = |k: usize| cells.get(k).map(|c| c.source.as_str());
-    if source(0) != Some(NOTEBOOK_CELLS[0]) {
-        findings.push(format!(
-            "docs: {NOTEBOOK} cell 1 is not `{}`",
-            NOTEBOOK_CELLS[0]
-        ));
-    }
-    let block = readme_block(readme, NOTEBOOK_BLOCK);
-    if block.is_none() || source(1) != block.as_deref() {
-        findings.push(format!(
-            "docs: {NOTEBOOK} cell 2 is not {}, byte for byte",
-            NOTEBOOK_CELLS[1]
-        ));
-    }
-    findings
+    let path = root.join(NOTEBOOK);
+    let written = quickstart(&readme).and_then(|bytes| {
+        let dir = path.parent().ok_or("no notebook directory")?;
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        std::fs::write(&path, bytes).map_err(|e| e.to_string())
+    });
+    written
+        .err()
+        .map(|e| format!("notebook: {NOTEBOOK}: {e}"))
+        .into_iter()
+        .collect()
 }
 
 fn readme(root: &Path) -> Findings {

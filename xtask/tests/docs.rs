@@ -1620,166 +1620,134 @@ fn docs_base_finds_a_comment_after_a_yaml_single_quoted_value() {
     assert_eq!(comment_findings(&findings).len(), 1, "{findings:?}");
 }
 
-const ASE: &str = "from ase.build import bulk\n# a line\natoms = bulk(\"Si\")";
 const NOTEBOOK: &str = "notebooks/quickstart.ipynb";
+const ASE: [&str; 6] = [
+    "from ase.build import bulk",
+    "## Get energy: a comment, no heading",
+    "atoms = bulk(\"Si\")  # a ``` inside",
+    "",
+    "energy = 1",
+    "forces = stress = 2",
+];
 
-fn cell(source: &str) -> serde_json::Value {
-    serde_json::json!({
-        "cell_type": "code", "execution_count": null, "id": "c", "metadata": {}, "outputs": [],
-        "source": source.split_inclusive('\n').collect::<Vec<_>>(),
-    })
+fn ase_tree(name: &str, block: &[&str], extra: &[(&str, &str)]) -> Tree {
+    let mut lines = vec!["## ASE", "", "```python"];
+    lines.extend_from_slice(block);
+    lines.extend([" ```", "", "## After", "", "```python", "after = 1", "```"]);
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let mut files = vec![
+        ("README.md", readme.as_str()),
+        (
+            "tests/ase.rs",
+            "readme_block(\"ASE\") readme_block(\"After\")\n",
+        ),
+    ];
+    files.extend_from_slice(extra);
+    let root = docs_tree(name, "# A\n", &format!("# R\n{GATES}"), STACK, &files);
+    tracked(&root);
+    root
 }
 
-fn notebook_findings(name: &str, cells: Vec<serde_json::Value>) -> Vec<String> {
-    let book =
-        serde_json::json!({"cells": cells, "metadata": {}, "nbformat": 4, "nbformat_minor": 5});
-    let text = serde_json::to_string_pretty(&book).unwrap();
-    readme_findings(
-        name,
-        &["## ASE", "", "```python", ASE, "```"],
-        &[
-            (NOTEBOOK, &text),
-            ("tests/ase.rs", "readme_block(\"ASE\")\n"),
-        ],
-    )
+fn written(root: &Tree) -> String {
+    assert_eq!(lever(&["notebook", "--write"], root), Vec::<String>::new());
+    std::fs::read_to_string(root.join(NOTEBOOK)).unwrap()
 }
 
-fn quickstart() -> Vec<serde_json::Value> {
-    vec![
-        cell("%pip install orbitar"),
-        cell(ASE),
-        cell("print(atoms)"),
-    ]
+fn sources(text: &str) -> Vec<String> {
+    let book: serde_json::Value = serde_json::from_str(text).unwrap();
+    (book["cells"].as_array().unwrap().iter())
+        .map(|cell| {
+            (cell["source"].as_array().unwrap().iter())
+                .map(|line| line.as_str().unwrap())
+                .collect()
+        })
+        .collect()
 }
 
 #[test]
-fn a_quickstart_notebook_that_installs_and_runs_the_readme_ase_block_without_outputs_passes() {
-    let f = notebook_findings("notebook-good", quickstart());
-    assert!(f.is_empty(), "{f:?}");
+fn the_written_quickstart_installs_runs_the_readme_ase_block_whole_and_prints_and_passes_the_docs_lever()
+ {
+    let root = ase_tree("notebook-written", &ASE, &[]);
+    let text = written(&root);
+    assert_eq!(
+        sources(&text),
+        [
+            "%pip install orbitar".to_owned(),
+            ASE.join("\n"),
+            "print(\"energy (eV):\", energy)\nprint(\"forces (eV/Å):\", forces)\nprint(\"stress (eV/Å³):\", stress)".to_owned(),
+        ]
+    );
+    let book: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        (&book["nbformat"], &book["nbformat_minor"]),
+        (&4.into(), &4.into())
+    );
+    for cell in book["cells"].as_array().unwrap() {
+        assert_eq!(cell["outputs"], serde_json::json!([]));
+        assert!(cell["execution_count"].is_null() && cell.get("id").is_none());
+    }
+    assert!(text.starts_with("{\n \"cells\": [\n  {\n") && text.ends_with("}\n"));
+    assert_eq!(lever(&["docs"], &root), Vec::<String>::new());
+    assert_eq!(lever(&["notebook"], &root), Vec::<String>::new());
 }
 
 #[test]
-fn a_quickstart_notebook_that_drifts_from_the_readme_or_stores_outputs_fails() {
-    let mut drifted = quickstart();
-    drifted[1] = cell(&ASE.replace("Si", "Ge"));
-    let f = notebook_findings("notebook-drift", drifted);
+fn a_quickstart_off_the_written_bytes_or_missing_beside_a_readme_ase_block_fails() {
+    let off = "is not what `cargo xtask notebook --write` writes from README.md's `## ASE` block, byte for byte";
+    let root = ase_tree("notebook-off", &ASE, &[]);
+    let text = written(&root);
+    for changed in [
+        text.replace("bulk(\\\"Si\\\")", "bulk(\\\"Ge\\\")"),
+        text.replace("\"outputs\": []", "\"outputs\": [{}]"),
+        text.replace(
+            "\"nbformat_minor\": 4\n}",
+            "\"nbformat_minor\": 4,\n \"x\": 1\n}",
+        ),
+        text.trim_end().to_owned(),
+        String::new(),
+    ] {
+        assert_ne!(changed, text);
+        std::fs::write(root.join(NOTEBOOK), &changed).unwrap();
+        for args in [&["docs"][..], &["notebook"]] {
+            let f = lever(args, &root);
+            assert!(has(&f, &format!("{NOTEBOOK} {off}")), "{args:?}: {f:?}");
+        }
+    }
+    std::fs::remove_file(root.join(NOTEBOOK)).unwrap();
+    let f = lever(&["docs"], &root);
+    assert!(has(&f, &format!("{NOTEBOOK} cannot be read")), "{f:?}");
+}
+
+#[test]
+fn a_quickstart_without_a_readme_ase_python_block_or_another_notebook_fails() {
+    let f = readme_findings(
+        "notebook-sourceless",
+        &[],
+        &[(NOTEBOOK, "{}\n"), ("notebooks/other.ipynb", "{}\n")],
+    );
     assert!(
         has(
             &f,
-            &format!("{NOTEBOOK} cell 2 is not README.md's `## ASE` block")
+            &format!("{NOTEBOOK} has no source: README.md has no python block under `## ASE`")
         ),
         "{f:?}"
     );
-    let mut run = quickstart();
-    run[2]["outputs"] =
-        serde_json::json!([{"output_type": "stream", "name": "stdout", "text": ["x"]}]);
-    run[0]["execution_count"] = serde_json::json!(1);
-    let f = notebook_findings("notebook-outputs", run);
-    for n in [1, 3] {
-        assert!(
-            has(&f, &format!("{NOTEBOOK} cell {n} stores outputs")),
-            "{n}: {f:?}"
-        );
-    }
-    let mut prose = quickstart();
-    prose.push(
-        serde_json::json!({"cell_type": "markdown", "id": "m", "metadata": {}, "source": ["x"]}),
-    );
-    prose[0] = cell("%pip install orbitar==0.0.0");
-    let f = notebook_findings("notebook-prose", prose);
-    for needle in [
-        "cell 4 is no code cell",
-        "holds 4 cells, not 3",
-        "cell 1 is not `%pip install orbitar`",
-    ] {
-        assert!(has(&f, needle), "{needle}: {f:?}");
-    }
-}
-
-#[test]
-fn a_notebook_that_does_not_parse_or_another_notebook_fails() {
-    let f = readme_findings(
-        "notebook-other",
-        &[],
-        &[(NOTEBOOK, "{\n"), ("notebooks/other.ipynb", "{}\n")],
-    );
-    assert!(has(&f, &format!("{NOTEBOOK} does not parse")), "{f:?}");
     assert!(has(&f, "notebooks/other.ipynb is extra prose"), "{f:?}");
     assert!(!has(&f, &format!("{NOTEBOOK} is extra prose")), "{f:?}");
-}
-
-fn invalid(name: &str, text: &str) -> Vec<String> {
-    readme_findings(
-        name,
-        &["## ASE", "", "```python", ASE, "```"],
-        &[
-            (NOTEBOOK, text),
-            ("tests/ase.rs", "readme_block(\"ASE\")\n"),
-        ],
-    )
-}
-
-#[test]
-fn an_empty_quickstart_or_one_of_no_valid_nbformat_4_structure_fails_before_any_comparison() {
-    for text in ["", " \n"] {
-        let f = invalid("notebook-empty", text);
-        assert!(has(&f, &format!("{NOTEBOOK} is empty")), "{text:?}: {f:?}");
-    }
-    let good = serde_json::json!({"cells": quickstart(), "metadata": {}, "nbformat": 4, "nbformat_minor": 5});
-    let mut mixed = good.clone();
-    mixed["cells"][1]["source"] =
-        serde_json::json!(["from ase.build import bulk\n", 7, "atoms = bulk(\"Si\")"]);
-    let mut old = good.clone();
-    old["nbformat"] = serde_json::json!(3);
-    let mut bare = good.clone();
-    bare.as_object_mut().unwrap().remove("metadata");
-    let mut no_outputs = good.clone();
-    no_outputs["cells"][2]
-        .as_object_mut()
-        .unwrap()
-        .remove("outputs");
-    let mut no_id = good.clone();
-    no_id["cells"][0].as_object_mut().unwrap().remove("id");
-    for (book, reason) in [
-        (mixed, "cell 2 source holds a non-string element"),
-        (old, "nbformat is not 4"),
-        (bare, "metadata is no object"),
-        (no_outputs, "code cell 3 lacks an outputs list"),
-        (no_id, "cell 1 has no string id"),
-        (serde_json::json!([]), "its top level is no object"),
-    ] {
-        let f = invalid("notebook-invalid", &book.to_string());
-        let want = format!("docs: {NOTEBOOK} is no valid nbformat 4 notebook: {reason}");
-        assert!(f.len() == 1 && f[0].starts_with(&want), "{reason}: {f:?}");
-    }
-}
-
-#[test]
-fn the_readme_ase_block_runs_from_its_python_fence_to_the_closing_fence_whatever_backticks_it_holds()
- {
-    let ase = "atoms = 1  # a ``` inside\nenergy = 2";
-    let block = ["## ASE", "", "```python", ase, "```"];
-    let findings = |name: &str, code: &str| {
-        let mut cells = quickstart();
-        cells[1] = cell(code);
-        let book =
-            serde_json::json!({"cells": cells, "metadata": {}, "nbformat": 4, "nbformat_minor": 5});
-        readme_findings(
-            name,
-            &block,
-            &[
-                (NOTEBOOK, &book.to_string()),
-                ("tests/ase.rs", "readme_block(\"ASE\")\n"),
-            ],
-        )
-    };
-    let f = findings("notebook-fence-full", ase);
-    assert!(f.is_empty(), "{f:?}");
-    let f = findings("notebook-fence-cut", "atoms = 1  # a ");
+    let f = readme_findings("notebook-none", &[], &[]);
+    assert_eq!(f, Vec::<String>::new());
+    let root = docs_tree(
+        "notebook-no-block",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &[],
+    );
+    let f = lever(&["notebook", "--write"], tracked(&root));
     assert!(
         has(
             &f,
-            &format!("{NOTEBOOK} cell 2 is not README.md's `## ASE` block")
+            "notebook: notebooks/quickstart.ipynb: README.md has no python block"
         ),
         "{f:?}"
     );

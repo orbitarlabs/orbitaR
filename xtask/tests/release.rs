@@ -338,7 +338,10 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         assert!(has(&found, "and packages/orbitar-jth"), "{found:?}");
     }
     for (field, needle) in [
-        ("Provides-Extra: mcp\n", "provides the extra `mcp`"),
+        (
+            "Provides-Extra: mcp\n",
+            "`Provides-Extra: mcp` is no `Name: value` header",
+        ),
         (
             "Requires-Dist: mcp==2.3.0 ; extra == 'mcp'\n",
             "has a marker; the wheel has no extra",
@@ -368,38 +371,43 @@ fn a_wheel_whose_metadata_lacks_a_project_link_or_holds_one_twice_fails() {
     assert!(has(&found, "orbitaR` 2 times, not once"), "{found:?}");
 }
 
-const LOWER_CASE: [(&str, &str); 4] = [
-    (
-        "project-url: Docs, https://example.invalid\n",
-        "holds `project-url: Docs, https://example.invalid`",
-    ),
-    (
-        "home-page: https://orbitarlabs.org\n",
-        "holds `home-page: https://orbitarlabs.org`",
-    ),
-    ("MAINTAINER: A Person\n", "holds `MAINTAINER: A Person`"),
-    (
-        "author: A Person\n",
-        "it holds [\"The orbitaR developers\", \"A Person\"]",
-    ),
+const MALFORMED: [&str; 9] = [
+    "project-url: Docs, https://example.invalid",
+    "home-page: https://orbitarlabs.org",
+    "Home-page: https://orbitarlabs.org",
+    "MAINTAINER: A Person",
+    "author: A Person",
+    "Author:The orbitaR developers",
+    "Summary:  two spaces",
+    " and A Person",
+    "garbage",
 ];
 
+fn malformed(line: &str) -> String {
+    format!("`{line}` is no `Name: value` header")
+}
+
+fn author_moved(metadata: &str) -> String {
+    metadata.replace("Author: The orbitaR developers\n", "") + "Author : The orbitaR developers\n"
+}
+
 #[test]
-fn a_wheel_whose_metadata_names_a_url_or_a_person_in_any_case_or_on_a_folded_line_fails() {
-    for (field, needle) in LOWER_CASE {
-        let metadata = format!("{METADATA}{field}");
-        let found = checked("any-case", NAME, |m| m[5].1 = metadata.clone());
-        assert!(has(&found, needle), "{field}: {found:?}");
+fn a_wheel_whose_metadata_holds_a_line_off_the_canonical_header_form_fails() {
+    for line in MALFORMED {
+        let metadata = format!("{METADATA}{line}\n");
+        let found = checked("malformed", NAME, |m| m[5].1 = metadata.clone());
+        assert!(has(&found, &malformed(line)), "{line}: {found:?}");
     }
-    let folded = METADATA.replace(
-        "Author: The orbitaR developers\n",
-        "Author: The orbitaR developers\n and A Person\n",
+    let moved = author_moved(METADATA);
+    let found = checked("author-space", NAME, |m| m[5].1 = moved.clone());
+    assert!(
+        has(&found, &malformed("Author : The orbitaR developers")),
+        "{found:?}"
     );
-    let found = checked("folded", NAME, |m| m[5].1 = folded.clone());
     assert!(
         has(
             &found,
-            "it holds [\"The orbitaR developers\\nand A Person\"]"
+            "does not hold `Author: The orbitaR developers` once"
         ),
         "{found:?}"
     );
@@ -1379,15 +1387,32 @@ fn a_data_wheel_whose_metadata_names_another_license_a_person_or_a_dependency_fa
 }
 
 #[test]
-fn a_data_wheel_whose_metadata_names_a_url_or_a_person_in_any_case_fails() {
-    for (field, needle) in LOWER_CASE {
-        let metadata = format!("{JTH_METADATA}{field}");
-        let found = jth_checked("jth-any-case", JTH_NAME, |m| {
-            let i = at(m, "orbitar_jth-2.0.0.dist-info/METADATA");
+fn a_data_wheel_whose_metadata_holds_a_line_off_the_canonical_header_form_fails() {
+    let metadata_at = |m: &Vec<(&str, String)>| at(m, "orbitar_jth-2.0.0.dist-info/METADATA");
+    for line in MALFORMED {
+        let metadata = format!("{JTH_METADATA}{line}\n");
+        let found = jth_checked("jth-malformed", JTH_NAME, |m| {
+            let i = metadata_at(m);
             m[i].1 = metadata.clone();
         });
-        assert!(has(&found, needle), "{field}: {found:?}");
+        assert!(has(&found, &malformed(line)), "{line}: {found:?}");
     }
+    let moved = author_moved(JTH_METADATA);
+    let found = jth_checked("jth-author-space", JTH_NAME, |m| {
+        let i = metadata_at(m);
+        m[i].1 = moved.clone();
+    });
+    assert!(
+        has(&found, &malformed("Author : The orbitaR developers")),
+        "{found:?}"
+    );
+    assert!(
+        has(
+            &found,
+            "does not hold `Author: The orbitaR developers` once"
+        ),
+        "{found:?}"
+    );
 }
 
 #[test]
