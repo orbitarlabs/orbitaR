@@ -1,9 +1,9 @@
-# harness reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, inputs as input.toml, inputs/<stem>.toml or crystals.json, one name list shared with the harness, omissions tested, Case built only by its parser); the [why] example lives in CONTRIBUTING.md (cap 57), README.md unchanged
+# harness reviewer=PENDING reason=PR 6 round 2: [why] names only values the case file sets (groups inputs and tolerance checked, inputs as a regular input.toml, inputs/<stem>.toml or crystals.json, one name list shared with the harness, omissions tested, Case built only by its parser); a [why] key that names both a [relax] input and another target fails, a [relax] input without a reason passes; the [why] example lives in CONTRIBUTING.md (cap 57), README.md unchanged
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
 b801d44f73e3e9107711b16fb32be4c5964d9bc68cd0e41528e73321d08a7f32  xtask/src/bench.rs
-c3e752e19106996a80b246bc190e1c2ef20640b43f332ebff707dde7821cf6ab  xtask/src/case.rs
+9751048a2cf1395e6989b114f58866315fa87096f2ad07bf95b4c8d8d17321e6  xtask/src/case.rs
 f79a7f9adc51e0004df3f6951200096db435f7817f4e28254a364376fd2ca982  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
 8e794811ad010a287b565f2840d49c196aef0348c3b881963429cedf13ad30b9  xtask/src/harness.rs
@@ -42,7 +42,7 @@ af1167b4049c37599a8056a69776738384d5343da8d0f33252f69dc98c3630db  xtask/src/tune
 b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk.rs
 6ab6b9fbdacafa2d2973bdc4f0a7ef366da2d5b9af21a5516a80e379e3219b26  xtask/tests/atompaw.rs
 90316a2227e058f9413f28877d49657bdc0418990a0659cb552888827797b2fd  xtask/tests/bench.rs
-7b1e35eba47830eed0b948594695417f3411b44c5da497b6f74d0ad911245e30  xtask/tests/case.rs
+37b583c74afbcb9447d5e2cca80288e5737a8a0c43296aaa1f1d1e43c02e7275  xtask/tests/case.rs
 26dbcac50eaf0e847fc058f3a469de39dbfcfd204d8068a9008537feb634c687  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
 9a1d4c30dfed7b1d3425ea96e6a0b11533c191f4558c0013fe62fee9cb734ebc  xtask/tests/harness.rs
@@ -208,7 +208,7 @@ f7d6b38bb77323246b016a35290833fdf804fda030bf5e9d076b776691ed6863  benchmarks/11_
 aa23af9e5576cfd7f03f6e2e9f51eff87b1e675bd0318e4c9e1eee47ad7a3fd4  benchmarks/11_speed_scaling/reference/si32.abi
 f88d90b4234019adce78b2f80e12adeb1047baea20ae245b212c201305353d9d  benchmarks/11_speed_scaling/reference/si32.json
 30acc85e5e94ee4af1e5a545f5285ca47e6004e94fc0bd17dde707ded0d24a47  tests/benchmarks/11_speed_scaling/case.rs
-# 12_memory_scaling reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, omissions tested, Case built only by its parser); case 12 and 16 reasons state the 0.54 fit as empirical with its scope, case 16 keeps its endpoint records; reduce.py checks its operands first; README shows [why]; no bound, input, or reference value changed
+# 12_memory_scaling reviewer=PENDING reason=PR 6 round 1: case 12's term reason states the 0.54 fit as empirical, the repeats of 1, 4, 8 and 16 cells with their estimates, and the synthetic-crystal 0.78 with its effect at 4 cells; the case stays planned; no bound, input, or reference value changed
 584bedccfa809cb3d11d621c04d7566992e06c5d2d73cda5836cc481ee619919  benchmarks/12_memory_scaling/case.toml
 0c53e07e56068c09e5c1605fbeeeb606425af5ceef58fb3b7feac9a6be9b35a9  benchmarks/12_memory_scaling/input.toml
 eff2a786a361c68bad968623e491b17cb760e9cf5a4e3daa0ae0944b7fefd079  benchmarks/12_memory_scaling/inputs/si16.toml
@@ -433,7 +433,7 @@ d06e2cb73f2b264bf06e862ded7b3d6cdc3260fdecd969c38641fabab1cabbaf  benchmarks/19_
 f193ab39eea4d83be369a70900e4a043ef1d23964eb81853c8a803e4875c4b2f  tests/benchmarks/19_family_v0/case.rs
 1b917f41e68f633e9d7a5e45f68e68c565253276541da9029db43aadc3edfad4  datasets/jth-2.0.toml
 0773b693a41082fedbf4f0eb8419f9d49759fd8ba6a86cde403d0e0dc1bde68c  datasets/orbitaR-PBE-v0.toml
-# 20_abinit_r2scan reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, omissions tested, Case built only by its parser); case 12 and 16 reasons state the 0.54 fit as empirical with its scope, case 16 keeps its endpoint records; reduce.py checks its operands first; README shows [why]; no bound, input, or reference value changed
+# 20_abinit_r2scan reviewer=PENDING reason=PR 6 round 1: reduce.py checks its operand count before it reads one, so a short call prints its usage; its output bytes stay the same; no bound, input, or reference value changed
 26bce628b05e9fda4eee74e1d245b0edcfe812012907009b41b68d59d1c2a3ba  benchmarks/20_abinit_r2scan/case.toml
 ec303aae0c8c892f136af173fdc92f092b6cbc8804c402be2cb9b68474175555  benchmarks/20_abinit_r2scan/input.toml
 5b042d8690210980cf6a4c93adfbb93172810c291f496df520a58195848b6d9a  benchmarks/20_abinit_r2scan/inputs/al.toml

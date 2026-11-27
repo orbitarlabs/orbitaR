@@ -295,14 +295,13 @@ impl Case {
         if m.repeats == Some(0) {
             return Err("repeats must be at least 1".into());
         }
-        for name in self.relax.keys() {
-            if set.contains(name) || WHY_GROUPS.contains(&name.as_str()) {
+        for (key, text) in &self.why {
+            let other = set.contains(key) || WHY_GROUPS.contains(&key.as_str());
+            if other && self.relax.contains_key(key) {
                 return Err(format!(
-                    "[relax].{name} shares its name with a [why] target of the case file; rename the input"
+                    "[why].{key} names both [relax].{key} and another target of the case file; rename the input"
                 ));
             }
-        }
-        for (key, text) in &self.why {
             if key == WHY_TOLERANCE && self.tolerance.is_empty() {
                 return Err(format!(
                     "[why].{WHY_TOLERANCE} names the whole [tolerance] table, which is empty"
@@ -428,7 +427,10 @@ pub(crate) const INPUTS_DIR: &str = "inputs";
 pub(crate) const CRYSTALS: &str = "crystals.json";
 
 fn holds_inputs(dir: &Path) -> bool {
-    let toml = |entry: &fs::DirEntry| entry.path().extension().is_some_and(|e| e == "toml");
+    let toml = |entry: &fs::DirEntry| {
+        let path = entry.path();
+        path.is_file() && path.extension().is_some_and(|e| e == "toml")
+    };
     dir.join(INPUT_FILE).is_file()
         || dir.join(CRYSTALS).is_file()
         || fs::read_dir(dir.join(INPUTS_DIR))

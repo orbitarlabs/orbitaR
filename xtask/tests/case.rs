@@ -291,13 +291,35 @@ fn the_why_groups_need_their_table_and_their_inputs() {
         ),
         "{f:?}"
     );
+    let f = why_findings(
+        "case-why-inputs-ghost",
+        &inputs,
+        Some("benchmarks/1_a/inputs/ghost.toml/a.toml"),
+    );
+    assert!(
+        has(
+            &f,
+            "[why].inputs names the case's inputs, but benchmarks/1_a holds no"
+        ),
+        "a directory named ghost.toml holds no input: {f:?}"
+    );
     for name in ["inputs", "status"] {
         let relax = format!("{ACTIVE}[tolerance]\nx_max = 1.0\n\n[relax]\n{name} = \"ions\"\n");
         let f = why_findings(&format!("case-why-relax-{name}"), &relax, Some(INPUT_TOML));
         assert!(
+            f.is_empty(),
+            "a [relax] input without a reason passes: {f:?}"
+        );
+        let reason = format!("{relax}\n[why]\n{name} = \"r\"\n");
+        let f = why_findings(
+            &format!("case-why-relax-why-{name}"),
+            &reason,
+            Some(INPUT_TOML),
+        );
+        assert!(
             has(
                 &f,
-                &format!("[relax].{name} shares its name with a [why] target")
+                &format!("[why].{name} names both [relax].{name} and another target")
             ),
             "{f:?}"
         );
