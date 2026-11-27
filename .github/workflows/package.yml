@@ -14,6 +14,7 @@ on:
       - ".dockerignore"
       - "xtask/src/release.rs"
       - "xtask/src/harness/datasets.rs"
+      - "xtask/src/release/**"
       - "xtask/src/reproduce.rs"
       - ".github/workflows/package.yml"
   workflow_dispatch:
@@ -52,3 +53,20 @@ jobs:
       - run: cargo xtask wheel
       - run: sha256sum target/wheel/wheel/*.whl target/wheel/jth-wheel/*.whl
       - run: cargo xtask image
+
+  mac-wheel:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          python-version: "3.12.16"
+      - run: uname -m
+      - run: cargo xtask wheel --target aarch64-apple-darwin
+      - run: shasum -a 256 target/wheel-aarch64-apple-darwin/dist/*.whl

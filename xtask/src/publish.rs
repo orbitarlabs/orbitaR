@@ -44,7 +44,12 @@ const STEPS: [&str; 26] = [
 ];
 
 const WORKFLOWS: &str = ".github/workflows";
-const SCANNED: [&str; 3] = ["container", "xtask/src/release.rs", "README.md"];
+const SCANNED: [&str; 4] = [
+    "container",
+    "xtask/src/release.rs",
+    "xtask/src/release",
+    "README.md",
+];
 const RELEASE: &str = "xtask/src/release.rs";
 const OWNERS: [&str; 3] = [".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"];
 
