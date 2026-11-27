@@ -2,6 +2,7 @@ use super::rival::Rival;
 use super::{
     Block, Metrics,
     engine::{self, Failure, Run, Step},
+    load::{Gate, Reading},
 };
 use crate::case::Speed;
 use serde::{Deserialize, Serialize};
@@ -66,6 +67,8 @@ pub(crate) struct BlockRecord {
     pub(crate) peak_rss_bytes: Vec<u64>,
     pub(crate) peak_pss_bytes: Vec<u64>,
     pub(crate) losses: Vec<String>,
+    #[serde(default)]
+    pub(crate) load: Vec<Reading>,
     pub(crate) noisy: bool,
     #[serde(flatten)]
     pub(crate) timing: Option<Timing>,
@@ -97,6 +100,7 @@ pub(crate) fn time(
     speed: &Speed,
     repeats: usize,
     seed: u64,
+    gate: Option<&Gate>,
 ) -> Result<Vec<Timed>, Failure> {
     for b in blocks {
         timed_stop(b)?;
@@ -178,8 +182,16 @@ pub(crate) fn time(
         }
         Ok(judged)
     };
+    let mut load: Vec<Vec<Reading>> = blocks.iter().map(|_| Vec::new()).collect();
+    let mut read = |i: usize| -> Result<(), Failure> {
+        if let Some(gate) = gate {
+            load[i].push(gate.before(&blocks[i].at(), speed)?);
+        }
+        Ok(())
+    };
     let mut warmups = vec![Value::Null; blocks.len()];
     for i in shuffled(seed, 0, blocks.len()) {
+        read(i)?;
         warmups[i] = match judged(&blocks[i])? {
             Ok((t, warm)) => {
                 json!({ "t_delta_s": t, "wall_s": warm.seconds, "peak_rss_bytes": warm.peak_rss_bytes, "peak_pss_bytes": warm.peak_pss_bytes, "steps": warm.steps.len() })
@@ -209,6 +221,7 @@ pub(crate) fn time(
         }
         for k in shuffled(seed, round, due.len()) {
             let (b, i) = (&blocks[due[k]], due[k]);
+            read(i)?;
             match judged(b)? {
                 Ok((t, next)) => {
                     if b.rival.is_none() {
@@ -228,8 +241,9 @@ pub(crate) fn time(
         .zip(runs)
         .zip(times)
         .zip(warmups)
-        .zip(losses))
-    .map(|(((((i, b), runs), t), warmup), losses)| {
+        .zip(losses)
+        .zip(load))
+    .map(|((((((i, b), runs), t), warmup), losses), load)| {
         let refused = noisy(&t, losses.len(), repeats);
         let (low, high) = (t.iter()).fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), &x| {
             (l.min(x), h.max(x))
@@ -261,6 +275,7 @@ pub(crate) fn time(
             peak_rss_bytes: rss,
             peak_pss_bytes: pss,
             losses,
+            load,
             rival: (b.rival.as_ref()).map(|r| {
                 let claim = r.claim.as_ref();
                 json!({

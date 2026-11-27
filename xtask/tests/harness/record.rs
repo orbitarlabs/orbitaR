@@ -233,15 +233,18 @@ fn block_of(code: &str, t: &[f64], losses: usize) -> String {
          \"peak_rss_bytes\": {:?}, \"peak_pss_bytes\": {:?}, \"losses\": {:?}, \"median_t_delta_s\": 0.1, \
          \"range_t_delta_s\": [0.1, 0.2], \"cv_t_delta\": 0.0, \"noisy\": false, \
          \"median_peak_rss_bytes\": 1.0, \"median_peak_pss_bytes\": 1.0, \"rival\": null, \"step_cap\": 200, \
-         \"steps\": {:?}, \"e_ref_steps\": [20, 24]}}",
+         \"steps\": {:?}, \"e_ref_steps\": [20, 24], \"load\": [{}]}}",
         1e-4 / 27.211_386_245_988,
         vec![0.1; n],
         vec![1; n],
         vec![1; n],
         vec!["loss"; losses],
         vec![12; n],
+        vec![QUIET_NODE; 1 + n + losses].join(", "),
     )
 }
+
+const QUIET_NODE: &str = "{\"quiet\": {\"load_avg\": [8.0, 8.0, 8.0], \"others_runnable\": 0, \"psi_some_avg10\": 20.0, \"psi_some_share\": 0.0}}";
 
 fn claim_record(blocks: &[Vec<f64>], edit: impl Fn(String) -> String) -> String {
     let runs: usize = blocks.iter().map(Vec::len).sum();
@@ -590,6 +593,38 @@ fn a_passing_claim_record_holds_delta_for_its_own_atom_count() {
         });
         let f = claim_findings(&format!("record-delta-{atoms}"), &record);
         assert_eq!(has(&f, "passes with δ "), refused, "{atoms}: {f:?}");
+    }
+}
+
+#[test]
+fn a_passing_claim_record_shows_a_quiet_node_before_the_warm_up_and_each_run_of_each_block() {
+    let quiet = QUIET.to_vec();
+    let blocks = [quiet.clone(), quiet.clone(), quiet.clone(), quiet];
+    let loaded = "{\"loaded\": {\"sample\": {\"load_avg\": [9.0, 9.0, 9.0], \"others_runnable\": 8, \"psi_some_avg10\": 17.5, \"psi_some_share\": 0.2}, \"why\": \"busy\"}}";
+    let first = format!("\"load\": [{QUIET_NODE}, ");
+    for (n, (from, to, refused)) in [
+        ("", "", false),
+        (first.as_str(), "\"load\": [", true),
+        (first.as_str(), &format!("\"load\": [{loaded}, "), true),
+        (
+            first.as_str(),
+            "\"load\": [{\"unread\": \"/proc/loadavg: missing\"}, ",
+            true,
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let record = claim_record(&blocks, |b| b.replacen(from, to, 1));
+        let f = claim_findings(&format!("record-load-{n}"), &record);
+        assert_eq!(
+            has(
+                &f,
+                "1_a record shows a quiet node before 5 runs of orbitar at 8 threads, not before its warm-up and each of its 5 runs"
+            ),
+            refused,
+            "{n}: {f:?}"
+        );
     }
 }
 
@@ -1254,10 +1289,10 @@ fn readout_prints_r_g_each_pair_and_each_blocks_medians_from_a_record() {
         pair("b", "t_ratio 1.0625 pss_ratio 0.625 in_r true", "T(δ) [4.25,4.0] s, Pss [250.0,400.0] bytes", 2),
         "block orbitar input p=8: timed runs 4 losses 0; medians of the runs alone: T(δ) 2.375 s, wall 4.5 s, peak Pss \
          325 bytes; noisy false E_ref -7.5 accuracy {\"d_ha_per_atom\":0.5}; SCF steps [12, 11, 12, 13], E_ref's \
-         Some([20, 24]), cap Some(200)\n"
+         Some([20, 24]), cap Some(200); a quiet node before 0 of 0 runs, the warm-up first: []\n"
             .into(),
         "block abinit input p=8: timed runs 0 losses 5; medians of the runs alone: T(δ) none s, wall none s, peak Pss \
-         none bytes; noisy true E_ref none accuracy none; SCF steps [], E_ref's None, cap None\n"
+         none bytes; noisy true E_ref none accuracy none; SCF steps [], E_ref's None, cap None; a quiet node before 0 of 0 runs, the warm-up first: []\n"
             .into(),
         "rival losses, each counted as +inf in R and G: crash\n".into(),
         "read each rival block's E_ref (none: its reference run was lost, \"E_ref lost\" in the tier log) before its \

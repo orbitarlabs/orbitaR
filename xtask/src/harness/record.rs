@@ -286,6 +286,15 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                                 block.code
                             ));
                         }
+                        let quiet = block.load.iter().filter(|r| r.quiet()).count();
+                        if quiet != 1 + t.len() + lost {
+                            findings.push(format!(
+                                "{}: {id} record shows a quiet node before {quiet} runs of {} at {at} threads, not before its warm-up and each of its {} runs",
+                                tier.name(),
+                                block.code,
+                                t.len() + lost
+                            ));
+                        }
                         if block.code == speed::Code::Orbitar {
                             sum += t.len();
                         }
@@ -715,7 +724,8 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
         };
         println!(
             "block {} {} p={}: timed runs {} losses {}; medians of the runs alone: T(δ) {} s, wall {} s, peak Pss {} \
-             bytes; noisy {} E_ref {} accuracy {}; SCF steps {:?}, E_ref's {:?}, cap {:?}",
+             bytes; noisy {} E_ref {} accuracy {}; SCF steps {:?}, E_ref's {:?}, cap {:?}; a quiet node before {} of {} \
+             runs, the warm-up first: {:?}",
             b.code,
             b.input,
             b.threads,
@@ -736,7 +746,10 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
                 .map_or_else(|| "none".to_owned(), Value::to_string),
             b.steps,
             b.e_ref_steps,
-            b.step_cap
+            b.step_cap,
+            b.load.iter().filter(|r| r.quiet()).count(),
+            b.load.len(),
+            b.load
         );
     }
     let mut lost: Vec<&str> = (blocks.iter())

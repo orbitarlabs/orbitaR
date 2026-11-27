@@ -2,6 +2,7 @@ pub mod acwf;
 pub(crate) mod datasets;
 pub(crate) mod engine;
 pub mod eos;
+pub(crate) mod load;
 mod record;
 pub mod relax;
 pub(crate) mod rival;
@@ -946,6 +947,7 @@ pub struct Session {
     held_out: Option<PathBuf>,
     table: Option<PathBuf>,
     pilot: bool,
+    load: Option<PathBuf>,
 }
 
 impl Session {
@@ -999,7 +1001,13 @@ impl Session {
             held_out: None,
             table: None,
             pilot: false,
+            load: None,
         }
+    }
+
+    pub fn with_load(mut self, proc: &Path) -> Session {
+        self.load = Some(proc.to_owned());
+        self
     }
 
     pub fn with_held_out(mut self, dir: &Path) -> Session {
@@ -1035,6 +1043,9 @@ impl Session {
         let records = var("ORBITAR_RECORD_DIR")
             .map_or_else(|| root.join("target/benchmarks").join(&name), PathBuf::from);
         let mut session = Session::new(root, Path::new(&bin), tier, &records);
+        if tier == Tier::Claim {
+            session.load = Some(PathBuf::from("/proc"));
+        }
         session.rivals = var("ORBITAR_RIVALS").map(PathBuf::from);
         session.held_out = var("ORBITAR_HELDOUT").map(PathBuf::from);
         if let Some(seed) = text("ORBITAR_SEED") {
@@ -1341,7 +1352,9 @@ impl Session {
                     true => (1, &speed::never_grown(speed)),
                     false => (case.repeats() as usize, speed),
                 };
-                let ran = speed::time(&run, &blocks, speed, repeats, self.seed);
+                let gate = (self.load.as_deref())
+                    .map(|proc| load::Gate::new(proc, &self.root, !self.pilot));
+                let ran = speed::time(&run, &blocks, speed, repeats, self.seed, gate.as_ref());
                 ran.map(|mut timed| {
                     if let Some(rivals) = &rivals {
                         let spin = spin_stress_case(&self.root);
@@ -1378,6 +1391,14 @@ impl Session {
                                     "{}: T(δ) has CV {} over {n} runs and {lost} losses: under two judged times or no finite CV, so the judge refuses it",
                                     b.at(),
                                     (t.record.timing.as_ref()).and_then(|t| t.cv_t_delta).unwrap_or(f64::NAN),
+                                ));
+                            }
+                            let loaded = t.record.load.iter().filter(|r| !r.quiet()).count();
+                            if loaded > 0 {
+                                failures.push(format!(
+                                    "{}: {loaded} of its {} runs, the warm-up first, began on a node that was not quiet",
+                                    b.at(),
+                                    t.record.load.len()
                                 ));
                             }
                             trace.speed.push(json!(t.record));
