@@ -95,7 +95,7 @@ enum Cli {
     /// bench <tier> [case]: the same for one tier, or for one case of it; `cargo xtask help` lists the tiers
     ///
     /// A claim or pilot run with ORBITAR_RIVAL_RECORDS=<dir of earlier records> reuses each rival block whose key
-    /// matches exactly (harness/reuse.rs `Key`), after one drift check re-times the smallest reused cell.
+    /// matches exactly (harness/reuse.rs `Key`), after a drift check re-times the smallest reused cell of each rival.
     Bench { tier: String, case: Option<String> },
     /// new-case <slug> <reference>: scaffold the next <N>_<slug>; regenerate the case table
     NewCase { slug: String, reference: String },

@@ -1,4 +1,5 @@
 use crate::{Findings, bench, harness::rival::Rival};
+use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, fs, path::Path};
 
 const PACKAGES: [&str; 6] = [
@@ -91,6 +92,47 @@ pub(crate) fn block(root: &Path, rivals: Option<&Path>) -> toml::Table {
         block.insert(code.adapter().name().into(), table.into());
     }
     block
+}
+
+pub(crate) fn identity(root: &Path) -> serde_json::Value {
+    let mut host = block(root, None)
+        .get("host")
+        .and_then(toml::Value::as_table)
+        .cloned()
+        .unwrap_or_default();
+    host.remove("memory_bytes");
+    let machine = fs::read_to_string("/etc/machine-id").map_or_else(
+        |_| "unknown".to_owned(),
+        |id| crate::lock::hex(&Sha256::digest(id.trim())),
+    );
+    let total_gib = (fs::read_to_string("/proc/meminfo")
+        .unwrap_or_default()
+        .lines())
+    .find_map(|l| l.strip_prefix("MemTotal:"))
+    .and_then(|v| v.trim().strip_suffix("kB")?.trim().parse::<f64>().ok())
+    .map(|kib| (kib / f64::from(1u32 << 20)).round());
+    serde_json::json!({
+        "host": host,
+        "machine_id_sha256": machine,
+        "memory_total_gib_rounded": total_gib,
+        "cgroup_memory_max": cgroup("memory.max"),
+        "cgroup_cpu_max": cgroup("cpu.max"),
+    })
+}
+
+fn cgroup(file: &str) -> Vec<String> {
+    let group = (fs::read_to_string("/proc/self/cgroup")
+        .unwrap_or_default()
+        .lines())
+    .find_map(|l| l.strip_prefix("0::").map(str::to_owned))
+    .unwrap_or_default();
+    (Path::new(&group).ancestors())
+        .filter_map(|dir| {
+            let at = Path::new("/sys/fs/cgroup").join(dir.strip_prefix("/").unwrap_or(dir));
+            fs::read_to_string(at.join(file)).ok()
+        })
+        .map(|v| v.trim().to_owned())
+        .collect()
 }
 
 fn memory_bytes() -> toml::Value {

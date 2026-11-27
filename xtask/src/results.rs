@@ -152,11 +152,7 @@ pub(crate) fn collect(
 ) -> Findings {
     let base = records.map_or_else(|| root.join("target/benchmarks"), Path::to_path_buf);
     let mut findings = Vec::new();
-    let mut sources = pinned_sources(root);
-    match rival_records.map(reuse::sources).transpose() {
-        Ok(found) => sources.extend(found.unwrap_or_default()),
-        Err(e) => return vec![format!("results: {e}")],
-    }
+    let sources = Sources::new(pinned_sources(root), rival_records);
     let mut chosen = Vec::new();
     for name in tiers {
         match Tier::parse(name) {
@@ -261,19 +257,15 @@ pub(crate) fn collect(
             )),
         }
     }
-    let mut reused = Sources::new();
+    let mut reused = BTreeMap::new();
     for line in lines.lines() {
         let record: Value = serde_json::from_str(line).unwrap_or_default();
         for sha in reuse::named(&record) {
             match sources.get(&sha) {
-                Some(text) => {
-                    reused.insert(sha, text.clone());
+                Ok(text) => {
+                    reused.insert(sha, text.to_owned());
                 }
-                None => findings.push(format!(
-                    "results: {} reuses rival blocks of record {sha}, which {} does not hold",
-                    record["case"],
-                    reuse::VAR
-                )),
+                Err(e) => findings.push(format!("results: {}: {e}", record["case"])),
             }
         }
     }
@@ -476,7 +468,9 @@ fn derived(root: &Path, rows: &[Row]) -> Findings {
         Ok(lines) => lines,
         Err(e) => return vec![s11(e)],
     };
-    let sources = pinned_sources(root);
+    let pinned = pinned_sources(root);
+    let shas: Vec<String> = pinned.keys().cloned().collect();
+    let sources = Sources::new(pinned, None);
     let mut findings = Vec::new();
     let active: Vec<&str> = cases.values().map(|(id, _)| id.as_str()).collect();
     let listed: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
@@ -521,7 +515,7 @@ fn derived(root: &Path, rows: &[Row]) -> Findings {
     let named: Vec<String> = (lines.values())
         .flat_map(|line| reuse::named(&serde_json::from_str(line).unwrap_or_default()))
         .collect();
-    for sha in sources.keys().filter(|sha| !named.contains(sha)) {
+    for sha in shas.iter().filter(|sha| !named.contains(sha)) {
         findings.push(s11(format!(
             "{REUSED} holds record {sha}, whose rival blocks no record in {RECORDS} reuses"
         )));
@@ -548,10 +542,10 @@ fn sha256(text: &str) -> String {
         })
 }
 
-fn pinned_sources(root: &Path) -> Sources {
+fn pinned_sources(root: &Path) -> BTreeMap<String, String> {
     match fs::symlink_metadata(root.join(REUSED)) {
         Ok(_) => reuse::lines(&walk::read(root, REUSED)),
-        Err(_) => Sources::new(),
+        Err(_) => BTreeMap::new(),
     }
 }
 

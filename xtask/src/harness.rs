@@ -1562,18 +1562,56 @@ impl Session {
                 let node = (rivals.as_ref())
                     .map(|_| crate::node::block(&self.root, self.rivals.as_deref()))
                     .unwrap_or_default();
+                let identity = crate::node::identity(&self.root);
+                let declared_host = (crate::node::declared(&self.root).ok())
+                    .and_then(|t| serde_json::to_value(t.get("host")).ok())
+                    .unwrap_or_default();
+                let containment = (self.containment.as_ref()).map(engine::Containment::describe);
+                let protocol = reuse::Protocol::of(&self.root, json!(containment), guard);
                 let plan = reuse::Plan {
                     pilot: self.pilot,
                     repeats,
                     timeout_s: case.timeout_s(),
                     node: &node,
+                    identity: &identity,
+                    declared_host: &declared_host,
+                    protocol: &protocol,
+                };
+                let digest = |name: &str| {
+                    (inputs.iter())
+                        .find(|(n, _)| n == name)
+                        .map(|(_, text)| reuse::sha256(text.as_bytes()))
+                };
+                let held_out = |b: &Block, rivals: &rival::Rivals| {
+                    let base = paths.held.get(b.input).cloned().flatten();
+                    let code = b.rival.as_ref().map(|j| j.code);
+                    let calibration = (code.zip(rival::Cell::parse(&b.table).ok())).map(
+                        |(code, cell)| match paths.calibration(rivals, code, b.input, &cell) {
+                            Ok(row) => json!(row),
+                            Err(e) => json!({ "unmeasured": e }),
+                        },
+                    );
+                    json!({
+                        "input": b.input, "input_sha256": digest(b.input), "variant": paths.variant(b.input),
+                        "base": base, "base_sha256": base.as_deref().and_then(digest), "calibration": calibration,
+                    })
                 };
                 let keys: Vec<Option<reuse::Key>> = (blocks.iter())
                     .map(|b| {
                         let rivals = rivals.as_ref().filter(|_| b.rival.is_some())?;
-                        reuse::key(rivals, b, paths.variant(b.input), &plan).ok()
+                        let identity = held_out(b, rivals);
+                        reuse::key(rivals, b, identity, stressed(b), &plan).ok()
                     })
                     .collect();
+                let commit = git(&self.root, &["rev-parse", "HEAD"]);
+                let claimant = reuse::Claimant {
+                    root: &self.root,
+                    id,
+                    case,
+                    pilot: self.pilot,
+                    started_unix_ms: u64::try_from(unix_ms()).unwrap_or(u64::MAX),
+                    commit: &commit,
+                };
                 let mut lookup = (self.rival_records.as_deref())
                     .filter(|_| rivals.is_some())
                     .map(|dir| {
@@ -1590,7 +1628,7 @@ impl Session {
                                 })
                             })
                             .collect();
-                        reuse::Lookup::find(&self.root, dir, id, self.tier, &node, &wants)
+                        reuse::Lookup::find(&claimant, dir, &node, &protocol, &wants)
                     });
                 let guarded = match lookup.as_mut().filter(|l| l.any()) {
                     Some(l) => l.guard(&blocks, &run, gate.as_ref(), speed),
@@ -2450,6 +2488,7 @@ impl Discretization {
 }
 
 pub use record::{readout, union, verify};
+pub use reuse::PROTOCOL_FILES as REUSE_PROTOCOL;
 pub use speed::{
     G_MIN, G_RESAMPLES, G_SEED, ORBITAR_SOLVES_IN_FLIGHT, PEAK_PSS_GUARD_BYTES, Peak,
     estimated_peak, g_interval, log_log_slope,

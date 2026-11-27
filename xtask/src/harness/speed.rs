@@ -11,7 +11,7 @@ use statrs::statistics::{Data, Median, Statistics};
 use std::{cell::RefCell, collections::BTreeMap, num::NonZeroUsize};
 
 pub(crate) const DELTA_HA_PER_ATOM: f64 = 1e-4 / 27.211_386_245_988;
-const TIGHTER: f64 = 10.0;
+pub(crate) const TIGHTER: f64 = 10.0;
 const SHARE: f64 = 1e-2;
 
 pub(crate) type Runner<'a> = &'a dyn Fn(&Block, f64, Pass) -> Result<Run, Failure>;

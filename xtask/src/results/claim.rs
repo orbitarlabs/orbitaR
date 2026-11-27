@@ -21,7 +21,19 @@ pub(super) struct Claim {
     pub(super) series: Vec<Series>,
     #[serde(default)]
     pub(super) skip: Vec<Skip>,
+    #[serde(default)]
+    pub(super) reused: Vec<Reused>,
     pub(super) node: toml::Table,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Reused {
+    pub(super) code: String,
+    pub(super) input: String,
+    pub(super) threads: u32,
+    pub(super) record_sha256: String,
+    pub(super) commit: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -222,10 +234,23 @@ pub(super) fn read(
         .collect();
     let node: toml::Table = serde_json::from_value(record["node"].clone())
         .map_err(|e| format!("the record's node block: {e}"))?;
+    let reused = (blocks.iter())
+        .filter_map(|b| {
+            let source = b.reused.as_ref()?;
+            Some(Reused {
+                code: b.code.to_string(),
+                input: b.input.clone(),
+                threads: u32::try_from(b.threads.get()).unwrap_or(u32::MAX),
+                record_sha256: source.record_sha256.clone(),
+                commit: source.commit.clone(),
+            })
+        })
+        .collect();
     let claim = Claim {
         versus,
         series,
         skip,
+        reused,
         node,
     };
     claim.cpu()?;
@@ -323,6 +348,17 @@ pub(super) fn write(out: &mut String, claim: &Claim) {
             s.atoms,
             s.kind.name(),
             quoted(&s.reason)
+        );
+    }
+    for r in &claim.reused {
+        let _ = write!(
+            out,
+            "\n[[case.claim.reused]]\ncode = {}\ninput = {}\nthreads = {}\nrecord_sha256 = {}\ncommit = {}\n",
+            quoted(&r.code),
+            quoted(&r.input),
+            r.threads,
+            quoted(&r.record_sha256),
+            quoted(&r.commit)
         );
     }
     table(out, "case.claim.node", &claim.node);

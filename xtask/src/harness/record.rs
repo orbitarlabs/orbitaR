@@ -61,10 +61,7 @@ pub fn verify(
     case: Option<&str>,
     rival_records: Option<&Path>,
 ) -> Findings {
-    let sources = match rival_records.map(reuse::sources).transpose() {
-        Ok(sources) => sources.unwrap_or_default(),
-        Err(e) => return vec![format!("{}: {e}", tier.name())],
-    };
+    let sources = reuse::Sources::new(BTreeMap::new(), rival_records);
     let since_ms = since
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis()) as f64;
@@ -140,7 +137,7 @@ pub(crate) fn proves(
     record: &Value,
     sources: &reuse::Sources,
 ) -> Findings {
-    let mut findings: Findings = (reuse::proven(id, record, sources).into_iter())
+    let mut findings: Findings = (reuse::proven(root, id, case, record, sources).into_iter())
         .map(|f| format!("{}: {f}", tier.name()))
         .collect();
     let times = |key: &str| -> Vec<f64> {
@@ -273,80 +270,16 @@ pub(crate) fn proves(
                                 continue;
                             }
                         };
-                        let (t, at) = (&block.t_delta_s, block.threads.get());
-                        if block.code != speed::Code::Orbitar
-                            && settings.as_ref().is_some_and(|s| !s.times(at))
-                        {
-                            findings.push(format!(
-                                    "{}: {id} record holds a {} block at {at} threads, which {} does not time",
-                                    tier.name(),
-                                    block.code,
-                                    rival::SETTINGS
-                                ));
-                        }
-                        let lost = block.losses.len();
-                        let first = &t[..repeats.min(t.len())];
-                        let want = speed::runs_for(first, &speed, repeats);
-                        if t.len() + lost != want {
-                            findings.push(format!(
-                                    "{}: {id} times {} runs of {at}; the CV of its first {repeats} asks for {want}",
-                                    tier.name(),
-                                    t.len() + lost,
-                                ));
-                        }
-                        if case.timed() && (block.noisy || speed::noisy(t, lost, repeats)) {
-                            findings.push(format!(
-                                    "{}: {id} passes with T(δ) at {at} threads under {repeats} runs, judged or lost, under two judged times, or with no finite CV; the judge refuses the block",
-                                    tier.name(),
-                                ));
-                        }
-                        if block.delta_ha != speed::delta_ha(block.atoms) {
-                            findings.push(format!(
-                                "{}: {id} passes with δ {} at {at} threads, not δ · {} atoms",
-                                tier.name(),
-                                block.delta_ha,
-                                block.atoms
-                            ));
-                        }
-                        let holds = block.e_ref_shift_ha.map_or(block.rival.is_some(), |shift| {
-                            speed::e_ref_holds(shift, block.delta_ha)
-                        });
-                        if !holds {
-                            findings.push(format!(
-                                    "{}: {id} passes with an E_ref at {at} threads whose shift {:?} is not below δ / 100",
-                                    tier.name(),
-                                    block.e_ref_shift_ha
-                                ));
-                        }
-                        if block.steps.len() != block.wall_s.len() {
-                            findings.push(format!(
-                                "{}: {id} record holds {} step counts for the {} timed runs of {} at {at} threads",
-                                tier.name(),
-                                block.steps.len(),
-                                block.wall_s.len(),
-                                block.code
-                            ));
-                        }
-                        let quiet = block.load.iter().filter(|r| r.quiet()).count();
-                        if quiet != 1 + t.len() + lost {
-                            findings.push(format!(
-                                "{}: {id} record shows a quiet node before {quiet} runs of {} at {at} threads, not before its warm-up and each of its {} runs",
-                                tier.name(),
-                                block.code,
-                                t.len() + lost
-                            ));
-                        }
-                        let alone = block.during.iter().filter(|d| d.quiet()).count();
-                        if block.during.len() != 1 + t.len() + lost || alone != 1 + t.len() + lost {
-                            findings.push(format!(
-                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its warm-up and each of its {} runs, judged or lost",
-                                tier.name(),
-                                block.code,
-                                t.len() + lost
-                            ));
-                        }
+                        findings.extend(block_findings(
+                            tier,
+                            id,
+                            case,
+                            (&speed, repeats),
+                            settings.as_ref(),
+                            &block,
+                        ));
                         if block.code == speed::Code::Orbitar {
-                            sum += t.len();
+                            sum += block.t_delta_s.len();
                         }
                     }
                     if !case.rivals().is_empty()
@@ -449,6 +382,88 @@ pub(crate) fn proves(
             "{}: {id} record has the wrong schema or case",
             tier.name()
         ));
+    }
+    findings
+}
+
+pub(crate) fn block_findings(
+    tier: Tier,
+    id: &str,
+    case: &Case,
+    (speed, repeats): (&crate::case::Speed, usize),
+    settings: Option<&rival::Settings>,
+    block: &speed::BlockRecord,
+) -> Findings {
+    let mut findings = Vec::new();
+    let (t, at) = (&block.t_delta_s, block.threads.get());
+    if block.code != speed::Code::Orbitar && settings.as_ref().is_some_and(|s| !s.times(at)) {
+        findings.push(format!(
+            "{}: {id} record holds a {} block at {at} threads, which {} does not time",
+            tier.name(),
+            block.code,
+            rival::SETTINGS
+        ));
+    }
+    let lost = block.losses.len();
+    let first = &t[..repeats.min(t.len())];
+    let want = speed::runs_for(first, speed, repeats);
+    if t.len() + lost != want {
+        findings.push(format!(
+            "{}: {id} times {} runs of {at}; the CV of its first {repeats} asks for {want}",
+            tier.name(),
+            t.len() + lost,
+        ));
+    }
+    if case.timed() && (block.noisy || speed::noisy(t, lost, repeats)) {
+        findings.push(format!(
+                    "{}: {id} passes with T(δ) at {at} threads under {repeats} runs, judged or lost, under two judged times, or with no finite CV; the judge refuses the block",
+                    tier.name(),
+                ));
+    }
+    if block.delta_ha != speed::delta_ha(block.atoms) {
+        findings.push(format!(
+            "{}: {id} passes with δ {} at {at} threads, not δ · {} atoms",
+            tier.name(),
+            block.delta_ha,
+            block.atoms
+        ));
+    }
+    let holds = block.e_ref_shift_ha.map_or(block.rival.is_some(), |shift| {
+        speed::e_ref_holds(shift, block.delta_ha)
+    });
+    if !holds {
+        findings.push(format!(
+            "{}: {id} passes with an E_ref at {at} threads whose shift {:?} is not below δ / 100",
+            tier.name(),
+            block.e_ref_shift_ha
+        ));
+    }
+    if block.steps.len() != block.wall_s.len() {
+        findings.push(format!(
+            "{}: {id} record holds {} step counts for the {} timed runs of {} at {at} threads",
+            tier.name(),
+            block.steps.len(),
+            block.wall_s.len(),
+            block.code
+        ));
+    }
+    let quiet = block.load.iter().filter(|r| r.quiet()).count();
+    if quiet != 1 + t.len() + lost {
+        findings.push(format!(
+                "{}: {id} record shows a quiet node before {quiet} runs of {} at {at} threads, not before its warm-up and each of its {} runs",
+                tier.name(),
+                block.code,
+                t.len() + lost
+            ));
+    }
+    let alone = block.during.iter().filter(|d| d.quiet()).count();
+    if block.during.len() != 1 + t.len() + lost || alone != 1 + t.len() + lost {
+        findings.push(format!(
+                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its warm-up and each of its {} runs, judged or lost",
+                tier.name(),
+                block.code,
+                t.len() + lost
+            ));
     }
     findings
 }
@@ -591,7 +606,7 @@ pub fn union(root: &Path, id: &str, dir: &Path) -> Findings {
         );
         judged.extend(bounds.into_keys());
         findings.extend(
-            proves(root, tier, id, &case, &record, &reuse::Sources::new())
+            proves(root, tier, id, &case, &record, &reuse::Sources::none())
                 .into_iter()
                 .map(|f| format!("shards: {at}: {f}")),
         );
