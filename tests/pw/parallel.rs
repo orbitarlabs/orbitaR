@@ -247,25 +247,39 @@ fn a_product_has_the_same_bits_at_any_thread_count_in<T: Parts>() {
         let seed = 2 * seed as u64 + 31;
         cases.push((random::<T>(n, k, seed), random::<T>(n, q, seed + 1), true));
     }
+    for (seed, (m, k, n)) in [(4097, 17, 131), (4097, 21, 1)].into_iter().enumerate() {
+        let seed = 2 * seed as u64 + 71;
+        cases.push((random::<T>(m, k, seed), random::<T>(k, n, seed + 1), false));
+    }
     for (a, b, adjoint) in &cases {
         let product = || match adjoint {
             true => times(a.adjoint(), b.as_ref()),
             false => times(a.as_ref(), b.as_ref()),
+        };
+        let (rows, columns) = match adjoint {
+            true => (a.ncols(), a.nrows()),
+            false => (a.nrows(), a.ncols()),
         };
         let alone = bits(product().as_ref());
         for pool in &pools {
             assert_eq!(
                 bits(pool.install(product).as_ref()),
                 alone,
-                "{}×{}·{}×{} on {} threads",
-                a.ncols(),
-                a.nrows(),
+                "{rows}×{columns}·{}×{} on {} threads",
                 b.nrows(),
                 b.ncols(),
                 pool.current_num_threads()
             );
         }
     }
+}
+
+#[test]
+#[should_panic(expected = "a 10×3 target for a 10×5 · 5×4 product")]
+fn a_product_into_a_target_of_another_shape_is_refused() {
+    let (a, b) = (random::<f64>(10, 5, 1), random::<f64>(5, 4, 2));
+    let mut target = Mat::<f64>::zeros(10, 3);
+    product(target.as_mut(), a.as_ref(), b.as_ref());
 }
 
 fn within<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {

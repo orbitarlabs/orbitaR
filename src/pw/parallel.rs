@@ -210,7 +210,7 @@ const TALL: usize = 256;
 const SHORT: usize = 8;
 const SQUARE: usize = 64;
 const WIDE: usize = 64;
-const FEW_ROW_TILES: usize = 16;
+const ENOUGH_TILES: usize = 16;
 
 fn block_rows(rows: usize, columns: usize, inners: &[usize]) -> (usize, usize) {
     let size = if rows >= 2 * TALL { TALL } else { SHORT };
@@ -246,17 +246,21 @@ fn spans(length: usize, size: usize) -> Vec<(usize, usize)> {
 }
 
 fn tiles(rows: usize, columns: usize, inner: usize) -> [Vec<(usize, usize)>; 2] {
-    let row = match rows {
-        r if r >= 2 * TALL => TALL,
-        r if r >= 2 * SQUARE => SQUARE,
-        r => r,
+    let shape = |row: usize| {
+        let few = rows / row < ENOUGH_TILES;
+        let column = if few && columns >= 2 * WIDE {
+            WIDE
+        } else {
+            columns
+        };
+        (row, column, (rows / row) * (columns / column.max(1)).max(1))
     };
-    let few = rows / row.max(1) < FEW_ROW_TILES;
-    let column = if few && columns >= 2 * WIDE {
-        WIDE
-    } else {
-        columns
-    };
+    let candidates = [TALL, SQUARE, SHORT]
+        .into_iter()
+        .filter(|&row| rows >= 2 * row);
+    let (row, column, _) = (candidates.map(shape))
+        .find(|&(row, _, count)| count >= ENOUGH_TILES || row == SHORT)
+        .unwrap_or_else(|| shape(rows.max(1)));
     if row * column * inner <= NANO {
         return [vec![(0, rows)], vec![(0, columns)]];
     }
@@ -269,6 +273,16 @@ where
     A: Conjugate<Canonical = T>,
     B: Conjugate<Canonical = T>,
 {
+    assert!(
+        target.nrows() == a.nrows() && target.ncols() == b.ncols() && a.ncols() == b.nrows(),
+        "a {}×{} target for a {}×{} · {}×{} product",
+        target.nrows(),
+        target.ncols(),
+        a.nrows(),
+        a.ncols(),
+        b.nrows(),
+        b.ncols()
+    );
     let [rows, columns] = tiles(target.nrows(), target.ncols(), a.ncols());
     let mut parts = Vec::with_capacity(rows.len() * columns.len());
     let mut below = target;
