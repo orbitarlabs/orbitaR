@@ -132,3 +132,22 @@ unit = "ε"
 what = "rebuilt O dataset vs JTH v2.0 on MgO"
 metric = ["term_difference_ha"]
 unit = "Ha"
+
+[20]
+what = "r2SCAN PAW SCF vs ABINIT, same datasets"
+metric = ["free_energy_error_ha"]
+unit = "Ha"
+
+[21]
+what = "r2SCAN symmetry-reduced vs full k mesh"
+metric = ["term_difference_ha"]
+unit = "Ha"
+
+[22]
+what = "r2SCAN stress vs strain differences of F"
+metric = [
+  "gaas_stress_difference_ha_bohr3",
+  "gaas_volume_stress_difference_ha_bohr3",
+  "fe_stress_difference_ha_bohr3",
+]
+unit = "Ha/Bohr³"
