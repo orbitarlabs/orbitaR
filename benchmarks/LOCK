@@ -1,4 +1,4 @@
-# harness reviewer=integration-2 of #14 captain-final-call after codex-review3-14, #16 captain-final-call after codex-review3-16, #15 captain-final-call after codex-review3-15, on integration-1 of #6 codex-review3-6, #7 captain-final-call after codex-review3-7, #8 captain after codex-review2-8 (test-only addition), #10/#11 codex-review2-1011, #12 captain-final-call after codex-review2-12; conflicts resolved by the integration; maturin Mac hashes for 1.11.5 by the integration reason=integration-2 lands PRs 14, 16 and 15 (orbitar-admin/cards-port 6039ee3, which holds claim-tools-2 034ac30 and size-series-2 ba3ed5a) on integration-1 da7e63e; each PR's harness change as its review passed it; conflicts: harness.rs moves the record's why key, which PR 6 added, out of the json! literal that PRs 14 and 16 grew past the macro's recursion limit (keys sort, so the record bytes stay the same); case.rs tests keep PR 6's [why] tests and PR 16's size-series test; the macOS maturin wheel hashes in release/mac.rs are 1.11.5's (PyPI), and a test holds their version to the pyproject.toml and Dockerfile pin
+# harness reviewer=int2-fix, captain to review reason=PR 18 green on Linux, on integration-2 as its reviewers passed it: a run's guarded peak (the memory guard, its size estimates, a failed run's kept peak) is the larger of wait4's RSS high-water mark and the Pss samples, which miss a peak between two 50 ms polls; the memory scope runs systemd-run and prlimit by name, found in the wrapped command's own PATH, then the probed directory, then /usr/bin:/bin; a test runs both rivals in a scope beside decoy programs
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -9,7 +9,7 @@ e3becfebc6a03be1f6d0b8029f114692ffa8d92f69150d99d8e74155f4bdb9aa  xtask/src/docs
 1f5ea8bbea8c20cb0ab5e514f0b38e7bf095c90cc7395bf07a437ffeeef0cd67  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 e8cb26daf243b219bb2b0f013a88632212c8a04eb867a085ff067fc7fb5f8086  xtask/src/harness/datasets.rs
-1ca63feaf2346bbcc4879b99a4a10977d509793a0ab87c89f87b77e400a74c16  xtask/src/harness/engine.rs
+051a44d35ece203deae42673dc418e58ab966252e2703f89235d40b44b9b2d79  xtask/src/harness/engine.rs
 e4ff8dac6c5883566f42a2fd836c4f53f8c5e99d6ccf30a19ed3e95957f3757c  xtask/src/harness/eos.rs
 ab5678c69b56aff8db61dab1b665ffd5c35a633e7bd7b8b2808d9b8b6d06962d  xtask/src/harness/load.rs
 3fce1f3b5bc5d2df165f497de7133adaa0ec2d9fd823e57185a3c45b0401e1f7  xtask/src/harness/record.rs
@@ -17,7 +17,7 @@ c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harn
 709a950ed2a524449ae5c49f347070b67c4071fb536faf73bd9ea0f8f9fc3d30  xtask/src/harness/rival.rs
 832e4d829b61ed81c03204e298754a9ca5f7b6f88385d4d477aedda04ec751bb  xtask/src/harness/rival/abinit.rs
 22e53eda5ff78cec6077c4becbd15ada0b53efe844cd27e3eea96b522039fc24  xtask/src/harness/rival/qe.rs
-ec60a827333d11850b1c7273cffe0296efd79269ae129ce537c84aa47953f43f  xtask/src/harness/speed.rs
+5300a574bfe7f256b784932116102679e3dd8a781b3e85d3676cae3c71d22b8b  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
 5e9037b343df1ac8920cf12ef6fe44877b6b21a678dcf28535ee1ab4df3f0b60  xtask/src/lib.rs
@@ -57,10 +57,10 @@ ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/ha
 34801334b9ae70ef5de3d307c17bad6eec2ed1a47efc8f4d782348e59ae96dca  xtask/tests/harness/load.rs
 c8355dd07f4f62c40ee8103e9d86da41dbe1f3a73d33fbd047df699db9b5420a  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
-16528e6bb4d155cf92c05a87805696c1e171b1342e35472b7351d63eebda13ab  xtask/tests/harness/rival.rs
+9662542006dc8c1581440195e25761b80190be4fc12abae6a2be5cc8c3a686a3  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
-1922adbf8f869b34d6c7cd494039e7dc061a0fd1ff19bc132fceeeabedc02d30  xtask/tests/harness/speed.rs
+00f59f70bde782e6d4f2e07834780b0ffec923c4c0e5c1d624cacd0b9d809d6b  xtask/tests/harness/speed.rs
 33467b75f6e238946868cd25d6d62922bbb10c6d99ee156bab47117d798cbae5  xtask/tests/layers.rs
 749f8ec5618c7c1d46dda9faec5dc7fc4a987489d187a4c5b57f1654439a58dc  xtask/tests/layout.rs
 933c6330d7d6ff1bf6d6ab6c39ae0ac94039b853ddfa6736edf39a8179891d26  xtask/tests/lib.rs
