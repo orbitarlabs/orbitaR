@@ -70,6 +70,14 @@ pub(crate) struct Skip {
     pub(crate) reason: String,
 }
 
+pub(crate) fn thread_env(layout: &Layout) -> BTreeMap<&'static str, String> {
+    (BLAS_POOLS
+        .map(|(_, pool)| (pool, "1".to_owned()))
+        .into_iter())
+    .chain([("OMP_NUM_THREADS", layout.threads.to_string())])
+    .collect()
+}
+
 pub(crate) fn input_path(id: &str, name: &str) -> String {
     match name {
         "input" => format!("benchmarks/{id}/input.toml"),
@@ -957,9 +965,8 @@ impl Rivals {
         command.args(&layout.args).args(adapter.input_file().1);
         command
             .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
-            .env("OMP_NUM_THREADS", layout.threads.to_string())
             .env("GFORTRAN_UNBUFFERED_PRECONNECTED", "y")
-            .envs(BLAS_POOLS.map(|(_, threads)| (threads, "1")));
+            .envs(thread_env(layout));
         command
     }
 }

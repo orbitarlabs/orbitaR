@@ -297,6 +297,7 @@ pub(crate) fn time(
                     json!({
                         "cutoff_ha": r.cutoff_ha,
                         "layout": r.layout,
+                        "thread_env": super::rival::thread_env(&r.layout),
                         "mixing": r.mixing,
                         "mpiexec": r.mpiexec,
                         "datasets": claim.map(|c| &c.files),

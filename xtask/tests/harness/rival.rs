@@ -187,25 +187,60 @@ fn the_rival_inputs_carry_the_case_cell_mesh_smearing_bands_and_stop_with_the_io
 }
 
 #[test]
-fn each_blas_that_a_declared_rival_links_is_openblas_whose_pool_each_rank_holds_at_one_thread() {
+fn each_declared_rival_links_the_pthreads_openblas_and_no_other_blas() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../benchmarks/NODE.toml");
     let node: toml::Table = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-    let mut blas = Vec::new();
-    for (code, packages) in node.iter().filter(|(k, _)| *k != "host" && *k != "orbitar") {
-        for (name, pin) in packages.as_table().unwrap() {
+    for code in ["qe", "abinit"] {
+        let packages = node[code].as_table().unwrap();
+        let pin = |name: &str| {
+            packages
+                .get(name)
+                .and_then(|p| p.as_str())
+                .unwrap_or_default()
+        };
+        assert!(
+            pin("libopenblas").contains(" pthreads_"),
+            "{code}: {packages:?}"
+        );
+        for (name, pin) in packages {
             let pin = pin.as_str().unwrap_or_default();
-            let linked = ["blas", "mkl", "blis", "lapack"];
-            if linked.iter().any(|l| name.contains(l) || pin.contains(l)) {
-                blas.push(format!("{code}.{name} = {pin}"));
+            let blas = ["blas", "mkl", "blis", "lapack"];
+            if blas.iter().any(|b| name.contains(b) || pin.contains(b)) {
+                assert!(
+                    name.contains("openblas") || pin.contains("_openblas"),
+                    "{code}.{name} = {pin}"
+                );
             }
         }
     }
-    assert!(!blas.is_empty(), "{node}");
-    assert!(
-        blas.iter()
-            .all(|b| b.contains("openblas") && !b.contains("mkl") && !b.contains("blis")),
-        "{blas:?}"
+}
+
+#[test]
+fn each_rival_block_names_the_thread_environment_that_its_runs_had() {
+    let log =
+        std::env::temp_dir().join(format!("xtask-rival-thread-env-log-{}", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let keep = format!(
+        "echo \"$OMP_NUM_THREADS $OPENBLAS_NUM_THREADS\" >> '{}'",
+        log.display()
     );
+    let (pw, abinit) = (format!("{keep}\n{PW}"), format!("{keep}\n{ABINIT}"));
+    let root = rivals_tree("rival-thread-env", INPUT, TUNED, &pw, &abinit);
+    let (outcome, record) = claim(&root, true);
+    let seen = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert!(passed(&outcome), "{outcome:?}: {record}");
+    let lines: std::collections::BTreeSet<&str> = seen.lines().collect();
+    assert_eq!(lines, ["8 1"].into(), "{seen}");
+    for code in ["qe", "abinit"] {
+        let timed = blocks(&record, code);
+        assert_eq!(timed.len(), 1, "{record}");
+        assert_eq!(
+            timed[0]["rival"]["thread_env"],
+            json!({ "OMP_NUM_THREADS": "8", "OPENBLAS_NUM_THREADS": "1" }),
+            "{record}"
+        );
+    }
 }
 
 #[test]
