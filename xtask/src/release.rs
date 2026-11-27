@@ -38,6 +38,7 @@ const JTH_INFO: [&str; 4] = ["METADATA", "WHEEL", "RECORD", "entry_points.txt"];
 #[derive(Deserialize)]
 struct Listing {
     names: Vec<String>,
+    stored: Vec<String>,
     metadata: String,
     #[serde(default)]
     families: BTreeMap<String, String>,
@@ -214,7 +215,7 @@ fn contents(root: &Path, file: &str, listing: &Listing, crates: &BTreeSet<String
         );
     }
     findings.extend(duplicates(file, &listing.names));
-    findings.extend(order(file, &listing.names));
+    findings.extend(order(file, listing));
     for name in &listing.paw {
         findings.push(format!(
             "wheel: {name} opens with a PAW-XML root; datasets never enter the wheel"
@@ -334,7 +335,8 @@ fn listing(wheel: &Path) -> Result<Listing, String> {
         names = z.namelist()\n\
         read = lambda end: next((z.read(n).decode() for n in names if n.endswith(end)), None)\n\
         runs = lambda n: '\\n'.join(r.decode() for r in re.findall(rb'[ -~]{4,}', z.read(n)))\n\
-        print(json.dumps({'names': names, 'metadata': read('.dist-info/METADATA') or '', \
+        stored = [i.filename for i in sorted(z.infolist(), key=lambda i: i.header_offset)]\n\
+        print(json.dumps({'names': names, 'stored': stored, 'metadata': read('.dist-info/METADATA') or '', \
         'families': {n: z.read(n).decode() for n in names if n.startswith('orbitar/families/')}, 'license': read('.dist-info/licenses/LICENSE'), \
         'notices': read('.dist-info/licenses/THIRD-PARTY-NOTICES'), 'runs': [[n, runs(n)] for n in names if not n.startswith('orbitar_jth/')], \
         'elf': [n for n in names if z.read(n)[:4] == b'\\x7fELF'], \
@@ -381,23 +383,25 @@ fn duplicates(file: &str, names: &[String]) -> Findings {
         .collect()
 }
 
-fn order(file: &str, names: &[String]) -> Findings {
+fn order(file: &str, listing: &Listing) -> Findings {
     fn place(name: &str) -> (u8, Vec<&str>) {
         let parts: Vec<&str> = name.split('/').collect();
         let info = parts[0].ends_with(".dist-info");
         let last = info && parts[1..] == ["RECORD"];
         (u8::from(info) + u8::from(last), parts)
     }
-    let mut want = names.to_vec();
+    let mut want = listing.names.clone();
     want.sort_by(|a, b| place(a).cmp(&place(b)));
-    (names.iter().zip(&want).find(|(got, want)| got != want))
-        .map(|(got, want)| {
-            format!(
-                "wheel {file}: {got} stands where {want} belongs; a wheel lists its members by path, \
-                 .dist-info after the rest and RECORD last, so that each host builds the same bytes"
-            )
-        })
+    [("central directory", &listing.names), ("stored entries", &listing.stored)]
         .into_iter()
+        .filter_map(|(part, names)| {
+            (names.iter().zip(&want).find(|(got, want)| got != want)).map(|(got, want)| {
+                format!(
+                    "wheel {file}: in the {part}, {got} stands where {want} belongs; a wheel lists its members \
+                     by path, .dist-info after the rest and RECORD last, so that each host builds the same bytes"
+                )
+            })
+        })
         .collect()
 }
 

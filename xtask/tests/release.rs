@@ -11,17 +11,20 @@ const METADATA: &str = "Metadata-Version: 2.4\nName: orbitar\nVersion: 0.1.0\nAu
      License-Expression: LicenseRef-x\nRequires-Dist: ase==3.29.0\nRequires-Dist: orbitar-jth==2.0.0\n";
 const JTH_PROJECT: &str = "[project]\nname = \"orbitar-jth\"\nversion = \"2.0.0\"\n";
 
-fn wheel(root: &Path, name: &str, members: &[(&str, String)]) {
+fn wheel(root: &Path, name: &str, members: &[(&str, String)], listed: &[&str]) {
     let pairs: Vec<[&str; 2]> = members.iter().map(|(p, t)| [*p, t.as_str()]).collect();
     let status = Command::new("python3")
         .args([
             "-I",
             "-c",
-            "import json, sys, zipfile\nwith zipfile.ZipFile(sys.argv[1], 'w') as z:\n    \
-             [z.writestr(p, t) for p, t in json.loads(sys.argv[2])]",
+            "import json, sys, zipfile\nlisted = json.loads(sys.argv[3])\n\
+             with zipfile.ZipFile(sys.argv[1], 'w') as z:\n    \
+             [z.writestr(p, t) for p, t in json.loads(sys.argv[2])]\n    \
+             z.filelist.sort(key=lambda i: listed.index(i.filename) if listed else 0)",
         ])
         .arg(root.join(name))
         .arg(serde_json::to_string(&pairs).unwrap())
+        .arg(serde_json::to_string(listed).unwrap())
         .status()
         .unwrap();
     assert!(status.success());
@@ -38,6 +41,16 @@ fn checked_beside(
     file: &str,
     beside: &[(&str, &str)],
     change: impl Fn(&mut Vec<(&str, String)>),
+) -> Vec<String> {
+    checked_stored(name, file, beside, change, |_| {})
+}
+
+fn checked_stored(
+    name: &str,
+    file: &str,
+    beside: &[(&str, &str)],
+    change: impl Fn(&mut Vec<(&str, String)>),
+    store: impl Fn(&mut Vec<(&str, String)>),
 ) -> Vec<String> {
     let mut files = vec![
         ("Cargo.toml", CARGO),
@@ -64,7 +77,9 @@ fn checked_beside(
     .map(|(p, t)| (p, t.to_owned()))
     .into();
     change(&mut members);
-    wheel(&root, file, &members);
+    let listed: Vec<&str> = members.iter().map(|(p, _)| *p).collect();
+    store(&mut members);
+    wheel(&root, file, &members, &listed);
     write(
         &root,
         "tree",
@@ -170,11 +185,29 @@ fn a_wheel_lists_its_members_by_path_components_with_dist_info_after_the_rest_an
             let (a, b) = (at(m, early), at(m, late));
             m.swap(a, b);
         });
-        assert!(
-            has(&found, &format!("{early} stands where {late} belongs")),
-            "{found:?}"
-        );
+        for part in ["central directory", "stored entries"] {
+            assert!(
+                has(
+                    &found,
+                    &format!("in the {part}, {early} stands where {late} belongs")
+                ),
+                "{found:?}"
+            );
+        }
     }
+}
+
+#[test]
+fn a_wheel_whose_stored_entries_leave_the_path_order_fails_though_its_central_directory_keeps_it() {
+    let found = checked_stored("stored-order", NAME, &[], |_| {}, |m| m.swap(0, 1));
+    assert!(
+        has(
+            &found,
+            "in the stored entries, orbitar/ase.py stands where orbitar/__init__.py belongs"
+        ),
+        "{found:?}"
+    );
+    assert!(!has(&found, "in the central directory"), "{found:?}");
 }
 
 #[test]
@@ -856,7 +889,7 @@ fn jth_checked_in(
         ),
     ];
     change(&mut members);
-    wheel(&root, file, &members);
+    wheel(&root, file, &members, &[]);
     xtask::run(&["wheel", "--check", file], &root, &crate::env(false))
 }
 
@@ -1036,6 +1069,7 @@ fn installable(name: &str, data: bool) -> crate::Tree {
         &root,
         "target/wheel/wheel/orbitar-0.1.0-py3-none-any.whl",
         &orbitar,
+        &[],
     );
     if data {
         let jth: Vec<(&str, String)> = vec![
@@ -1055,6 +1089,7 @@ fn installable(name: &str, data: bool) -> crate::Tree {
             &root,
             "target/wheel/jth-wheel/orbitar_jth-2.0.0-py3-none-any.whl",
             &jth,
+            &[],
         );
     }
     root
