@@ -38,14 +38,15 @@ two cold runs of one geometry: they check the geometry and stress that ipi passe
 tolerance = """\
 each metric is a share of its bound, so 1 is the bound; τ = energy_tolerance_ha = 1e-9. F: both runs stop at ‖Δñ‖ < \
 τ/100. On four plane-wave LDA models (Si, Al, an 8-cell Al chain, and the chain with an on-site U) F lay within 0.54 \
-‖Δñ‖ of its converged value, an empirical fit; F's bound takes it, 2 · 0.54 τ/100 = 1.08e-11 Ha. On the engine's \
-synthetic crystals F, stationary, lies within 0.01 τ/100 of a tight stop (tests/ks/scf.rs \
-at_the_stop_eigenvalues_and_e_f_lie_within_0_54_terms_within_1_density_limit_of_a_tight_stop); the fit is for F \
-alone: a term there reaches 0.78. force: F's error, as a function of one atom's position, is a trigonometric \
-polynomial of degree G_max (the density sphere, √(2 · basis.density_cutoff_ha)); by Bernstein its slope is ≤ G_max · \
-1.08e-11 Ha/Bohr (Si 6.1e-11, Fe 7.5e-11). stress: (1/Ω) ∂/∂ε of the same error; a strain moves a point r by ε r, |r| \
-≤ D, the cell's longest diagonal, so ≤ G_max · D · 1.08e-11 / Ω (Si 3.8e-12 to 4.0e-12, Fe pair 4.5e-12, Fe atom \
-9.0e-12 Ha/Bohr³). fmax: ASE's stop on the cold forces, max over atoms |f| / 0.01 eV/Å"""
+‖Δñ‖ of its converged value, an empirical fit; F's bound takes it, 2 · 0.54 τ/100 = 1.08e-11 Ha. tests/ks/scf.rs \
+at_the_stop_eigenvalues_and_e_f_lie_within_0_54_terms_within_1_density_limit_of_a_tight_stop stops the engine's \
+synthetic crystals at energy_tolerance_ha 1e-6 and 1e-8 against 1e-12: F, stationary, lies within 0.01 of each stop's \
+density limit; the fit is for F alone: a term reaches 0.78 of the limit at the 1e-8 stop. force: F's error, as a \
+function of one atom's position, is a trigonometric polynomial of degree G_max (the density sphere, √(2 · \
+basis.density_cutoff_ha)); by Bernstein its slope is ≤ G_max · 1.08e-11 Ha/Bohr (Si 6.1e-11, Fe 7.5e-11). stress: \
+(1/Ω) ∂/∂ε of the same error; a strain moves a point r by ε r, |r| ≤ D, the cell's longest diagonal, so ≤ G_max · D · \
+1.08e-11 / Ω (Si 3.8e-12 to 4.0e-12, Fe pair 4.5e-12, Fe atom 9.0e-12 Ha/Bohr³). fmax: ASE's stop on the cold forces, \
+max over atoms |f| / 0.01 eV/Å"""
 si-ions = """\
 Si pair, fixed fcc cell, rattled; 8 Ha, 2³ k; 6 BFGS steps. Record shares: F 1.8e-3 (2.0e-14 Ha), force 4.2e-3 \
 (2.6e-13 Ha/Bohr), stress 1.0e-3 (4.0e-15 Ha/Bohr³)"""

@@ -294,8 +294,8 @@ bfc3768b8ada31cfe5bf9bbc9219b5798744e0397b01198a719a86b995e5c12d  benchmarks/15_
 e0ae8406c94ce792da3d81212aaa5a86b7204fcc387002870a8c19256b65897b  benchmarks/15_stress_derivative/inputs/gaas-volume-plus.toml
 1476256d08d437eac69fa619cbbcf6819e323aaca590100bdd6ad80f8fdca219  benchmarks/15_stress_derivative/reference/SOURCE.toml
 02116187ff4805e3147e66f5c18e2bd98e541abf6acdcce11e383e9df20e1725  tests/benchmarks/15_stress_derivative/case.rs
-# 16_relax_endpoint reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, omissions tested, Case built only by its parser); case 12 and 16 reasons state the 0.54 fit as empirical with its scope, case 16 keeps its endpoint records; reduce.py checks its operands first; README shows [why]; no bound, input, or reference value changed
-d4008aa1028f076b964e5a5c8537094d0e811f3065b444bd12ac8d3b786fef1d  benchmarks/16_relax_endpoint/case.toml
+# 16_relax_endpoint reviewer=PENDING reason=PR 6 round 2: case 16's tolerance reason states the cited SCF test's stops (1e-6 and 1e-8 against 1e-12) and that a term's 0.78 comes from the 1e-8 stop; no bound, input, or record changed
+9a6a89b9343ee67f73291421816295f869aa651e4492071edb6d6522ea9186d1  benchmarks/16_relax_endpoint/case.toml
 9db1797a38824ecd70a996d210165e60573be4abe786050595cf21301574adbf  benchmarks/16_relax_endpoint/inputs/fe-cell.toml
 d894d4e994a104ca6461c7340f7008ed32640a4796342c292d34595d7bb0a38e  benchmarks/16_relax_endpoint/inputs/fe-ions.toml
 555e620cdee0d31029868f0010bac7eca0cc0357971dc545cf5aa6b8664350e7  benchmarks/16_relax_endpoint/inputs/si-cell.toml
