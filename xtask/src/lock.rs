@@ -11,7 +11,7 @@ use std::{
 
 pub(crate) const DIR: &str = "benchmarks/locks";
 pub(crate) const LEGACY: &str = "benchmarks/LOCK";
-pub(crate) const STAGED: &str = "benchmarks/locks.partial";
+const MOVING: &str = "benchmarks/locks.move";
 pub(crate) const HARNESS: &str = "harness";
 const SUFFIX: &str = ".lock";
 const REMOVED: &str = "removed";
@@ -88,11 +88,24 @@ fn stored_at(block: &str, file: &str) -> String {
     format!("{DIR}/{block}/{file}{SUFFIX}")
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Move {
-    Done,
-    Start,
-    Finish,
+fn staged(pid: u32) -> String {
+    format!("{DIR}.{pid}.partial")
+}
+
+pub(crate) fn reserved(name: &str) -> bool {
+    let pid = (name.strip_prefix("locks."))
+        .and_then(|rest| rest.strip_suffix(".partial"))
+        .is_some_and(|pid| !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit()));
+    pid || Some(name) == DIR.rsplit('/').next()
+}
+
+fn representable(file: &str) -> Result<(), String> {
+    match file.chars().any(char::is_control) {
+        true => Err(format!(
+            "{file:?} holds a control character, which no lock entry may name"
+        )),
+        false => Ok(()),
+    }
 }
 
 fn place(stored: &str) -> Result<(String, String), String> {
@@ -140,6 +153,7 @@ pub(crate) fn legacy(text: &str) -> Result<Lock, String> {
             };
             let (sha, file) = (line.split_once("  "))
                 .ok_or_else(|| format!("{LEGACY}: {line:?} is no `<sha256>  <file>` line"))?;
+            representable(file).map_err(|e| format!("{LEGACY}: {e}"))?;
             let entry = Entry {
                 sha256: sha.to_owned(),
                 ..review.clone()
@@ -156,17 +170,21 @@ fn present(root: &Path, path: &str) -> bool {
 }
 
 fn on_disk(root: &Path) -> Result<Lock, String> {
-    if let Some(fault) = walk::faults(root, DIR).into_iter().next() {
+    read_dir(root, DIR)
+}
+
+fn read_dir(root: &Path, dir: &str) -> Result<Lock, String> {
+    if let Some(fault) = walk::faults(root, dir).into_iter().next() {
         return Err(fault);
     }
-    if let Some(odd) = (walk::links(root, DIR).into_iter())
-        .chain(walk::others(root, DIR))
+    if let Some(odd) = (walk::links(root, dir).into_iter())
+        .chain(walk::others(root, dir))
         .next()
     {
         return Err(format!("{odd} is no regular file"));
     }
-    let files = (walk::files(root, DIR).into_iter())
-        .map(|path| Ok((path.clone(), regular_in(root, &path)?)))
+    let files = (walk::files(root, dir).into_iter())
+        .map(|path| Ok((path.replacen(dir, DIR, 1), regular_in(root, &path)?)))
         .collect::<Result<Vec<_>, String>>()?;
     parse(files)
 }
@@ -180,29 +198,119 @@ pub(crate) fn read(root: &Path) -> Result<Lock, String> {
     on_disk(root)
 }
 
-fn stored(root: &Path) -> Result<(Lock, Move), String> {
+fn stored(root: &Path) -> Result<(Lock, bool), String> {
     if !present(root, LEGACY) {
-        return on_disk(root).map(|lock| (lock, Move::Done));
+        return on_disk(root).map(|lock| (lock, false));
+    }
+    if !on_disk(root)?.is_empty() {
+        return Err(format!(
+            "{LEGACY} and {DIR} both exist; {DIR} is the finished move or the base's lock, so delete {LEGACY} and run `cargo xtask lock` again"
+        ));
     }
     let text =
         String::from_utf8(regular_in(root, LEGACY)?).map_err(|e| format!("{LEGACY}: {e}"))?;
-    let old = legacy(&text)?;
-    let now = on_disk(root)?;
-    if now.is_empty() {
-        return Ok((old, Move::Start));
+    legacy(&text).map(|lock| (lock, true))
+}
+
+struct Moving(std::path::PathBuf);
+
+impl Drop for Moving {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
     }
-    let moved = old.iter().all(|(block, files)| {
-        files.iter().all(|(file, was)| {
-            (now.get(block).and_then(|n| n.get(file)))
-                .is_some_and(|is| is.sha256 != was.sha256 || is == was)
-        })
-    });
-    match moved {
-        true => Ok((now, Move::Finish)),
+}
+
+impl Moving {
+    fn take(root: &Path) -> Result<Self, String> {
+        let path = root.join(MOVING);
+        let fail = |e: std::io::Error| format!("{MOVING}: {e}");
+        let take = || {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+        };
+        let mut file = match take() {
+            Ok(file) => file,
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                let pid = (std::fs::read_to_string(&path).ok())
+                    .and_then(|text| text.trim().parse::<u32>().ok());
+                if let Some(pid) = pid.filter(|pid| alive(*pid)) {
+                    return Err(format!(
+                        "{MOVING}: process {pid} is moving {LEGACY}; let it finish"
+                    ));
+                }
+                if let Some(pid) = pid {
+                    clear(root, &staged(pid)).map_err(|e| format!("{}: {e}", staged(pid)))?;
+                }
+                std::fs::remove_file(&path).map_err(fail)?;
+                take().map_err(fail)?
+            }
+            Err(e) => return Err(fail(e)),
+        };
+        write!(file, "{}", std::process::id()).map_err(fail)?;
+        Ok(Self(path))
+    }
+}
+
+fn alive(pid: u32) -> bool {
+    let signal = |pid| nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid), None);
+    i32::try_from(pid).is_ok_and(|pid| signal(pid) != Err(nix::errno::Errno::ESRCH))
+}
+
+fn put(root: &Path, at: &str, entry: &Entry) -> Result<(), String> {
+    let path = root.join(at);
+    (path.parent().map_or(Ok(()), std::fs::create_dir_all))
+        .and_then(|()| toml::to_string(entry).map_err(std::io::Error::other))
+        .and_then(|text| std::fs::write(&path, text))
+        .map_err(|e| format!("{at}: {e}"))
+}
+
+fn moved(root: &Path, next: &Lock) -> Result<(), String> {
+    let _moving = Moving::take(root)?;
+    let staged = staged(std::process::id());
+    clear(root, &staged).map_err(|e| format!("{staged}: {e}"))?;
+    std::fs::create_dir(root.join(&staged)).map_err(|e| format!("{staged}: {e}"))?;
+    let done = stage(root, &staged, next);
+    if done.is_err() {
+        let _ = clear(root, &staged);
+    }
+    done?;
+    let now = on_disk(root)?;
+    match now == *next {
+        true => std::fs::remove_file(root.join(LEGACY)).map_err(|e| format!("{LEGACY}: {e}")),
         false => Err(format!(
-            "{LEGACY} and {DIR} both exist and {DIR} lacks a review that {LEGACY} holds; keep the one to trust and delete the other"
+            "{DIR} differs from the staged move after the rename; {LEGACY} is kept"
         )),
     }
+}
+
+fn stage(root: &Path, staged: &str, next: &Lock) -> Result<(), String> {
+    for (block, files) in next {
+        for (file, entry) in files {
+            put(
+                root,
+                &stored_at(block, file).replacen(DIR, staged, 1),
+                entry,
+            )?;
+        }
+    }
+    if read_dir(root, staged)? != *next {
+        return Err(format!(
+            "{staged} reads back other entries than it was given"
+        ));
+    }
+    if let Some(file) = (walk::files(root, DIR).into_iter())
+        .chain(walk::links(root, DIR))
+        .chain(walk::others(root, DIR))
+        .next()
+    {
+        return Err(format!(
+            "{file} is in the way of the move; {LEGACY} is kept"
+        ));
+    }
+    clear(root, DIR).map_err(|e| format!("{DIR}: {e}"))?;
+    std::fs::rename(root.join(staged), root.join(DIR)).map_err(|e| format!("{staged} → {DIR}: {e}"))
 }
 pub(crate) fn at(root: &Path, base: &str, listed: &[String]) -> Result<Option<Lock>, String> {
     let prefix = format!("{DIR}/");
@@ -332,11 +440,7 @@ fn hashes(root: &Path, id: &str) -> Result<Vec<String>, String> {
     files
         .into_iter()
         .map(|file| {
-            if file.chars().any(char::is_control) {
-                return Err(format!(
-                    "{file:?} holds a control character, which no lock entry may name"
-                ));
-            }
+            representable(&file)?;
             let mut bytes = regular_in(root, &file)?;
             if file == crate::layout::RUNNER {
                 bytes = without_case_table(&bytes);
@@ -468,7 +572,7 @@ pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
     if reviewer.trim().is_empty() || reason.trim().is_empty() {
         return vec!["usage: cargo xtask lock --reviewer <name> --reason <text>".into()];
     }
-    let (locked, moved) = match stored(root) {
+    let (locked, from_legacy) = match stored(root) {
         Ok(stored) => stored,
         Err(e) => return vec![format!("lock: {e}")],
     };
@@ -523,43 +627,31 @@ pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
             block.insert(file, entry);
         }
     }
-    let (written, into) = match moved {
-        Move::Start => (Lock::new(), STAGED),
-        Move::Done | Move::Finish => (locked, DIR),
-    };
-    if moved == Move::Start
-        && let Err(e) = clear(root, STAGED)
-    {
-        return vec![format!("lock: {STAGED}: {e}")];
-    }
     for (block, files) in &next {
-        for (file, entry) in files {
-            if written.get(block).and_then(|w| w.get(file)) == Some(entry) {
-                continue;
-            }
-            let at = stored_at(block, file).replacen(DIR, into, 1);
-            let path = root.join(&at);
-            let wrote = (path.parent().map_or(Ok(()), std::fs::create_dir_all))
-                .and_then(|()| toml::to_string(entry).map_err(std::io::Error::other))
-                .and_then(|text| std::fs::write(&path, text));
-            if let Err(e) = wrote {
-                let _ = clear(root, STAGED);
-                return vec![format!("lock: {at}: {e}")];
+        for file in files.keys() {
+            if let Err(e) = representable(file) {
+                return vec![format!("lock: {block}: {e}")];
             }
         }
     }
-    let published = match moved {
-        Move::Start => std::fs::rename(root.join(STAGED), root.join(DIR))
-            .map_err(|e| format!("lock: {STAGED} → {DIR}: {e}")),
-        Move::Done | Move::Finish => Ok(()),
-    };
-    let finished = published.and_then(|()| match moved {
-        Move::Done => Ok(()),
-        Move::Start | Move::Finish => std::fs::remove_file(root.join(LEGACY)).map_err(|e| {
-            format!("lock: {LEGACY}: {e}; run `cargo xtask lock` again to finish the move")
-        }),
-    });
-    finished.err().into_iter().collect()
+    if from_legacy {
+        return moved(root, &next)
+            .err()
+            .map(|e| format!("lock: {e}"))
+            .into_iter()
+            .collect();
+    }
+    for (block, files) in &next {
+        for (file, entry) in files {
+            if locked.get(block).and_then(|w| w.get(file)) == Some(entry) {
+                continue;
+            }
+            if let Err(e) = put(root, &stored_at(block, file), entry) {
+                return vec![format!("lock: {e}")];
+            }
+        }
+    }
+    Vec::new()
 }
 
 fn clear(root: &Path, dir: &str) -> std::io::Result<()> {

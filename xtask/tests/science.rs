@@ -860,6 +860,63 @@ fn s9_needs_a_new_review_for_a_new_entry_whatever_base_review_it_copies() {
 }
 
 #[test]
+fn s9_names_a_base_lock_entry_with_a_control_character_on_either_base() {
+    let root = legacy_base("s9-control-legacy");
+    let lock = String::from_utf8(
+        std::process::Command::new("git")
+            .args(["show", "HEAD:benchmarks/LOCK"])
+            .current_dir(&*root)
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let moved = crate::lock_files(&root);
+    std::fs::remove_dir_all(root.join("benchmarks/locks")).unwrap();
+    write(
+        &root,
+        "benchmarks/LOCK",
+        &format!("{lock}{}  xtask/former\tfile.txt\n", "0".repeat(64)),
+    );
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-qm", "a tab"]);
+    std::fs::remove_file(root.join("benchmarks/LOCK")).unwrap();
+    for (path, text) in &moved {
+        write(&root, path, text);
+    }
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(
+        has(
+            &f,
+            "S9 benchmarks/LOCK: \"xtask/former\\tfile.txt\" holds a control character"
+        ),
+        "{f:?}"
+    );
+    let root = base("s9-control-split");
+    let entry =
+        crate::lock_files(&root)["benchmarks/locks/harness/xtask/src/harness.rs.lock"].clone();
+    let odd = "benchmarks/locks/harness/xtask/src/a\nb.rs.lock";
+    write(&root, odd, &entry);
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-qm", "a newline"]);
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(
+        has(
+            &f,
+            &format!("S9 {odd} is no benchmarks/locks/<block>/<file>.lock entry")
+        ),
+        "{f:?}"
+    );
+    assert!(
+        has(
+            &f,
+            &format!("S5 {odd} is no benchmarks/locks/<block>/<file>.lock entry")
+        ),
+        "{f:?}"
+    );
+}
+
+#[test]
 fn s9_needs_a_new_review_for_a_file_that_moves_between_cases_and_reads_a_review_without_its_spacing()
  {
     for root in both_bases("s9-moved") {

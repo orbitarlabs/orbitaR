@@ -402,8 +402,12 @@ pub(crate) fn ids(root: &Path) -> Result<Vec<String>, String> {
         let kind = entry
             .file_type()
             .map_err(|e| format!("{}: {e}", entry.path().display()))?;
-        let lock = [crate::lock::DIR, crate::lock::STAGED].map(|dir| root.join(dir));
-        if !kind.is_dir() || lock.contains(&entry.path()) {
+        if !kind.is_dir()
+            || entry
+                .file_name()
+                .to_str()
+                .is_some_and(crate::lock::reserved)
+        {
             continue;
         }
         let id = (entry.file_name().into_string())

@@ -621,29 +621,17 @@ fn the_move_from_the_old_lock_keeps_every_review_verbatim_and_deletes_the_old_fi
         &lever(&["science"], &root),
         "S5 benchmarks/LOCK is the old one-file lock"
     ));
-    let f = lever(
-        &["lock", "--reviewer", "PENDING", "--reason", "again"],
-        &root,
-    );
-    assert!(
-        f.is_empty(),
-        "a move whose old file was left behind finishes: {f:?}"
-    );
-    assert!(!root.join("benchmarks/LOCK").exists());
-    assert_eq!(lock_files(&root), moved);
-    write(
-        &root,
-        "benchmarks/LOCK",
-        &old.replace("reason=round 2", "reason=round 3"),
-    );
     assert!(has(
         &lever(
             &["lock", "--reviewer", "PENDING", "--reason", "again"],
             &root
         ),
-        "lock: benchmarks/LOCK and benchmarks/locks both exist and benchmarks/locks lacks a review"
+        "lock: benchmarks/LOCK and benchmarks/locks both exist; benchmarks/locks is the finished move"
     ));
-    assert!(root.join("benchmarks/LOCK").exists());
+    assert_eq!(
+        fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
+        old
+    );
     assert_eq!(lock_files(&root), moved);
 }
 
@@ -800,13 +788,17 @@ fn a_move_that_fails_partway_leaves_the_old_lock_alone_and_a_retry_finishes_it()
         &["lock", "--reviewer", "PENDING", "--reason", "moved"],
         &root,
     );
-    assert!(has(&f, "lock: benchmarks/locks.partial/harness/"), "{f:?}");
+    let staged = format!(
+        "lock: benchmarks/locks.{}.partial/harness/",
+        std::process::id()
+    );
+    assert!(has(&f, &staged), "{f:?}");
     assert_eq!(
         fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
         old
     );
     assert!(!root.join("benchmarks/locks").exists());
-    assert!(!root.join("benchmarks/locks.partial").exists());
+    assert_eq!(moves_left(&root), Vec::<String>::new());
     fs::remove_file(root.join(&long)).unwrap();
     let f = lever(
         &["lock", "--reviewer", "PENDING", "--reason", "moved"],
@@ -841,4 +833,138 @@ fn a_hashed_path_with_a_control_character_is_refused_and_odd_names_survive_the_b
     git(&root, &["commit", "-qm", "base"]);
     let f = lever(&["science", "--base", "HEAD"], &root);
     assert!(!has(&f, "S9") && !has(&f, "S5"), "{f:?}");
+}
+
+fn moves_left(root: &std::path::Path) -> Vec<String> {
+    let mut left: Vec<String> = fs::read_dir(root.join("benchmarks"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with("locks"))
+        .collect();
+    left.sort();
+    left
+}
+
+fn legacy_tree(name: &str, extra: &str) -> (crate::Tree, String) {
+    let old = format!(
+        "# harness reviewer=first reason=kept\n{}  xtask/src/harness.rs\n{extra}",
+        sha("// judge\n")
+    );
+    let root = tree(
+        name,
+        &[
+            ("benchmarks/.keep", ""),
+            ("xtask/src/harness.rs", "// judge\n"),
+            ("benchmarks/LOCK", &old),
+        ],
+    );
+    (root, old)
+}
+
+#[test]
+fn a_move_clears_empty_directories_in_its_way_and_refuses_a_file_there() {
+    let (root, _) = legacy_tree("lock-move-empty-dirs", "");
+    fs::create_dir_all(root.join("benchmarks/locks/harness/xtask/src/harness.rs.lock")).unwrap();
+    fs::create_dir_all(root.join("benchmarks/locks/1_a/deep")).unwrap();
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(f.is_empty(), "{f:?}");
+    assert_eq!(moves_left(&root), vec!["locks".to_owned()]);
+    assert_eq!(
+        lock_entry(&root, "harness", "xtask/src/harness.rs")["reviewer"].as_str(),
+        Some("first")
+    );
+    assert!(!root.join("benchmarks/LOCK").exists());
+    let (root, old) = legacy_tree("lock-move-stray", "");
+    write(&root, "benchmarks/locks/harness/stray.txt", "x\n");
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(has(&f, "benchmarks/locks/harness/stray.txt"), "{f:?}");
+    assert_eq!(
+        fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
+        old
+    );
+    assert_eq!(moves_left(&root), vec!["locks".to_owned()]);
+}
+
+#[test]
+fn a_move_runs_alone_and_a_retry_after_a_dead_move_clears_only_that_moves_stage() {
+    let (root, old) = legacy_tree("lock-move-alone", "");
+    write(
+        &root,
+        "benchmarks/locks.move",
+        &std::process::id().to_string(),
+    );
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(
+        has(
+            &f,
+            &format!(
+                "benchmarks/locks.move: process {} is moving",
+                std::process::id()
+            )
+        ),
+        "{f:?}"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
+        old
+    );
+    let mut gone = std::process::Command::new("true").spawn().unwrap();
+    let dead = gone.id();
+    gone.wait().unwrap();
+    write(&root, "benchmarks/locks.move", &dead.to_string());
+    write(
+        &root,
+        &format!("benchmarks/locks.{dead}.partial/harness/half.lock"),
+        "half",
+    );
+    write(
+        &root,
+        "benchmarks/locks.1.partial/harness/other.lock",
+        "other",
+    );
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(f.is_empty(), "{f:?}");
+    assert_eq!(
+        moves_left(&root),
+        vec!["locks".to_owned(), "locks.1.partial".to_owned()]
+    );
+    assert_eq!(lock_files(&root).len(), 1);
+    assert!(!root.join("benchmarks/LOCK").exists());
+}
+
+#[test]
+fn an_old_lock_entry_with_a_control_character_stops_the_move_with_its_name() {
+    let (root, old) = legacy_tree(
+        "lock-move-tab",
+        &format!("{}  xtask/former\tfile.txt\n", sha("// former\n")),
+    );
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(
+        has(
+            &f,
+            "lock: benchmarks/LOCK: \"xtask/former\\tfile.txt\" holds a control character"
+        ),
+        "{f:?}"
+    );
+    assert_eq!(
+        fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
+        old
+    );
+    assert_eq!(moves_left(&root), Vec::<String>::new());
 }
