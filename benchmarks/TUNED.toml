@@ -3,6 +3,7 @@ tuning_set = ["benchmarks/11_speed_scaling/input.toml", "benchmarks/11_speed_sca
 
 [qe]
 volume_scale = 0.94
+layout_policy = "b6a051ec92a859e57275d52a8bc75aa3dbb17702b86714911fe7058a6b76b02a"
 
 [qe.cutoff_ha]
 Al = 40.0
@@ -24,11 +25,11 @@ Ti = 45.0
 [qe.layout.8]
 ranks = 8
 threads = 1
-args = []
+args = ["-nd", "4"]
 input = []
 
 [qe.searched]
-8 = ["Layout { ranks: 1, threads: 8, args: [], input: [] }: 892.465 s (benchmarks/11_speed_scaling/input.toml 19.017 s, benchmarks/11_speed_scaling/inputs/gaas.toml 288.189 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 69.156 s, benchmarks/11_speed_scaling/inputs/si32.toml 181.979 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 182.298 s, benchmarks/14_set_w/tuning/sto5.toml 151.826 s)", "Layout { ranks: 2, threads: 4, args: [], input: [] }: 447.531 s (benchmarks/11_speed_scaling/input.toml 14.552 s, benchmarks/11_speed_scaling/inputs/gaas.toml 139.876 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 40.596 s, benchmarks/11_speed_scaling/inputs/si32.toml 60.487 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 113.810 s, benchmarks/14_set_w/tuning/sto5.toml 78.209 s)", "Layout { ranks: 4, threads: 2, args: [], input: [] }: 342.070 s (benchmarks/11_speed_scaling/input.toml 5.950 s, benchmarks/11_speed_scaling/inputs/gaas.toml 107.534 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 34.227 s, benchmarks/11_speed_scaling/inputs/si32.toml 46.215 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 87.656 s, benchmarks/14_set_w/tuning/sto5.toml 60.488 s)", 'Layout { ranks: 4, threads: 2, args: ["-nd", "4"], input: [] }: 346.284 s (benchmarks/11_speed_scaling/input.toml 5.264 s, benchmarks/11_speed_scaling/inputs/gaas.toml 105.633 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 33.631 s, benchmarks/11_speed_scaling/inputs/si32.toml 48.179 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 87.669 s, benchmarks/14_set_w/tuning/sto5.toml 65.909 s)', "Layout { ranks: 8, threads: 1, args: [], input: [] }: 184.925 s (benchmarks/11_speed_scaling/input.toml 2.803 s, benchmarks/11_speed_scaling/inputs/gaas.toml 61.848 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 16.279 s, benchmarks/11_speed_scaling/inputs/si32.toml 28.302 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 61.251 s, benchmarks/14_set_w/tuning/sto5.toml 14.442 s)", 'Layout { ranks: 8, threads: 1, args: ["-nd", "4"], input: [] }: 186.574 s (benchmarks/11_speed_scaling/input.toml 2.876 s, benchmarks/11_speed_scaling/inputs/gaas.toml 63.022 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 15.978 s, benchmarks/11_speed_scaling/inputs/si32.toml 27.767 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 60.889 s, benchmarks/14_set_w/tuning/sto5.toml 16.040 s)']
+8 = ["Layout { ranks: 1, threads: 8, args: [], input: [] }: 470.924 s (benchmarks/11_speed_scaling/input.toml 3.737 s, benchmarks/11_speed_scaling/inputs/gaas.toml 150.122 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 31.119 s, benchmarks/11_speed_scaling/inputs/si32.toml 115.375 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 120.930 s, benchmarks/14_set_w/tuning/sto5.toml 49.640 s)", "Layout { ranks: 2, threads: 4, args: [], input: [] }: 225.476 s (benchmarks/11_speed_scaling/input.toml 2.770 s, benchmarks/11_speed_scaling/inputs/gaas.toml 71.374 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 18.441 s, benchmarks/11_speed_scaling/inputs/si32.toml 38.821 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 73.623 s, benchmarks/14_set_w/tuning/sto5.toml 20.448 s)", "Layout { ranks: 4, threads: 2, args: [], input: [] }: 145.720 s (benchmarks/11_speed_scaling/input.toml 2.568 s, benchmarks/11_speed_scaling/inputs/gaas.toml 44.042 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 13.970 s, benchmarks/11_speed_scaling/inputs/si32.toml 24.406 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 47.380 s, benchmarks/14_set_w/tuning/sto5.toml 13.352 s)", 'Layout { ranks: 4, threads: 2, args: ["-nd", "4"], input: [] }: 144.716 s (benchmarks/11_speed_scaling/input.toml 2.548 s, benchmarks/11_speed_scaling/inputs/gaas.toml 42.006 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 14.183 s, benchmarks/11_speed_scaling/inputs/si32.toml 24.191 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 48.654 s, benchmarks/14_set_w/tuning/sto5.toml 13.134 s)', "Layout { ranks: 8, threads: 1, args: [], input: [] }: 131.751 s (benchmarks/11_speed_scaling/input.toml 2.458 s, benchmarks/11_speed_scaling/inputs/gaas.toml 41.974 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 11.458 s, benchmarks/11_speed_scaling/inputs/si32.toml 20.377 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 44.035 s, benchmarks/14_set_w/tuning/sto5.toml 11.449 s)", 'Layout { ranks: 8, threads: 1, args: ["-nd", "4"], input: [] }: 130.226 s (benchmarks/11_speed_scaling/input.toml 2.577 s, benchmarks/11_speed_scaling/inputs/gaas.toml 43.345 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 11.234 s, benchmarks/11_speed_scaling/inputs/si32.toml 19.625 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 42.642 s, benchmarks/14_set_w/tuning/sto5.toml 10.803 s)']
 
 [qe.mixing]
 input = ["mixing_beta = 0.3"]
@@ -37,6 +38,7 @@ searched = ["[]: 74.945 s (benchmarks/14_set_w/tuning/fe2o3_10.toml 59.755 s, be
 
 [abinit]
 volume_scale = 0.94
+layout_policy = "e42b81e5f2156642b76e7c07d15c34569d6ecbcfa91c663ac08fd1a84d5310bd"
 
 [abinit.cutoff_ha]
 Al = 40.0
@@ -58,36 +60,52 @@ Ti = 40.0
 "benchmarks/14_set_w/tuning/sto5.toml" = [[12.0, 0.00005120631000181675, 47.1844, 0.02939818783800092, -40.303], [14.0, 0.0007878604100028496, 17.982400000000002, 0.008934814380000943, -11.101], [16.0, 0.00004550169400090454, 6.46434, 0.0029621996479988867, 0.41706], [18.0, 0.000013838664000331846, 1.5592000000000006, 0.0011553482339991205, 5.3222], [20.0, 0.0000034715520030204063, 0.1520999999999999, 0.0008381183379981394, 6.7293], [22.5, 0.000005191936003257069, 0.09250000000000025, 0.0007997786419991826, 6.7889], [25.0, 0.000010518480002019714, 0.41889999999999983, 0.0006748425839987249, 6.4625], [30.0, 0.000005227757998227389, 0.4687000000000001, 0.0002719501320029849, 6.4127], [35.0, 0.000002607280003985579, 0.1722999999999999, 0.0000885464280031556, 6.7091], [40.0, 0.000001697298000635783, 0.030700000000000394, 0.00005188068200254747, 6.8507], [45.0, 0.00000017723800169733294, 0.016500000000000625, 0.00004543012200315388, 6.8649], [50.0, 0.000000000824002199806273, 0.03849999999999998, 0.00003088965399911103, 6.8429], [55.0, 0.00000022056199782127807, 0.026200000000000223, 0.000016903253998634683, 6.8552], [60.0, 0.00000006238599894459185, 0.011700000000000266, 0.00000986785000236523, 6.8697], [70.0, 0.0000005944800022916752, 0.0037000000000002586, 0.000006028379999634126, 6.8777], [80.0, 0.00000021577400275418767, 0.010299999999999976, 0.000003911582001592251, 6.8711], [90.0, 0.00000030333599738696647, 0.0045000000000001705, 0.0000017388520006988983, 6.8769], [100.0, 0.000000000339997541232151, 0.0018000000000002458, 0.00000137636400268093, 6.8796], [110.0, 0.0000002731579968440201, 0.00009999999999976694, 0.0000007431760025156109, 6.8813], [120.0, 0.000000137143996425948, 0.0029000000000003467, 0.000000604785998348234, 6.8785]]
 
 [abinit.layout.8]
-ranks = 8
-threads = 1
+ranks = 4
+threads = 2
 args = []
-input = ["paral_kgb 1", "autoparal 1", "istwfk *1"]
+input = []
 
 [abinit.searched]
-8 = ["Layout { ranks: 1, threads: 8, args: [], input: [] }: 485.917 s (benchmarks/11_speed_scaling/input.toml 2.289 s, benchmarks/11_speed_scaling/inputs/gaas.toml 50.509 s, benchmarks/11_speed_scaling/inputs/nio.toml 162.281 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 22.674 s, benchmarks/11_speed_scaling/inputs/si32.toml 87.662 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 124.892 s, benchmarks/14_set_w/tuning/sto5.toml 35.611 s)", "Layout { ranks: 2, threads: 4, args: [], input: [] }: 352.439 s (benchmarks/11_speed_scaling/input.toml 1.882 s, benchmarks/11_speed_scaling/inputs/gaas.toml 35.734 s, benchmarks/11_speed_scaling/inputs/nio.toml 127.988 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 16.725 s, benchmarks/11_speed_scaling/inputs/si32.toml 49.422 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 96.280 s, benchmarks/14_set_w/tuning/sto5.toml 24.408 s)", 'Layout { ranks: 2, threads: 4, args: [], input: ["paral_kgb 1", "autoparal 1", "istwfk *1"] }: 458.764 s (benchmarks/11_speed_scaling/input.toml 1.865 s, benchmarks/11_speed_scaling/inputs/gaas.toml 64.840 s, benchmarks/11_speed_scaling/inputs/nio.toml 131.459 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 24.131 s, benchmarks/11_speed_scaling/inputs/si32.toml 76.033 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 128.889 s, benchmarks/14_set_w/tuning/sto5.toml 31.547 s)', """
+8 = ["Layout { ranks: 1, threads: 8, args: [], input: [] }: 425.418 s (benchmarks/11_speed_scaling/input.toml 1.604 s, benchmarks/11_speed_scaling/inputs/gaas.toml 48.755 s, benchmarks/11_speed_scaling/inputs/nio.toml 141.590 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 20.528 s, benchmarks/11_speed_scaling/inputs/si32.toml 78.962 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 103.941 s, benchmarks/14_set_w/tuning/sto5.toml 30.038 s)", "Layout { ranks: 2, threads: 4, args: [], input: [] }: 289.476 s (benchmarks/11_speed_scaling/input.toml 1.408 s, benchmarks/11_speed_scaling/inputs/gaas.toml 28.528 s, benchmarks/11_speed_scaling/inputs/nio.toml 103.495 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 14.143 s, benchmarks/11_speed_scaling/inputs/si32.toml 42.824 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 80.228 s, benchmarks/14_set_w/tuning/sto5.toml 18.851 s)", 'Layout { ranks: 2, threads: 4, args: [], input: ["paral_kgb 1", "autoparal 1"] }: 335.072 s (benchmarks/11_speed_scaling/input.toml 1.559 s, benchmarks/11_speed_scaling/inputs/gaas.toml 55.072 s, benchmarks/11_speed_scaling/inputs/nio.toml 110.016 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 18.361 s, benchmarks/11_speed_scaling/inputs/si32.toml 57.275 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 67.419 s, benchmarks/14_set_w/tuning/sto5.toml 25.371 s)', """
 Layout { ranks: 2, threads: 4, args: [], input: ["paral_kgb 1", "np_spkpt 1", "npband 2", "npfft 1"] }: failed: benchmarks/11_speed_scaling/input.toml: with nband 6: engine exited with exit status: 13: Abort(13) on node 1 (rank 1 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 1
 
     However, bandpp=3
 ...
 
 
- abinit_abort: decision taken to exit. Check above messages for more info""", "Layout { ranks: 4, threads: 2, args: [], input: [] }: 290.736 s (benchmarks/11_speed_scaling/input.toml 1.532 s, benchmarks/11_speed_scaling/inputs/gaas.toml 23.559 s, benchmarks/11_speed_scaling/inputs/nio.toml 102.978 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 16.099 s, benchmarks/11_speed_scaling/inputs/si32.toml 46.973 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 86.160 s, benchmarks/14_set_w/tuning/sto5.toml 13.435 s)", 'Layout { ranks: 4, threads: 2, args: [], input: ["paral_kgb 1", "autoparal 1", "istwfk *1"] }: 318.586 s (benchmarks/11_speed_scaling/input.toml 1.775 s, benchmarks/11_speed_scaling/inputs/gaas.toml 40.440 s, benchmarks/11_speed_scaling/inputs/nio.toml 100.553 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 15.282 s, benchmarks/11_speed_scaling/inputs/si32.toml 48.384 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 92.390 s, benchmarks/14_set_w/tuning/sto5.toml 19.760 s)', """
+ abinit_abort: decision taken to exit. Check above messages for more info""", "Layout { ranks: 4, threads: 2, args: [], input: [] }: 269.088 s (benchmarks/11_speed_scaling/input.toml 1.339 s, benchmarks/11_speed_scaling/inputs/gaas.toml 19.379 s, benchmarks/11_speed_scaling/inputs/nio.toml 90.813 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 16.825 s, benchmarks/11_speed_scaling/inputs/si32.toml 44.348 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 83.574 s, benchmarks/14_set_w/tuning/sto5.toml 12.809 s)", """
+Layout { ranks: 4, threads: 2, args: [], input: ["paral_kgb 1", "autoparal 1"] }: failed: benchmarks/11_speed_scaling/inputs/al2o3.toml: engine exited with exit status: 13: Abort(13) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 0
+Abort(13) on node 1 (rank 1 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 1
+
+    The value of istwf_k: 2 is not allowed. Only istwf_k=1 is allowed in MPI-FFT
+...
+
+
+ abinit_abort: decision taken to exit. Check above messages for more info""", """
 Layout { ranks: 4, threads: 2, args: [], input: ["paral_kgb 1", "np_spkpt 1", "npband 4", "npfft 1"] }: failed: benchmarks/11_speed_scaling/inputs/gaas.toml: with nband 60: engine exited with exit status: 13: Abort(13) on node 2 (rank 2 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 2
-Abort(13) on node 3 (rank 3 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 3
+Abort(13) on node 1 (rank 1 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 1
 Abort(13) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 0
 
     However, bandpp=15
 ...
 
 
- abinit_abort: decision taken to exit. Check above messages for more info""", "Layout { ranks: 8, threads: 1, args: [], input: [] }: 343.098 s (benchmarks/11_speed_scaling/input.toml 1.634 s, benchmarks/11_speed_scaling/inputs/gaas.toml 26.293 s, benchmarks/11_speed_scaling/inputs/nio.toml 122.043 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 20.189 s, benchmarks/11_speed_scaling/inputs/si32.toml 55.432 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 102.691 s, benchmarks/14_set_w/tuning/sto5.toml 14.816 s)", 'Layout { ranks: 8, threads: 1, args: [], input: ["paral_kgb 1", "autoparal 1", "istwfk *1"] }: 281.569 s (benchmarks/11_speed_scaling/input.toml 1.888 s, benchmarks/11_speed_scaling/inputs/gaas.toml 29.841 s, benchmarks/11_speed_scaling/inputs/nio.toml 118.568 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 11.224 s, benchmarks/11_speed_scaling/inputs/si32.toml 38.492 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 65.765 s, benchmarks/14_set_w/tuning/sto5.toml 15.791 s)', """
-Layout { ranks: 8, threads: 1, args: [], input: ["paral_kgb 1", "np_spkpt 1", "npband 8", "npfft 1"] }: failed: benchmarks/14_set_w/tuning/fe2o3_10.toml: with nband 56: engine exited with exit status: 13: Abort(13) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 0
-Abort(13) on node 1 (rank 1 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 1
+ abinit_abort: decision taken to exit. Check above messages for more info""", "Layout { ranks: 8, threads: 1, args: [], input: [] }: 320.079 s (benchmarks/11_speed_scaling/input.toml 1.758 s, benchmarks/11_speed_scaling/inputs/gaas.toml 24.480 s, benchmarks/11_speed_scaling/inputs/nio.toml 114.747 s, benchmarks/11_speed_scaling/inputs/al2o3.toml 19.087 s, benchmarks/11_speed_scaling/inputs/si32.toml 48.818 s, benchmarks/14_set_w/tuning/fe2o3_10.toml 99.209 s, benchmarks/14_set_w/tuning/sto5.toml 11.980 s)", """
+Layout { ranks: 8, threads: 1, args: [], input: ["paral_kgb 1", "autoparal 1"] }: failed: benchmarks/11_speed_scaling/inputs/al2o3.toml: engine exited with exit status: 13: Abort(13) on node 3 (rank 3 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 3
+Abort(13) on node 2 (rank 2 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 2
+
+mpi_rank: 0
+message: |
+    The value of istwf_k: 2 is not allowed. Only istwf_k=1 is allowed in MPI-FFT
+...""", """
+Layout { ranks: 8, threads: 1, args: [], input: ["paral_kgb 1", "np_spkpt 1", "npband 8", "npfft 1"] }: failed: benchmarks/14_set_w/tuning/fe2o3_10.toml: with nband 56: engine exited with exit status: 13: Abort(13) on node 1 (rank 1 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 1
+Abort(13) on node 2 (rank 2 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 2
+Abort(13) on node 3 (rank 3 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 3
+Abort(13) on node 7 (rank 7 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 7
+Abort(13) on node 6 (rank 6 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 6
+Abort(13) on node 0 (rank 0 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 0
 Abort(13) on node 4 (rank 4 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 4
 Abort(13) on node 5 (rank 5 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 5
-Abort(13) on node 6 (rank 6 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 6
-Abort(13) on node 7 (rank 7 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 7
-Abort(13) on node 3 (rank 3 in comm 0): application called MPI_Abort(MPI_COMM_WORLD, 13) - process 3
 
     However, bandpp=7
 ...
