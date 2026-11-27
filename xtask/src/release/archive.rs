@@ -405,7 +405,7 @@ pub fn hashes(wheel: &Path) -> Result<Vec<String>, String> {
         .collect())
 }
 
-pub(super) fn listed(wheel: &Path) -> Findings {
+pub fn listed(wheel: &Path) -> Findings {
     match hashes(wheel) {
         Ok(lines) => {
             println!("{}", lines.join("\n"));

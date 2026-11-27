@@ -7,8 +7,7 @@ use crate::{
     lock::hex,
     walk,
 };
-use archive::listed;
-pub use archive::{hashes, same};
+pub use archive::{hashes, listed, same};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{

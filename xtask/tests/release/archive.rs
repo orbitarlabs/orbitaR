@@ -454,3 +454,52 @@ fn a_listed_wheel_names_its_file_and_the_sha256_of_each_member() {
         Err("wheel bad.whl: python3 zipfile cannot read it: BadZipFile: Bad CRC-32 for file 'orbitar/a.py'".to_owned())
     );
 }
+
+#[test]
+fn a_descriptor_bit_in_a_later_central_header_alone_is_refused() {
+    let root = tree("same-central-bit", &[]);
+    let mut bytes = fs::read(zipped(&root, "plain.whl", &PLAIN)).unwrap();
+    let end = bytes.len() - 22;
+    let directory = usize::try_from(u32::from_le_bytes(
+        bytes[end + 16..end + 20].try_into().unwrap(),
+    ))
+    .unwrap();
+    bytes[directory + 46 + SAME[0].0.len() + 8] |= 8;
+    written(&root, "central.whl", &bytes);
+    let found = lever(&["wheel", "--same", "central.whl", "central.whl"], &root);
+    assert!(
+        has(
+            &found,
+            "wheel central.whl: member orbitar/b.py uses a data descriptor; the release wheels never do"
+        ),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_listed_wheel_that_is_refused_or_unreadable_is_a_finding() {
+    let root = tree("listed-findings", &[]);
+    let good = zipped(&root, "good.whl", &PLAIN);
+    assert_eq!(xtask::listed(&good), Vec::<String>::new());
+    let signed = zipped(
+        &root,
+        "signed.whl",
+        &Spec {
+            variant: "signed",
+            ..PLAIN
+        },
+    );
+    let text = written(&root, "text.whl", b"not a wheel");
+    for (wheel, want) in [
+        (
+            signed,
+            "wheel signed.whl: member orbitar/a.py uses a data descriptor",
+        ),
+        (text, "wheel text.whl: no end record closes the file"),
+        (root.join("gone.whl"), "wheel gone.whl: "),
+    ] {
+        let found = xtask::listed(&wheel);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(has(&found, want), "{found:?}");
+    }
+}
