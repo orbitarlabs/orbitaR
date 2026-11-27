@@ -11,7 +11,10 @@ use std::{
     fs::{self, File},
     hash::{BuildHasher, RandomState},
     io::{BufRead, BufReader, Read, Write},
-    os::unix::process::{CommandExt as _, ExitStatusExt as _},
+    os::unix::{
+        fs::symlink,
+        process::{CommandExt as _, ExitStatusExt as _},
+    },
     path::{Path, PathBuf},
     process::{Child, Command, ExitCode, ExitStatus, Stdio},
     sync::mpsc::{self, RecvTimeoutError},
@@ -207,14 +210,15 @@ pub(crate) fn cold(
     timeout: Duration,
 ) -> Result<Run, Failure> {
     let dir = sandbox().map_err(Failure::Harness)?;
+    let scope = dir.with_extension("scope");
     let result = place(&dir, files)
         .and_then(|()| build(&dir))
-        .map(
-            |built| match CONTAINED.with_borrow(|c| c.as_ref().map(|c| c.wrap(&built))) {
+        .and_then(|built| {
+            match CONTAINED.with_borrow(|c| c.as_ref().map(|c| c.wrap(&built, &scope))) {
                 Some(wrapped) => wrapped,
-                None => built,
-            },
-        )
+                None => Ok(built),
+            }
+        })
         .and_then(|built| {
             let passed = (PASSED.iter()).filter_map(|&key| Some((key, std::env::var_os(key)?)));
             let own: Vec<_> = (built.get_envs())
@@ -249,6 +253,7 @@ pub(crate) fn cold(
             finish(watch, stream, step)
         });
     let _ = fs::remove_dir_all(&dir);
+    let _ = fs::remove_dir_all(&scope);
     result
 }
 
@@ -256,6 +261,15 @@ pub(crate) fn cold(
 pub(crate) enum Limit {
     Scope,
     Prlimit,
+}
+
+impl Limit {
+    fn name(&self) -> &'static str {
+        match self {
+            Limit::Scope => "systemd-run",
+            Limit::Prlimit => "prlimit",
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -284,22 +298,22 @@ impl Containment {
         let env: Vec<(OsString, OsString)> = (SCOPE_ENV.iter())
             .filter_map(|&key| Some((OsString::from(key), var(key)?)))
             .collect();
-        let candidates = [
-            (Limit::Scope, "systemd-run", env),
-            (Limit::Prlimit, "prlimit", Vec::new()),
-        ];
-        candidates.into_iter().find_map(|(limit, name, env)| {
+        let candidates = [(Limit::Scope, env), (Limit::Prlimit, Vec::new())];
+        candidates.into_iter().find_map(|(limit, env)| {
             let containment = Containment {
+                program: find(limit.name())?,
                 limit,
-                program: find(name)?,
                 max_bytes,
                 env,
             };
-            let works = (containment.wrap(&Command::new("true")))
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .is_ok_and(|s| s.success());
+            let scope = sandbox().ok()?;
+            let check = containment.wrap(&Command::new("true"), &scope);
+            let works = check.is_ok_and(|mut check| {
+                (check.stdout(Stdio::null()).stderr(Stdio::null()))
+                    .status()
+                    .is_ok_and(|s| s.success())
+            });
+            let _ = fs::remove_dir_all(&scope);
             works.then_some(containment)
         })
     }
@@ -320,7 +334,11 @@ impl Containment {
         }
     }
 
-    fn wrap(&self, built: &Command) -> Command {
+    fn wrap(&self, built: &Command, scope: &Path) -> Result<Command, Failure> {
+        let tool = scope.join(self.limit.name());
+        (fs::create_dir_all(scope))
+            .and_then(|()| symlink(&self.program, &tool))
+            .map_err(|e| Failure::Harness(format!("the scope's tool {}: {e}", tool.display())))?;
         let mut command = match self.limit {
             Limit::Scope => Command::new("systemd-run"),
             Limit::Prlimit => Command::new("prlimit"),
@@ -336,24 +354,12 @@ impl Containment {
                 None => command.env_remove(key),
             };
         }
-        command
-            .env("PATH", self.search_path(built))
-            .envs(self.env.iter().cloned());
-        command
-    }
-
-    fn search_path(&self, built: &Command) -> OsString {
         let own = (built.get_envs()).find_map(|(key, value)| value.filter(|_| key == "PATH"));
-        let dirs = own
-            .into_iter()
-            .chain(self.program.parent().map(Path::as_os_str));
-        let mut path = OsString::new();
-        for dir in dirs {
-            path.push(dir);
-            path.push(":");
-        }
-        path.push(EXEC_DEFAULT_PATH);
-        path
+        let mut path = scope.as_os_str().to_owned();
+        path.push(":");
+        path.push(own.unwrap_or(EXEC_DEFAULT_PATH.as_ref()));
+        command.env("PATH", path).envs(self.env.iter().cloned());
+        Ok(command)
     }
 
     pub(crate) fn tree_wide(&self) -> bool {
