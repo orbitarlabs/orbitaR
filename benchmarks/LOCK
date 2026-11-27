@@ -1,9 +1,9 @@
-# harness reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, omissions tested, Case built only by its parser); case 12 and 16 reasons state the 0.54 fit as empirical with its scope, case 16 keeps its endpoint records; reduce.py checks its operands first; README shows [why]; no bound, input, or reference value changed
+# harness reviewer=PENDING reason=PR 6 round 1 fixes: [why] names only values the case file sets (groups inputs and tolerance checked, inputs as input.toml or inputs/<stem>.toml, omissions tested, Case built only by its parser); README shows [why]
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
 b801d44f73e3e9107711b16fb32be4c5964d9bc68cd0e41528e73321d08a7f32  xtask/src/bench.rs
-585b3a33fa9a08fade3ce2695b171ed86bf7e58e055cb2c6f49809b05d4f361d  xtask/src/case.rs
+adedc79091fa706f54aadc662d04858bd07b63f161d861944788a3aa1ed3b17f  xtask/src/case.rs
 74e54cf67e0dbec2837e30c43bc2371a993b57f71fde0c9205a1fd5a0a0c5c8f  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
 00dc9e370629c4c522b85e3c56870cf61ec9f897890a530f87a0b35b08f6b9cc  xtask/src/harness.rs
@@ -42,7 +42,7 @@ af1167b4049c37599a8056a69776738384d5343da8d0f33252f69dc98c3630db  xtask/src/tune
 b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk.rs
 6ab6b9fbdacafa2d2973bdc4f0a7ef366da2d5b9af21a5516a80e379e3219b26  xtask/tests/atompaw.rs
 90316a2227e058f9413f28877d49657bdc0418990a0659cb552888827797b2fd  xtask/tests/bench.rs
-8548422084eae9b34a707c6ae632ed8f2ff2536e14bc3aca4839941f40c52e9b  xtask/tests/case.rs
+3cb11520e05042de45a2e9936b66c6355a3fcd145708aa4d1252bdcd274954ac  xtask/tests/case.rs
 5a1caa406c3065da3c1d7339f1f36a617a19203b5d317e47f804176e41068551  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
 3ef0fe8fb3a979fa7ce75cb1c066bc94df94c3e6d3249541ae03b8647ce0c72d  xtask/tests/harness.rs

@@ -207,10 +207,14 @@ impl Case {
         let path = format!("benchmarks/{id}/case.toml");
         let text = fs::read_to_string(root.join(&path)).map_err(|e| format!("{path}: {e}"))?;
         let case = Case::parse(&text).map_err(|e| format!("{path}: {e}"))?;
-        let input = format!("benchmarks/{id}/input.toml");
-        if case.why.contains_key(WHY_INPUTS) && !root.join(&input).is_file() {
+        let dir = root.join(format!("benchmarks/{id}"));
+        let toml = |entry: &fs::DirEntry| entry.path().extension().is_some_and(|e| e == "toml");
+        let held = dir.join("input.toml").is_file()
+            || fs::read_dir(dir.join("inputs"))
+                .is_ok_and(|mut entries| entries.flatten().any(|e| toml(&e)));
+        if case.why.contains_key(WHY_INPUTS) && !held {
             return Err(format!(
-                "{path}: [why].{WHY_INPUTS} names the case's input files, but {input} is missing"
+                "{path}: [why].{WHY_INPUTS} names the case's input files, but benchmarks/{id} holds neither input.toml nor inputs/<stem>.toml"
             ));
         }
         Ok(case)
