@@ -1005,3 +1005,20 @@ fn claim_cutoff_needs_time() {
     assert!(has(&f, "required arguments were not provided"), "{f:?}");
     assert!(!root.join("builds.log").exists());
 }
+
+#[test]
+fn ranges_are_apart_exactly_when_one_engines_slowest_run_is_faster_than_the_others_fastest() {
+    let slow = vec![1.2, 1.0, 1.4, 1.1, 1.3];
+    let fast = vec![0.3, 0.5, 0.1, 0.2, 0.4];
+    assert_eq!(
+        xtask::same::compared("HEAD", [slow.clone(), fast.clone()]),
+        "HEAD 1.200 s (1.000–1.400), here 0.300 s (0.100–0.500), here/base 0.250, ranges apart"
+    );
+    assert!(xtask::same::compared("HEAD", [fast.clone(), slow.clone()]).ends_with("ranges apart"));
+    let late = vec![0.3, 0.5, 0.1, 0.2, 1.05];
+    for pair in [[slow.clone(), late.clone()], [late, slow.clone()]] {
+        assert!(xtask::same::compared("HEAD", pair).ends_with("ranges overlap"));
+    }
+    let touching = vec![0.3, 0.5, 0.1, 0.2, 1.0];
+    assert!(xtask::same::compared("HEAD", [slow, touching]).ends_with("ranges overlap"));
+}

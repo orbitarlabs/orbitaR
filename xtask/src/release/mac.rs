@@ -19,6 +19,15 @@ const MATURIN_MACOS: [&str; 2] = [
     "1c27a2eb47821edf26c75d100b3150b52dca2c1a5f074d7514af06f7a7acb9d5",
 ];
 
+pub const UV: &str = "uv==0.13.7";
+
+const UV_MACOS: [&str; 2] = [
+    "f91a229093163eefca89ea1b220a221d64c3beade05d03519a6584d1797a5a5f",
+    "fd04bf01ba5f2829f4f94ca8f0c24a743f21e73d75045613ed6fc2fd66fc7bda",
+];
+
+const JTH_PROJECT: &str = "packages/orbitar-jth/pyproject.toml";
+
 const SOURCE_MAP: &str = "/src";
 const BUILD_MAP: &str = "/build";
 const CARGO_HOME_MAP: &str = "/opt/cargo";
@@ -169,11 +178,10 @@ pub(super) fn prove(root: &Path, platform: &Platform, env: &Env) -> Findings {
         roots: Vec::new(),
         python: PathBuf::new(),
     };
-    let findings = proof(std::env::consts::OS, platform.target, &mut host);
+    let mut findings = proof(std::env::consts::OS, platform.target, &mut host);
     if findings.is_empty() {
         for wheel in wheels(&host.dir.join("dist"), "").into_iter().flatten() {
-            let size = fs::metadata(&wheel).map(|m| m.len()).unwrap_or_default();
-            println!("wheel: {} ({size} bytes)", wheel.display());
+            findings.extend(super::listed(&wheel));
         }
     }
     findings
@@ -209,8 +217,8 @@ impl Steps for Host<'_> {
             clear(old)?;
         }
         tracked(self.root, &src)?;
-        let requirement = self.dir.join("maturin.txt");
-        fs::write(&requirement, maturin_requirement(self.root)?)
+        let requirement = self.dir.join("tools.txt");
+        fs::write(&requirement, tools_requirement(self.root)?)
             .map_err(|e| format!("{}: {e}", requirement.display()))?;
         let version = about_pin(self.root)?;
         self.run(tools_plan(
@@ -255,7 +263,7 @@ impl Steps for Host<'_> {
         for old in [self.dir.join("fetch"), self.dir.join("fetched")] {
             clear(&old)?;
         }
-        self.run(data_plan(&self.dir, &self.interpreter, &orbitar))?;
+        self.run(data_plan(&self.dir, &self.interpreter, &orbitar, &path))?;
         let data = one_wheel(&dist, &format!("{JTH_MODULE}-"))?;
         Ok(Built {
             orbitar,
@@ -363,7 +371,7 @@ pub fn tools_plan(
         .arg("cargo-about");
     vec![
         ("uv venv tools".into(), create),
-        ("uv pip install maturin".into(), maturin),
+        ("uv pip install maturin uv".into(), maturin),
         ("cargo install cargo-about".into(), about),
     ]
 }
@@ -422,6 +430,7 @@ pub fn maturin_plan(build: &Build) -> Result<Invocation, String> {
         .env("CARGO", build.cargo)
         .env("CARGO_TARGET_DIR", build.cargo_dir)
         .env("CARGO_ENCODED_RUSTFLAGS", rust.join("\x1f"))
+        .env("CARGO_PROFILE_RELEASE_STRIP", "none")
         .env(
             format!("CFLAGS_{}", build.target.replace('-', "_")),
             c_flags(build.pairs),
@@ -432,7 +441,12 @@ pub fn maturin_plan(build: &Build) -> Result<Invocation, String> {
         .dir(build.src))
 }
 
-pub fn data_plan(dir: &Path, interpreter: &Path, wheel: &Path) -> Vec<(String, Invocation)> {
+pub fn data_plan(
+    dir: &Path,
+    interpreter: &Path,
+    wheel: &Path,
+    path: &OsStr,
+) -> Vec<(String, Invocation)> {
     let venv = dir.join("fetch");
     let python = venv.join("bin/python");
     let package = dir.join("src").join(JTH);
@@ -448,6 +462,7 @@ pub fn data_plan(dir: &Path, interpreter: &Path, wheel: &Path) -> Vec<(String, I
         .arg(wheel);
     let staged = in_venv(&python, &["python", "-I", stage.as_str(), fetched.as_str()]);
     let built = Invocation::new(Program::Uv)
+        .env("PATH", path)
         .args([
             "build",
             "--quiet",
@@ -464,7 +479,7 @@ pub fn data_plan(dir: &Path, interpreter: &Path, wheel: &Path) -> Vec<(String, I
         ("uv venv fetch".into(), create),
         ("uv pip install orbitar --no-deps".into(), engine),
         ("packages/orbitar-jth/stage.py".into(), staged),
-        ("uv build orbitar-jth".into(), built),
+        (format!("{UV} build orbitar-jth"), built),
     ]
 }
 
@@ -545,32 +560,40 @@ pub fn tracked(root: &Path, src: &Path) -> Result<(), String> {
     Ok(())
 }
 
-pub fn maturin_requirement(root: &Path) -> Result<String, String> {
-    let hashes: Vec<String> = (MATURIN_MACOS.iter())
-        .map(|h| format!("--hash=sha256:{h}"))
-        .collect();
-    let pin = maturin_pin(root)?;
-    if pin != MATURIN {
+pub fn tools_requirement(root: &Path) -> Result<String, String> {
+    let line = |pin: &str, hashes: &[&str]| {
+        let hashes: Vec<String> = (hashes.iter())
+            .map(|h| format!("--hash=sha256:{h}"))
+            .collect();
+        format!("{pin} {}\n", hashes.join(" "))
+    };
+    let maturin = build_pin(root, "pyproject.toml", "maturin")?;
+    if maturin != MATURIN {
         return Err(format!(
-            "pyproject.toml pins {pin}, but release/mac.rs holds the macOS wheel hashes of {MATURIN}"
+            "pyproject.toml pins {maturin}, but release/mac.rs holds the macOS wheel hashes of {MATURIN}"
         ));
     }
-    Ok(format!("{MATURIN} {}\n", hashes.join(" ")))
+    let backend = build_pin(root, JTH_PROJECT, "uv_build")?;
+    if backend.strip_prefix("uv_build") != UV.strip_prefix("uv") {
+        return Err(format!(
+            "{JTH_PROJECT} pins {backend}, but release/mac.rs holds the macOS wheel hashes of {UV}"
+        ));
+    }
+    Ok(line(MATURIN, &MATURIN_MACOS) + &line(UV, &UV_MACOS))
 }
 
-pub fn maturin_pin(root: &Path) -> Result<String, String> {
-    let text = fs::read_to_string(root.join("pyproject.toml"))
-        .map_err(|e| format!("pyproject.toml: {e}"))?;
-    let manifest: toml::Value =
-        toml::from_str(&text).map_err(|e| format!("pyproject.toml: {e}"))?;
-    (manifest["build-system"]["requires"]
+pub fn build_pin(root: &Path, manifest: &str, backend: &str) -> Result<String, String> {
+    let text = fs::read_to_string(root.join(manifest)).map_err(|e| format!("{manifest}: {e}"))?;
+    let parsed: toml::Value = toml::from_str(&text).map_err(|e| format!("{manifest}: {e}"))?;
+    let exact = format!("{backend}==");
+    (parsed["build-system"]["requires"]
         .as_array()
         .into_iter()
         .flatten())
     .filter_map(toml::Value::as_str)
-    .find(|r| r.starts_with("maturin=="))
+    .find(|r| r.starts_with(&exact))
     .map(str::to_owned)
-    .ok_or_else(|| "pyproject.toml: build-system requires no maturin==<version>".into())
+    .ok_or_else(|| format!("{manifest}: build-system requires no {backend}==<version>"))
 }
 
 pub fn about_pin(root: &Path) -> Result<String, String> {

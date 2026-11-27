@@ -70,7 +70,7 @@ jobs:
             ~/.cargo/git/db
             target/debug
             target/package
-          key: ${ steps.cargo-cache.outputs.cache-primary-key }
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - name: Each commit of the pull request passes the publish rules
         if: github.event_name == 'pull_request'
         env:
@@ -145,7 +145,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             target/debug
-          key: ${ steps.cargo-cache.outputs.cache-primary-key }
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - run: cargo xtask check --unit ${{ matrix.shard }}
       - name: Leave the tree as committed
         run: test -z "$(git status --porcelain)"
@@ -198,7 +198,7 @@ jobs:
             ~/.cargo/git/db
             target/debug
             target/release
-          key: ${ steps.cargo-cache.outputs.cache-primary-key }
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - name: Print the push records
         if: always()
         run: cargo xtask records push

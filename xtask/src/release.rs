@@ -1,3 +1,4 @@
+mod archive;
 pub(crate) mod mac;
 
 use crate::{
@@ -6,6 +7,7 @@ use crate::{
     lock::hex,
     walk,
 };
+pub use archive::{hashes, listed, same};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -27,6 +29,7 @@ pub(crate) struct Platform {
     pub(crate) tag: &'static str,
     pub(crate) target: &'static str,
     machine: Machine,
+    linker: Option<Linker>,
 }
 
 const MH_EXECUTE: u32 = 2;
@@ -37,6 +40,7 @@ pub(crate) const PLATFORMS: [Platform; 2] = [
         tag: "manylinux_2_28_x86_64",
         target: "x86_64-unknown-linux-gnu",
         machine: Machine::Elf { machine: EM_X86_64 },
+        linker: None,
     },
     Platform {
         tag: "macosx_12_0_arm64",
@@ -47,8 +51,21 @@ pub(crate) const PLATFORMS: [Platform; 2] = [
             platform: PLATFORM_MACOS,
             minos: (12, 0, 0),
         },
+        linker: Some(Linker {
+            sdk: (27, 2, 0),
+            ld: Some((27106, 1, 0)),
+        }),
     },
 ];
+
+pub(crate) const MAC_TOOLS: &str = "the Command Line Tools 27.2.0.0.1792721180 \
+     (DEVELOPER_DIR=/Library/Developer/CommandLineTools), which CI's mac-wheel job selects";
+
+#[derive(Debug, PartialEq)]
+pub struct Linker {
+    pub sdk: (u32, u32, u32),
+    pub ld: Option<(u32, u32, u32)>,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Machine {
@@ -121,17 +138,25 @@ const BUILD_TOOL_SIZE: usize = 8;
 const COMMAND_ALIGN: usize = 8;
 const MH_MAGIC_64: [u8; 4] = [0xcf, 0xfa, 0xed, 0xfe];
 const MACH_HEADER_64: usize = 32;
+const TOOL_LD: u32 = 3;
 
-pub fn machine(bytes: &[u8]) -> Option<Machine> {
-    let u32_in = |slice: &[u8], i: usize| {
-        Some(u32::from_le_bytes(
-            slice.get(i..i.checked_add(4)?)?.try_into().ok()?,
-        ))
-    };
-    if bytes.starts_with(b"\x7fELF") && bytes.get(4..6) == Some(&[2, 1]) {
-        let machine = u16::from_le_bytes(bytes.get(18..20)?.try_into().ok()?);
-        return Some(Machine::Elf { machine });
-    }
+fn u32_in(slice: &[u8], i: usize) -> Option<u32> {
+    Some(u32::from_le_bytes(
+        slice.get(i..i.checked_add(4)?)?.try_into().ok()?,
+    ))
+}
+
+fn dotted(v: u32) -> (u32, u32, u32) {
+    (v >> 16, (v >> 8) & 0xff, v & 0xff)
+}
+
+struct MachO<'a> {
+    cpu: u32,
+    filetype: u32,
+    build: &'a [u8],
+}
+
+fn macho(bytes: &[u8]) -> Option<MachO<'_>> {
     if !bytes.starts_with(&MH_MAGIC_64) {
         return None;
     }
@@ -156,17 +181,51 @@ pub fn machine(bytes: &[u8]) -> Option<Machine> {
             if length != extent || build.is_some() {
                 return None;
             }
-            let v = u32_in(fields, 12)?;
-            build = Some((u32_in(fields, 8)?, (v >> 16, (v >> 8) & 0xff, v & 0xff)));
+            build = Some(body);
         }
         rest = after;
     }
-    let (platform, minos) = build.filter(|_| rest.is_empty())?;
-    Some(Machine::MachO {
+    let build = build.filter(|_| rest.is_empty())?;
+    Some(MachO {
         cpu,
         filetype,
-        platform,
-        minos,
+        build,
+    })
+}
+
+pub fn machine(bytes: &[u8]) -> Option<Machine> {
+    if bytes.starts_with(b"\x7fELF") && bytes.get(4..6) == Some(&[2, 1]) {
+        let machine = u16::from_le_bytes(bytes.get(18..20)?.try_into().ok()?);
+        return Some(Machine::Elf { machine });
+    }
+    let found = macho(bytes)?;
+    Some(Machine::MachO {
+        cpu: found.cpu,
+        filetype: found.filetype,
+        platform: u32_in(found.build, 8)?,
+        minos: dotted(u32_in(found.build, 12)?),
+    })
+}
+
+pub fn linker(bytes: &[u8]) -> Option<Linker> {
+    let build = macho(bytes)?.build;
+    let tools = build
+        .get(BUILD_VERSION_SIZE..)?
+        .as_chunks::<BUILD_TOOL_SIZE>()
+        .0;
+    let lds: Vec<(u32, u32, u32)> = (tools.iter())
+        .filter(|tool| u32_in(*tool, 0) == Some(TOOL_LD))
+        .filter_map(|tool| u32_in(tool, 4))
+        .map(dotted)
+        .collect();
+    let ld = match lds.as_slice() {
+        [] => None,
+        [one] => Some(*one),
+        _ => return None,
+    };
+    Some(Linker {
+        sdk: dotted(u32_in(build, 16)?),
+        ld,
     })
 }
 
@@ -383,6 +442,16 @@ fn contents(
         findings.push(format!(
             "wheel: {script} is no {} engine for {}: its header reads {found:?}",
             platform.target, platform.tag
+        ));
+    }
+    let linked = head.as_deref().and_then(linker);
+    if let Some(pin) = &platform.linker
+        && names.contains(script.as_str())
+        && linked.as_ref() != Some(pin)
+    {
+        findings.push(format!(
+            "wheel: {script} was linked as {linked:?}, not as {pin:?} by {MAC_TOOLS}; \
+             another linker or SDK writes other bytes"
         ));
     }
     for member in [
@@ -831,10 +900,7 @@ fn prove_wheel(root: &Path, env: &Env) -> Findings {
         }
     }
     if findings.is_empty() {
-        for wheel in &wheels {
-            let size = fs::metadata(wheel).map(|m| m.len()).unwrap_or_default();
-            println!("wheel: {} ({size} bytes)", wheel.display());
-        }
+        findings.extend(wheels.iter().flat_map(|wheel| listed(wheel)));
     }
     findings
 }

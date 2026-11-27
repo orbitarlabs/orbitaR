@@ -1,3 +1,3 @@
-sha256 = "ccb6125f8826a52d4662eb4a7cfcf013820a83544205fdb97aa9ed3edbac3b15"
+sha256 = "a6438c6931f5a682ae8f650cde9ce117973f51a59758afa17b3a1f4bb1ddf22b"
 reviewer = "PENDING"
-reason = "ci: mutants start after lint and run one shard per 8 mutants of the changed lines, at most 8"
+reason = "merge of ci-speed (round 1 fixes, main cf0ae67) into mutants-size"
