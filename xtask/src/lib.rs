@@ -8,7 +8,7 @@ pub use release::mac::{
 pub use release::{
     Image, Install, Invocation, Linker, Machine, PAW_SCAN, PAW_SCAN_BYTES, Program, Wheels, baked,
     clear, host_paths, image_verdict, in_venv, install, install_plan, install_verdict, linker,
-    machine, readme_lines, same,
+    listed, machine, readme_lines, same,
 };
 pub use reproduce::stamp;
 

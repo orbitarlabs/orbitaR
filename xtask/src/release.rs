@@ -885,7 +885,7 @@ fn headers(wheel: &Path) -> Result<(String, Headers), String> {
     serde_json::from_slice(&out.stdout).map_err(|e| format!("{}: {e}", wheel.display()))
 }
 
-pub(crate) fn listed(wheel: &Path) -> Findings {
+pub fn listed(wheel: &Path) -> Findings {
     match (fs::read(wheel), headers(wheel)) {
         (Ok(bytes), Ok((_, members))) => {
             println!(

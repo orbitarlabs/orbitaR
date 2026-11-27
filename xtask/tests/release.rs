@@ -1801,3 +1801,33 @@ fn a_wheel_that_cannot_be_read_is_no_same_wheel() {
     assert!(has(&found, "wheel --same: "), "{found:?}");
     assert!(has(&found, "gone.whl"), "{found:?}");
 }
+
+#[test]
+fn wheel_same_compares_two_files_under_the_root() {
+    let root = tree("same-lever", &[]);
+    zipped(&root, "a.whl", &SAME, 2026, "");
+    zipped(&root, "b.whl", &SAME, 2026, "");
+    zipped(
+        &root,
+        "c.whl",
+        &[SAME[0], ("orbitar/b.py", "b = 3\n")],
+        2026,
+        "",
+    );
+    assert_eq!(
+        lever(&["wheel", "--same", "a.whl", "b.whl"], &root),
+        Vec::<String>::new()
+    );
+    let found = lever(&["wheel", "--same", "a.whl", "c.whl"], &root);
+    assert!(has(&found, "wheel --same: orbitar/b.py: "), "{found:?}");
+}
+
+#[test]
+fn a_listed_wheel_prints_its_hashes_and_a_missing_one_is_a_finding() {
+    let root = tree("listed", &[]);
+    let wheel = zipped(&root, "a.whl", &SAME, 2026, "");
+    assert_eq!(xtask::listed(&wheel), Vec::<String>::new());
+    let found = xtask::listed(&root.join("gone.whl"));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(has(&found, "gone.whl"), "{found:?}");
+}
