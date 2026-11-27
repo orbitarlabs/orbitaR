@@ -162,11 +162,28 @@ fn the_linker_reads_the_sdk_and_the_ld_record_of_the_build_version() {
 }
 
 #[test]
+fn a_build_version_with_two_ld_records_reads_no_linker() {
+    for tools in [
+        [(TOOL_LD, LD_27106_1), (TOOL_LD, 0x048f_0500)],
+        [(TOOL_LD, LD_27106_1), (TOOL_LD, LD_27106_1)],
+    ] {
+        let command = linked_build_version(PLATFORM_MACOS, (12, 0, 0), SDK_27_2, &tools);
+        let bytes = macho_bytes(CPU_ARM64, MH_EXECUTE, &[command]);
+        assert_eq!(xtask::linker(&bytes), None, "{tools:?}");
+    }
+}
+
+#[test]
 fn a_mac_engine_linked_by_another_ld_or_sdk_than_the_pin_fails() {
     for (name, sdk, tools) in [
         ("mac-sdk-15", 0x000f_0500, vec![(TOOL_LD, LD_27106_1)]),
         ("mac-ld-1167", SDK_27_2, vec![(TOOL_LD, 0x048f_0500)]),
         ("mac-no-ld", SDK_27_2, vec![]),
+        (
+            "mac-pinned-ld-then-another",
+            SDK_27_2,
+            vec![(TOOL_LD, LD_27106_1), (TOOL_LD, 0x048f_0500)],
+        ),
     ] {
         let command = linked_build_version(PLATFORM_MACOS, (12, 0, 0), sdk, &tools);
         let header = latin(macho_bytes(CPU_ARM64, MH_EXECUTE, &[command]));

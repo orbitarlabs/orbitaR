@@ -211,10 +211,16 @@ pub fn linker(bytes: &[u8]) -> Option<Linker> {
         .get(BUILD_VERSION_SIZE..)?
         .as_chunks::<BUILD_TOOL_SIZE>()
         .0;
-    let ld = (tools.iter())
-        .find(|tool| u32_in(*tool, 0) == Some(TOOL_LD))
-        .and_then(|tool| u32_in(tool, 4))
-        .map(dotted);
+    let lds: Vec<(u32, u32, u32)> = (tools.iter())
+        .filter(|tool| u32_in(*tool, 0) == Some(TOOL_LD))
+        .filter_map(|tool| u32_in(tool, 4))
+        .map(dotted)
+        .collect();
+    let ld = match lds.as_slice() {
+        [] => None,
+        [one] => Some(*one),
+        _ => return None,
+    };
     Some(Linker {
         sdk: dotted(u32_in(build, 16)?),
         ld,
