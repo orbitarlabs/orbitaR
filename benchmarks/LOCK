@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=the check job's timeout-minutes goes from 90 to 150: in PR 9 run 45937730783, cargo xtask check took 56 min and the capped unit suite then ran 34 min until the 90-minute timeout cancelled it; on 4 cores that suite takes 1816 to 1847 s; TEST_RUNNER sets MALLOC_ARENA_MAX=1 under the unchanged 2 GiB cap: the unit tests at 4 threads reach 2417 MiB of address space with no arena limit and 905 MiB with one
+# harness reviewer=codex-review-pr9 reason=the check job's timeout-minutes goes from 90 to 150: in PR 9 run 45937730783, cargo xtask check took 56 min and the capped unit suite then ran 34 min until the 90-minute timeout cancelled it; on 4 cores that suite takes 1816 to 1847 s; TEST_RUNNER sets MALLOC_ARENA_MAX=1 under the unchanged 2 GiB cap: the unit tests at 4 threads reach 2417 MiB of address space with no arena limit and 905 MiB with one
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
