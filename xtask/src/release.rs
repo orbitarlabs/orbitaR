@@ -27,6 +27,7 @@ pub(crate) struct Platform {
     pub(crate) tag: &'static str,
     pub(crate) target: &'static str,
     machine: Machine,
+    linker: Option<Linker>,
 }
 
 const MH_EXECUTE: u32 = 2;
@@ -37,6 +38,7 @@ pub(crate) const PLATFORMS: [Platform; 2] = [
         tag: "manylinux_2_28_x86_64",
         target: "x86_64-unknown-linux-gnu",
         machine: Machine::Elf { machine: EM_X86_64 },
+        linker: None,
     },
     Platform {
         tag: "macosx_12_0_arm64",
@@ -47,8 +49,21 @@ pub(crate) const PLATFORMS: [Platform; 2] = [
             platform: PLATFORM_MACOS,
             minos: (12, 0, 0),
         },
+        linker: Some(Linker {
+            sdk: (27, 2, 0),
+            ld: Some((27106, 1, 0)),
+        }),
     },
 ];
+
+pub(crate) const MAC_TOOLS: &str = "the Command Line Tools 27.2.0.0.1792721180 \
+     (DEVELOPER_DIR=/Library/Developer/CommandLineTools), which CI's mac-wheel job selects";
+
+#[derive(Debug, PartialEq)]
+pub struct Linker {
+    pub sdk: (u32, u32, u32),
+    pub ld: Option<(u32, u32, u32)>,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Machine {
@@ -121,17 +136,25 @@ const BUILD_TOOL_SIZE: usize = 8;
 const COMMAND_ALIGN: usize = 8;
 const MH_MAGIC_64: [u8; 4] = [0xcf, 0xfa, 0xed, 0xfe];
 const MACH_HEADER_64: usize = 32;
+const TOOL_LD: u32 = 3;
 
-pub fn machine(bytes: &[u8]) -> Option<Machine> {
-    let u32_in = |slice: &[u8], i: usize| {
-        Some(u32::from_le_bytes(
-            slice.get(i..i.checked_add(4)?)?.try_into().ok()?,
-        ))
-    };
-    if bytes.starts_with(b"\x7fELF") && bytes.get(4..6) == Some(&[2, 1]) {
-        let machine = u16::from_le_bytes(bytes.get(18..20)?.try_into().ok()?);
-        return Some(Machine::Elf { machine });
-    }
+fn u32_in(slice: &[u8], i: usize) -> Option<u32> {
+    Some(u32::from_le_bytes(
+        slice.get(i..i.checked_add(4)?)?.try_into().ok()?,
+    ))
+}
+
+fn dotted(v: u32) -> (u32, u32, u32) {
+    (v >> 16, (v >> 8) & 0xff, v & 0xff)
+}
+
+struct MachO<'a> {
+    cpu: u32,
+    filetype: u32,
+    build: &'a [u8],
+}
+
+fn macho(bytes: &[u8]) -> Option<MachO<'_>> {
     if !bytes.starts_with(&MH_MAGIC_64) {
         return None;
     }
@@ -156,17 +179,43 @@ pub fn machine(bytes: &[u8]) -> Option<Machine> {
             if length != extent || build.is_some() {
                 return None;
             }
-            let v = u32_in(fields, 12)?;
-            build = Some((u32_in(fields, 8)?, (v >> 16, (v >> 8) & 0xff, v & 0xff)));
+            build = Some(body);
         }
         rest = after;
     }
-    let (platform, minos) = build.filter(|_| rest.is_empty())?;
-    Some(Machine::MachO {
+    let build = build.filter(|_| rest.is_empty())?;
+    Some(MachO {
         cpu,
         filetype,
-        platform,
-        minos,
+        build,
+    })
+}
+
+pub fn machine(bytes: &[u8]) -> Option<Machine> {
+    if bytes.starts_with(b"\x7fELF") && bytes.get(4..6) == Some(&[2, 1]) {
+        let machine = u16::from_le_bytes(bytes.get(18..20)?.try_into().ok()?);
+        return Some(Machine::Elf { machine });
+    }
+    let found = macho(bytes)?;
+    Some(Machine::MachO {
+        cpu: found.cpu,
+        filetype: found.filetype,
+        platform: u32_in(found.build, 8)?,
+        minos: dotted(u32_in(found.build, 12)?),
+    })
+}
+
+pub fn linker(bytes: &[u8]) -> Option<Linker> {
+    let build = macho(bytes)?.build;
+    let ld = (build
+        .get(BUILD_VERSION_SIZE..)?
+        .chunks_exact(BUILD_TOOL_SIZE))
+    .find(|tool| u32_in(tool, 0) == Some(TOOL_LD))
+    .and_then(|tool| u32_in(tool, 4))
+    .map(dotted);
+    Some(Linker {
+        sdk: dotted(u32_in(build, 16)?),
+        ld,
     })
 }
 
@@ -383,6 +432,16 @@ fn contents(
         findings.push(format!(
             "wheel: {script} is no {} engine for {}: its header reads {found:?}",
             platform.target, platform.tag
+        ));
+    }
+    let linked = head.as_deref().and_then(linker);
+    if let Some(pin) = &platform.linker
+        && names.contains(script.as_str())
+        && linked.as_ref() != Some(pin)
+    {
+        findings.push(format!(
+            "wheel: {script} was linked as {linked:?}, not as {pin:?} by {MAC_TOOLS}; \
+             another linker or SDK writes other bytes"
         ));
     }
     for member in [
@@ -804,6 +863,114 @@ pub(crate) fn wheel(
     }
 }
 
+type Headers = Vec<(String, BTreeMap<String, serde_json::Value>)>;
+
+fn headers(wheel: &Path) -> Result<(String, Headers), String> {
+    let script = "import hashlib, json, sys, zipfile\n\
+        z = zipfile.ZipFile(sys.argv[1])\n\
+        print(json.dumps([z.comment.hex(), [[i.filename, {'sha256': hashlib.sha256(z.read(i)).hexdigest(), \
+        'size': i.file_size, 'compressed size': i.compress_size, 'method': i.compress_type, \
+        'date': list(i.date_time), 'attributes': i.external_attr, 'system': i.create_system, \
+        'versions': [i.create_version, i.extract_version], 'flags': i.flag_bits, 'extra': i.extra.hex(), \
+        'comment': i.comment.hex(), 'stored at': sorted(z.infolist(), key=lambda j: j.header_offset).index(i)}] \
+        for i in z.infolist()]]))";
+    let out = run(
+        Command::new("python3")
+            .args(["-I", "-c", script])
+            .arg(wheel),
+        "python3 zipfile",
+    )?;
+    serde_json::from_slice(&out.stdout).map_err(|e| format!("{}: {e}", wheel.display()))
+}
+
+pub(crate) fn listed(wheel: &Path) -> Findings {
+    match (fs::read(wheel), headers(wheel)) {
+        (Ok(bytes), Ok((_, members))) => {
+            println!(
+                "wheel: {} ({} bytes, sha256 {})",
+                wheel.display(),
+                bytes.len(),
+                hex(&Sha256::digest(&bytes))
+            );
+            for (name, fields) in &members {
+                let sha = fields.get("sha256").and_then(serde_json::Value::as_str);
+                println!("  {}  {name}", sha.unwrap_or_default());
+            }
+            Vec::new()
+        }
+        (Err(e), _) => vec![format!("{}: {e}", wheel.display())],
+        (_, Err(e)) => vec![e],
+    }
+}
+
+pub fn same(a: &Path, b: &Path) -> Findings {
+    let digest = |wheel: &Path| {
+        fs::read(wheel)
+            .map(|bytes| hex(&Sha256::digest(&bytes)))
+            .map_err(|e| format!("wheel --same: {}: {e}", wheel.display()))
+    };
+    let (sha_a, sha_b) = match (digest(a), digest(b)) {
+        (Ok(sha_a), Ok(sha_b)) => (sha_a, sha_b),
+        (Err(e), _) | (_, Err(e)) => return vec![e],
+    };
+    if sha_a == sha_b {
+        println!("wheel --same: both are {sha_a}");
+        return Vec::new();
+    }
+    let ((comment_a, members_a), (comment_b, members_b)) = match (headers(a), headers(b)) {
+        (Ok(a), Ok(b)) => (a, b),
+        (Err(e), _) | (_, Err(e)) => return vec![e],
+    };
+    let mut findings = vec![format!(
+        "wheel --same: {} is {sha_a}, but {} is {sha_b}",
+        a.display(),
+        b.display()
+    )];
+    let names =
+        |members: &Headers| -> Vec<String> { members.iter().map(|(n, _)| n.clone()).collect() };
+    let (names_a, names_b) = (names(&members_a), names(&members_b));
+    for (name, held, lacks) in (names_a.iter().map(|n| (n, "first", &names_b)))
+        .chain(names_b.iter().map(|n| (n, "second", &names_a)))
+    {
+        if !lacks.contains(name) {
+            findings.push(format!("wheel --same: {name} is in the {held} wheel alone"));
+        }
+    }
+    if let Some((got, want)) = (names_a.iter().zip(&names_b)).find(|(x, y)| x != y) {
+        findings.push(format!(
+            "wheel --same: the central directories part at {got} and {want}"
+        ));
+    }
+    let fields_b: BTreeMap<&String, &BTreeMap<String, serde_json::Value>> =
+        members_b.iter().map(|(n, f)| (n, f)).collect();
+    for (name, fields) in &members_a {
+        let Some(other) = fields_b.get(name) else {
+            continue;
+        };
+        let differ: Vec<String> = (fields.iter())
+            .filter_map(|(key, value)| {
+                let theirs = other.get(key).unwrap_or(&serde_json::Value::Null);
+                (theirs != value).then(|| format!("{key} {value} and {theirs}"))
+            })
+            .collect();
+        if !differ.is_empty() {
+            findings.push(format!("wheel --same: {name}: {}", differ.join("; ")));
+        }
+    }
+    if comment_a != comment_b {
+        findings.push(format!(
+            "wheel --same: the archive comments differ: {comment_a:?} and {comment_b:?}"
+        ));
+    }
+    if findings.len() == 1 {
+        findings.push(
+            "wheel --same: every member and its central-directory header agree; the local headers differ"
+                .to_owned(),
+        );
+    }
+    findings
+}
+
 const WHEELS: [&str; 2] = ["wheel", "jth-wheel"];
 
 fn prove_wheel(root: &Path, env: &Env) -> Findings {
@@ -831,10 +998,7 @@ fn prove_wheel(root: &Path, env: &Env) -> Findings {
         }
     }
     if findings.is_empty() {
-        for wheel in &wheels {
-            let size = fs::metadata(wheel).map(|m| m.len()).unwrap_or_default();
-            println!("wheel: {} ({size} bytes)", wheel.display());
-        }
+        findings.extend(wheels.iter().flat_map(|wheel| listed(wheel)));
     }
     findings
 }

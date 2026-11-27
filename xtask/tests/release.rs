@@ -36,10 +36,30 @@ const PLATFORM_MACOS: u32 = 1;
 const PLATFORM_IOS: u32 = 2;
 const LC_BUILD_VERSION: u32 = 0x32;
 
-fn build_version(platform: u32, (major, minor, patch): (u8, u8, u8)) -> (u32, u32, Vec<u8>) {
+const TOOL_LD: u32 = 3;
+const SDK_27_2: u32 = 0x001b_0200;
+const LD_27106_1: u32 = 0x69e2_0100;
+
+fn build_version(platform: u32, minos: (u8, u8, u8)) -> (u32, u32, Vec<u8>) {
+    linked_build_version(platform, minos, SDK_27_2, &[(TOOL_LD, LD_27106_1)])
+}
+
+fn linked_build_version(
+    platform: u32,
+    (major, minor, patch): (u8, u8, u8),
+    sdk: u32,
+    tools: &[(u32, u32)],
+) -> (u32, u32, Vec<u8>) {
     let mut body = platform.to_le_bytes().to_vec();
-    body.extend([patch, minor, major, 0, 0, 0, 15, 0, 0, 0, 0, 0]);
-    (LC_BUILD_VERSION, 24, body)
+    body.extend([patch, minor, major, 0]);
+    body.extend(sdk.to_le_bytes());
+    body.extend(u32::try_from(tools.len()).unwrap().to_le_bytes());
+    for (tool, version) in tools {
+        body.extend(tool.to_le_bytes());
+        body.extend(version.to_le_bytes());
+    }
+    let size = u32::try_from(8 + body.len()).unwrap();
+    (LC_BUILD_VERSION, size, body)
 }
 
 fn macho_bytes(cpu: u32, filetype: u32, commands: &[(u32, u32, Vec<u8>)]) -> Vec<u8> {
@@ -1670,4 +1690,114 @@ fn stage_refuses_a_fetch_directory_that_exists() {
         String::from_utf8_lossy(&out.stderr)
     );
     assert!(!root.join("package/orbitar_jth/stale.xml").exists());
+}
+
+fn zipped(root: &Path, name: &str, members: &[(&str, &str)], date: u16, comment: &str) -> PathBuf {
+    let path = root.join(name);
+    let status = Command::new("python3")
+        .args([
+            "-I",
+            "-c",
+            "import json, sys, zipfile\n\
+             with zipfile.ZipFile(sys.argv[1], 'w', zipfile.ZIP_DEFLATED) as z:\n    \
+             z.comment = sys.argv[4].encode()\n    \
+             for p, t in json.loads(sys.argv[2]):\n        \
+             z.writestr(zipfile.ZipInfo(p, (int(sys.argv[3]), 1, 1, 0, 0, 0)), t)",
+        ])
+        .arg(&path)
+        .arg(serde_json::to_string(members).unwrap())
+        .arg(date.to_string())
+        .arg(comment)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    path
+}
+
+const SAME: [(&str, &str); 2] = [("orbitar/a.py", "a = 1\n"), ("orbitar/b.py", "b = 2\n")];
+
+#[test]
+fn two_wheels_of_one_byte_stream_are_the_same() {
+    let root = tree("same-equal", &[]);
+    let a = zipped(&root, "a.whl", &SAME, 2026, "");
+    let b = zipped(&root, "b.whl", &SAME, 2026, "");
+    assert_eq!(xtask::same(&a, &b), Vec::<String>::new());
+}
+
+#[test]
+fn two_wheels_that_differ_name_each_differing_member_and_header() {
+    let root = tree("same-differ", &[]);
+    let a = zipped(&root, "a.whl", &SAME, 2026, "");
+    for (name, members, date, comment, want) in [
+        (
+            "bytes",
+            vec![SAME[0], ("orbitar/b.py", "b = 3\n")],
+            2026,
+            "",
+            "wheel --same: orbitar/b.py: sha256 ",
+        ),
+        (
+            "alone",
+            vec![SAME[0], SAME[1], ("orbitar/c.py", "")],
+            2026,
+            "",
+            "wheel --same: orbitar/c.py is in the second wheel alone",
+        ),
+        (
+            "order",
+            vec![SAME[1], SAME[0]],
+            2026,
+            "",
+            "wheel --same: the central directories part at orbitar/a.py and orbitar/b.py",
+        ),
+        (
+            "date",
+            SAME.to_vec(),
+            2025,
+            "",
+            "wheel --same: orbitar/a.py: date [2026,1,1,0,0,0] and [2025,1,1,0,0,0]",
+        ),
+        (
+            "comment",
+            SAME.to_vec(),
+            2026,
+            "x",
+            "wheel --same: the archive comments differ: \"\" and \"78\"",
+        ),
+    ] {
+        let b = zipped(&root, &format!("{name}.whl"), &members, date, comment);
+        let found = xtask::same(&a, &b);
+        assert!(has(&found, "is "), "{name}: {found:?}");
+        assert!(has(&found, ", but "), "{name}: {found:?}");
+        assert!(has(&found, want), "{name}: {found:?}");
+    }
+}
+
+#[test]
+fn two_wheels_whose_local_headers_alone_differ_say_so() {
+    let root = tree("same-local", &[]);
+    let a = zipped(&root, "a.whl", &SAME, 2026, "");
+    let mut bytes = std::fs::read(&a).unwrap();
+    bytes[10] ^= 1;
+    let b = root.join("b.whl");
+    std::fs::write(&b, bytes).unwrap();
+    let found = xtask::same(&a, &b);
+    assert_eq!(found.len(), 2, "{found:?}");
+    assert!(
+        has(
+            &found,
+            "every member and its central-directory header agree; the local headers differ"
+        ),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_wheel_that_cannot_be_read_is_no_same_wheel() {
+    let root = tree("same-missing", &[]);
+    let a = zipped(&root, "a.whl", &SAME, 2026, "");
+    let found = xtask::same(&a, &root.join("gone.whl"));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(has(&found, "wheel --same: "), "{found:?}");
+    assert!(has(&found, "gone.whl"), "{found:?}");
 }

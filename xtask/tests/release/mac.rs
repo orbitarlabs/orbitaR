@@ -1,6 +1,7 @@
 use super::{
-    CPU_ARM64, CPU_X86_64, EM_AARCH64, EM_X86_64, MAC, MH_DYLIB, MH_EXECUTE, NAME, PLATFORM_IOS,
-    PLATFORM_MACOS, build_version, checked, elf, install, latin, macho, macho_bytes,
+    CPU_ARM64, CPU_X86_64, EM_AARCH64, EM_X86_64, LD_27106_1, MAC, MH_DYLIB, MH_EXECUTE, NAME,
+    PLATFORM_IOS, PLATFORM_MACOS, SDK_27_2, TOOL_LD, build_version, checked, elf, install, latin,
+    linked_build_version, macho, macho_bytes,
 };
 use crate::{has, lever, tree};
 use std::{
@@ -72,7 +73,7 @@ fn a_mac_engine_whose_load_commands_are_malformed_fails() {
     let unaligned = (0x19, 9, vec![0]);
     let tool_missing = {
         let (cmd, size, mut body) = build();
-        body[12] = 1;
+        body[12] = 2;
         (cmd, size, body)
     };
     for (name, commands) in [
@@ -122,11 +123,63 @@ fn a_load_command_of_its_head_alone_is_read_past() {
 
 #[test]
 fn a_build_version_with_its_tool_records_reads() {
-    let (cmd, _, mut body) = build_version(PLATFORM_MACOS, (12, 0, 0));
-    body[12] = 1;
-    body.extend([3, 0, 0, 0, 0, 0, 0x7e, 0x04]);
-    let bytes = macho_bytes(CPU_ARM64, MH_EXECUTE, &[(cmd, 32, body)]);
+    let command = linked_build_version(
+        PLATFORM_MACOS,
+        (12, 0, 0),
+        SDK_27_2,
+        &[(1, 0x0011_0000), (TOOL_LD, LD_27106_1)],
+    );
+    let bytes = macho_bytes(CPU_ARM64, MH_EXECUTE, &[command]);
     assert!(xtask::machine(&bytes).is_some());
+}
+
+#[test]
+fn the_linker_reads_the_sdk_and_the_ld_record_of_the_build_version() {
+    let read = |sdk: u32, tools: &[(u32, u32)]| {
+        let command = linked_build_version(PLATFORM_MACOS, (12, 0, 0), sdk, tools);
+        xtask::linker(&macho_bytes(CPU_ARM64, MH_EXECUTE, &[command]))
+    };
+    let pinned = xtask::Linker {
+        sdk: (27, 2, 0),
+        ld: Some((27106, 1, 0)),
+    };
+    assert_eq!(read(SDK_27_2, &[(TOOL_LD, LD_27106_1)]), Some(pinned));
+    assert_eq!(
+        read(0x000f_0500, &[(1, 0x0011_0000), (TOOL_LD, 0x048f_0500)]),
+        Some(xtask::Linker {
+            sdk: (15, 5, 0),
+            ld: Some((1167, 5, 0)),
+        })
+    );
+    assert_eq!(
+        read(SDK_27_2, &[(1, LD_27106_1)]),
+        Some(xtask::Linker {
+            sdk: (27, 2, 0),
+            ld: None,
+        })
+    );
+    assert_eq!(xtask::linker(elf(EM_X86_64).as_bytes()), None);
+}
+
+#[test]
+fn a_mac_engine_linked_by_another_ld_or_sdk_than_the_pin_fails() {
+    for (name, sdk, tools) in [
+        ("mac-sdk-15", 0x000f_0500, vec![(TOOL_LD, LD_27106_1)]),
+        ("mac-ld-1167", SDK_27_2, vec![(TOOL_LD, 0x048f_0500)]),
+        ("mac-no-ld", SDK_27_2, vec![]),
+    ] {
+        let command = linked_build_version(PLATFORM_MACOS, (12, 0, 0), sdk, &tools);
+        let header = latin(macho_bytes(CPU_ARM64, MH_EXECUTE, &[command]));
+        let found = checked(name, MAC, |m| m[4].1.clone_from(&header));
+        assert_eq!(found.len(), 1, "{name}: {found:?}");
+        assert!(
+            has(
+                &found,
+                "not as Linker { sdk: (27, 2, 0), ld: Some((27106, 1, 0)) } by the Command Line Tools 27.2.0.0.1792721180"
+            ),
+            "{name}: {found:?}"
+        );
+    }
 }
 
 #[test]
@@ -601,23 +654,29 @@ fn one_wheel_refuses_none_or_two_of_its_prefix() {
 }
 
 #[test]
-fn maturin_pin_is_pyproject_toml_build_system_requirement() {
+fn a_build_pin_is_the_exact_build_system_requirement_of_its_backend() {
     let root = tree(
-        "maturin-pin",
+        "build-pin",
         &[(
             "pyproject.toml",
             "[build-system]\nrequires = [\"other==1\", \"maturin==1.9.6\"]\n",
         )],
     );
-    assert_eq!(xtask::maturin_pin(&root), Ok("maturin==1.9.6".to_owned()));
+    assert_eq!(
+        xtask::build_pin(&root, "pyproject.toml", "maturin"),
+        Ok("maturin==1.9.6".to_owned())
+    );
     let none = tree(
-        "maturin-none",
+        "build-pin-none",
         &[(
             "pyproject.toml",
             "[build-system]\nrequires = [\"maturin>=1\"]\n",
         )],
     );
-    assert!(xtask::maturin_pin(&none).is_err());
+    assert_eq!(
+        xtask::build_pin(&none, "pyproject.toml", "maturin"),
+        Err("pyproject.toml: build-system requires no maturin==<version>".to_owned())
+    );
 }
 
 #[test]
@@ -855,29 +914,75 @@ fn the_tools_plan_takes_the_exact_interpreter_maturin_by_hash_and_cargo_about_lo
 }
 
 #[test]
-fn the_maturin_requirement_pins_pyproject_maturin_by_both_mac_hashes() {
-    let pinned = |name: &str, version: &str| {
-        let pyproject = format!("[build-system]\nrequires = [\"maturin=={version}\"]\n");
-        xtask::maturin_requirement(&tree(name, &[("pyproject.toml", pyproject.as_str())]))
+fn the_tools_requirement_pins_maturin_and_uv_by_their_mac_hashes() {
+    let pinned = |name: &str, maturin: &str, uv: &str| {
+        let engine = format!("[build-system]\nrequires = [\"maturin=={maturin}\"]\n");
+        let data = format!("[build-system]\nrequires = [\"uv_build=={uv}\"]\n");
+        xtask::tools_requirement(&tree(
+            name,
+            &[
+                ("pyproject.toml", engine.as_str()),
+                ("packages/orbitar-jth/pyproject.toml", data.as_str()),
+            ],
+        ))
     };
     assert_eq!(
-        pinned("maturin-requirement", "1.11.5").unwrap(),
+        pinned("tools-requirement", "1.11.5", "0.13.7").unwrap(),
         "maturin==1.11.5 --hash=sha256:2a596eab137cb3e169b97e89a739515abfa7a8755e2e5f0fc91432ef446f74f4 \
-         --hash=sha256:1c27a2eb47821edf26c75d100b3150b52dca2c1a5f074d7514af06f7a7acb9d5\n"
+         --hash=sha256:1c27a2eb47821edf26c75d100b3150b52dca2c1a5f074d7514af06f7a7acb9d5\n\
+         uv==0.13.7 --hash=sha256:f91a229093163eefca89ea1b220a221d64c3beade05d03519a6584d1797a5a5f \
+         --hash=sha256:fd04bf01ba5f2829f4f94ca8f0c24a743f21e73d75045613ed6fc2fd66fc7bda\n"
     );
     assert_eq!(
-        pinned("maturin-requirement-other", "1.9.6"),
+        pinned("tools-requirement-maturin", "1.9.6", "0.13.7"),
         Err(
             "pyproject.toml pins maturin==1.9.6, but release/mac.rs holds the macOS wheel hashes of maturin==1.11.5"
+                .to_owned()
+        )
+    );
+    assert_eq!(
+        pinned("tools-requirement-uv", "1.11.5", "0.13.9"),
+        Err(
+            "packages/orbitar-jth/pyproject.toml pins uv_build==0.13.9, but release/mac.rs holds the macOS wheel hashes of uv==0.13.7"
                 .to_owned()
         )
     );
 }
 
 #[test]
+fn the_mac_uv_is_the_data_build_backend_and_the_uv_of_every_workflow() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let version = xtask::UV.strip_prefix("uv==").unwrap();
+    assert_eq!(
+        xtask::build_pin(&root, "packages/orbitar-jth/pyproject.toml", "uv_build").unwrap(),
+        format!("uv_build=={version}")
+    );
+    for file in ["ci.yml", "package.yml"] {
+        let text = std::fs::read_to_string(root.join(".github/workflows").join(file)).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        let pins: Vec<&str> = (lines.iter().enumerate())
+            .filter(|(_, l)| l.contains("astral-sh/setup-uv@"))
+            .filter_map(|(i, _)| {
+                lines[i..]
+                    .iter()
+                    .find(|l| l.trim_start().starts_with("version:"))
+            })
+            .map(|l| l.trim())
+            .collect();
+        assert!(!pins.is_empty(), "{file}");
+        for pin in pins {
+            assert_eq!(pin, format!("version: \"{version}\""), "{file}");
+        }
+    }
+}
+
+#[test]
 fn the_mac_maturin_hashes_belong_to_the_maturin_that_pyproject_and_the_dockerfile_pin() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-    assert_eq!(xtask::maturin_pin(&root).unwrap(), xtask::MATURIN);
+    assert_eq!(
+        xtask::build_pin(&root, "pyproject.toml", "maturin").unwrap(),
+        xtask::MATURIN
+    );
     let dockerfile = std::fs::read_to_string(root.join("container/Dockerfile")).unwrap();
     let pins: Vec<&str> = (dockerfile.split(|c: char| c == '"' || c.is_whitespace()))
         .filter(|w| w.starts_with("maturin=="))
@@ -955,6 +1060,7 @@ fn the_maturin_plan_builds_the_mac_target_locked_at_its_deployment_floor() {
             "'-ffile-prefix-map=/w/my src=/src'",
         ),
         ("CC_SHELL_ESCAPED_FLAGS", "1"),
+        ("CARGO_PROFILE_RELEASE_STRIP", "none"),
         ("PATH", "/w/tools/bin"),
     ] {
         assert_eq!(step.var(key).as_deref(), Some(value), "{key}");
@@ -975,6 +1081,7 @@ fn the_data_plan_installs_the_engine_alone_stages_and_builds_offline() {
         Path::new("/w"),
         Path::new("/py/bin/python3.12"),
         Path::new("/w/dist/orbitar.whl"),
+        OsStr::new("/w/tools/bin"),
     );
     let got: Vec<Vec<String>> = plan.iter().map(|(_, s)| words(s)).collect();
     assert_eq!(
@@ -1035,6 +1142,8 @@ fn the_data_plan_installs_the_engine_alone_stages_and_builds_offline() {
         plan[3].1.dir.as_deref(),
         Some(Path::new("/w/src/packages/orbitar-jth"))
     );
+    assert_eq!(plan[3].1.var("PATH").as_deref(), Some("/w/tools/bin"));
+    assert_eq!(plan[3].0, "uv==0.13.7 build orbitar-jth");
 }
 
 #[test]
