@@ -1,4 +1,4 @@
-# harness reviewer=integration-2 of #14 captain-final-call after codex-review3-14, #16 captain-final-call after codex-review3-16, #15 captain-final-call after codex-review3-15, on integration-1 of #6 codex-review3-6, #7 captain-final-call after codex-review3-7, #8 captain after codex-review2-8 (test-only addition), #10/#11 codex-review2-1011, #12 captain-final-call after codex-review2-12; conflicts resolved by the integration reason=integration-2 lands PRs 14, 16 and 15 (orbitar-admin/cards-port 6039ee3, which holds claim-tools-2 034ac30 and size-series-2 ba3ed5a) on integration-1 da7e63e; each PR's harness change as its review passed it; conflicts: harness.rs moves the record's why key, which PR 6 added, out of the json! literal that PRs 14 and 16 grew past the macro's recursion limit (keys sort, so the record bytes stay the same); case.rs tests keep PR 6's [why] tests and PR 16's size-series test
+# harness reviewer=integration-2 of #14 captain-final-call after codex-review3-14, #16 captain-final-call after codex-review3-16, #15 captain-final-call after codex-review3-15, on integration-1 of #6 codex-review3-6, #7 captain-final-call after codex-review3-7, #8 captain after codex-review2-8 (test-only addition), #10/#11 codex-review2-1011, #12 captain-final-call after codex-review2-12; conflicts resolved by the integration; maturin Mac hashes for 1.11.5 by the integration reason=integration-2 lands PRs 14, 16 and 15 (orbitar-admin/cards-port 6039ee3, which holds claim-tools-2 034ac30 and size-series-2 ba3ed5a) on integration-1 da7e63e; each PR's harness change as its review passed it; conflicts: harness.rs moves the record's why key, which PR 6 added, out of the json! literal that PRs 14 and 16 grew past the macro's recursion limit (keys sort, so the record bytes stay the same); case.rs tests keep PR 6's [why] tests and PR 16's size-series test; the macOS maturin wheel hashes in release/mac.rs are 1.11.5's (PyPI), and a test holds their version to the pyproject.toml and Dockerfile pin
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -20,7 +20,7 @@ c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harn
 ec60a827333d11850b1c7273cffe0296efd79269ae129ce537c84aa47953f43f  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
-c618f19de23575c85b5d1016bea18a83637749c4003a129e6094b7d84a3b778b  xtask/src/lib.rs
+5e9037b343df1ac8920cf12ef6fe44877b6b21a678dcf28535ee1ab4df3f0b60  xtask/src/lib.rs
 d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
@@ -29,7 +29,7 @@ dd125db005245fa9789ae86efcea78cacf86874ed115eec7c06614c71c4b74b1  xtask/src/node
 a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_text.rs
 61555ff273ebe6fccb87cd8e2b6e1c0bff47246b4be9782e8cfbafea8e89a750  xtask/src/publish.rs
 9ae32a6167bbfc7b985e63fa43c65d45ecee51a25434a8410ebf9929e6c4093d  xtask/src/release.rs
-5a720a5af8aa0fe6180045f50ce8f65f67e550d562f2a07fe2978c0b02c90201  xtask/src/release/mac.rs
+69753ec74301a7e1248c342a8ff4c99df60229e7228674269fb0bb51bac47739  xtask/src/release/mac.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
 7a1290837563a0a0a006f295309853e5c6f258077b4d4f832f65ccdfc357f9ac  xtask/src/results.rs
 947636281b235c44cd68fb6ac3ddfa82b291a34a0d9b4c7f5e32406c7c9a88f4  xtask/src/results/card.rs
@@ -72,7 +72,7 @@ c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/no
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
 3c2ea0d64e25ff4fb8e11f6a6c444629424470bd13776d1c0e08dc9ad257277e  xtask/tests/publish.rs
 8b7427ba6f297cb2fa085a161a4657762243d5b3df7ce54cc521d0a0c28d1fc5  xtask/tests/release.rs
-a200fc136e8a6f076f86c9ab771d1f90a05d56f885f08165e82f03321183c644  xtask/tests/release/mac.rs
+498f547694fa6d58e456bc4c4ad8488ae6d5877e14ce6fb84fc0cf37826894be  xtask/tests/release/mac.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 f30a3bf7c45f766f290d893e0d5c44efbfa4437b9f42901f3f2de4f17ea8d99f  xtask/tests/results.rs
 71cf93861bed06de27578bac74029f3928936b845dab287db54ad5eb9c927f7c  xtask/tests/results/card.rs

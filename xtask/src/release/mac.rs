@@ -12,9 +12,11 @@ use std::{
 
 pub const PYTHON: &str = "3.12.16";
 
+pub const MATURIN: &str = "maturin==1.11.5";
+
 const MATURIN_MACOS: [&str; 2] = [
-    "5263dda3f71feef2e4122baf5c4620e4b3710dbb7f2121f85a337182de214369",
-    "fe78262c2800c92f67d1ce3c0f6463f958a692cc67bfb572e5dbf5b4b696a8ba",
+    "2a596eab137cb3e169b97e89a739515abfa7a8755e2e5f0fc91432ef446f74f4",
+    "1c27a2eb47821edf26c75d100b3150b52dca2c1a5f074d7514af06f7a7acb9d5",
 ];
 
 const SOURCE_MAP: &str = "/src";
@@ -547,7 +549,13 @@ pub fn maturin_requirement(root: &Path) -> Result<String, String> {
     let hashes: Vec<String> = (MATURIN_MACOS.iter())
         .map(|h| format!("--hash=sha256:{h}"))
         .collect();
-    Ok(format!("{} {}\n", maturin_pin(root)?, hashes.join(" ")))
+    let pin = maturin_pin(root)?;
+    if pin != MATURIN {
+        return Err(format!(
+            "pyproject.toml pins {pin}, but release/mac.rs holds the macOS wheel hashes of {MATURIN}"
+        ));
+    }
+    Ok(format!("{MATURIN} {}\n", hashes.join(" ")))
 }
 
 pub fn maturin_pin(root: &Path) -> Result<String, String> {

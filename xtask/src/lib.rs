@@ -1,9 +1,10 @@
 pub mod harness;
 
 pub use release::mac::{
-    Build, Built, Installed, PYTHON, Steps, about_config, about_pin, about_plan, ase_verdict,
-    c_flags, data_plan, floor_plan, maturin_pin, maturin_plan, maturin_requirement, metadata_plan,
-    one_wheel, pair_verdict, proof, python_plan, readme_plan, remaps, tools_plan, tracked,
+    Build, Built, Installed, MATURIN, PYTHON, Steps, about_config, about_pin, about_plan,
+    ase_verdict, c_flags, data_plan, floor_plan, maturin_pin, maturin_plan, maturin_requirement,
+    metadata_plan, one_wheel, pair_verdict, proof, python_plan, readme_plan, remaps, tools_plan,
+    tracked,
 };
 pub use release::{
     Image, Install, Invocation, Machine, PAW_SCAN, PAW_SCAN_BYTES, Program, Wheels, baked, clear,
