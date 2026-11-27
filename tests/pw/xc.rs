@@ -43,6 +43,38 @@ fn a_uniform_density_gives_one_energy_on_eight_points_and_on_ninety_thousand_to_
 }
 
 #[test]
+fn a_repeat_of_sixty_four_cells_has_sixty_four_times_the_xc_energy_within_case_12s_bound() {
+    let a = 10.337;
+    let fcc = |scale: f64| {
+        let h = 0.5 * a * scale;
+        Cell::try_from([[0.0, h, h], [h, 0.0, h], [h, h, 0.0]]).unwrap()
+    };
+    let (one, many) = (Grid::coarse(&fcc(1.0), 20.0), Grid::coarse(&fcc(4.0), 20.0));
+    assert_eq!((one.dims(), many.dims()), ([30; 3], [120; 3]));
+    let rho: Vec<f64> = (one.points().iter())
+        .map(|f| {
+            0.6 + 0.2 * (TAU * (f[0] + f[1])).cos() + 0.1 * (TAU * (2.0 * f[2] - f[0]) + 0.3).sin()
+        })
+        .collect();
+    let tiled: Vec<f64> = (0..120 * 120 * 120)
+        .map(|i| {
+            let (i1, i2, i3) = (i / 14_400 % 30, i / 120 % 120 % 30, i % 120 % 30);
+            rho[(i1 * 30 + i2) * 30 + i3]
+        })
+        .collect();
+    let energy = |grid: &Grid, rho: &[f64]| {
+        exchange_correlation(grid, Functional::Lda, Spins::Unpolarized(rho), None, None).energy_ha
+    };
+    let (cell, repeat) = (energy(&one, &rho), energy(&many, &tiled));
+    assert!(cell < -80.0, "{cell} Ha per cell");
+    let gap = (repeat / 64.0 - cell).abs();
+    assert!(
+        gap < 1e-11,
+        "{gap:e} Ha per cell between {repeat} / 64 and {cell}"
+    );
+}
+
+#[test]
 fn a_uniform_density_gives_volume_times_the_energy_density_and_a_flat_potential() {
     let grid = grid();
     let n = grid.points().len();

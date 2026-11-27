@@ -370,10 +370,10 @@ impl Sphere {
         let mut sums = vec![KahanBabuskaNeumaier::<f64>::new(); count];
         for (&index, values) in self.points.iter().zip(&self.values) {
             for (sum, g) in sums.iter_mut().zip(values) {
-                *sum += v[index] * g;
+                *sum += v[index] * g * self.volume;
             }
         }
-        let projected: Vec<f64> = sums.iter().map(|s| s.total() * self.volume).collect();
+        let projected: Vec<f64> = sums.iter().map(KahanBabuskaNeumaier::total).collect();
         let n = species.orbitals().len();
         Mat::from_fn(n, n, |i, j| {
             (0..count)
