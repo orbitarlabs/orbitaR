@@ -1,23 +1,23 @@
-# harness reviewer=captain-final-call after codex-review3-14 reason=PR 14 claim tools after three review rounds: one-case runs, the node load check through each timed run, rival BLAS threads and the layout policy, held-out variants within the generators' variation; no tolerance, input or reference value changed, TUNED rows from the node run chain2
+# harness reviewer=captain-final-call after codex-review3-16 reason=claim-tools-2 at 034ac30 merged with size-series-2: case 12 is the size series Si 2 to 128 against QE and ABINIT; series readouts with coverage; the 14 GB guard from comparable measured peaks, stopping later launches after an over-budget run and keeping failed, timed-out and rejected runs' peaks; the Γ mode and fitted lines per block; a fold-equivalent repeat's accuracy from its case's anchor row alone; verify needs every declared code and size; a claim runs under a systemd-run --user scope (prlimit --as for pilots only), case 12 calibration rows from chain2
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
 b131a43552983679750e7571125717a273ef8f0ed15eda3ad30b4ffebb786e3b  xtask/src/bench.rs
-50d1d3bdf959e66e72f303a4d7c0fe26de41db3d0c135b4bfa0637532b499c79  xtask/src/case.rs
+ef5e8e406eb8be282e58c8f3ea96b67e276bb3bfe681a7cafcf968855c4de441  xtask/src/case.rs
 acc25a9a7a6f0f575332050c2763702da4b313cc3e8160eea822521c77e21935  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
-bf40daf9363d33be53ced92b20902eb393a2e55b954524d71f1229f1e99af412  xtask/src/harness.rs
+7f7fbd1f5092267e05f78d436f9eb3f5655c02fd4f38e1c2a115068e6732508c  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 03878ff9cd97a82b22af1417c9b7497191d232877176b85c1daf8378b2174578  xtask/src/harness/datasets.rs
-9c2c75e70f8b5ec234a6e1e00b4701489bcb517a46f03b9d2452ea026a70b9a0  xtask/src/harness/engine.rs
+1ca63feaf2346bbcc4879b99a4a10977d509793a0ab87c89f87b77e400a74c16  xtask/src/harness/engine.rs
 e4ff8dac6c5883566f42a2fd836c4f53f8c5e99d6ccf30a19ed3e95957f3757c  xtask/src/harness/eos.rs
 ab5678c69b56aff8db61dab1b665ffd5c35a633e7bd7b8b2808d9b8b6d06962d  xtask/src/harness/load.rs
-8270b6830d574706bbd48637437efdfbef67d6fcf1b376d2c88b7dd3451adb6f  xtask/src/harness/record.rs
+7c23de9174266c6e4cd62c4463f94399c7f2f0fcb53781fc50f7f15dceb09d22  xtask/src/harness/record.rs
 c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harness/relax.rs
-02edc71a2c8f25b83e9df46e6086115f9046e27e640eaba26db05e9b631f58f7  xtask/src/harness/rival.rs
+709a950ed2a524449ae5c49f347070b67c4071fb536faf73bd9ea0f8f9fc3d30  xtask/src/harness/rival.rs
 832e4d829b61ed81c03204e298754a9ca5f7b6f88385d4d477aedda04ec751bb  xtask/src/harness/rival/abinit.rs
-f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harness/rival/qe.rs
-700fd568402b3963ed9bed7db5b6dd9314196926d2d80750efb53bf87077dd8d  xtask/src/harness/speed.rs
+22e53eda5ff78cec6077c4becbd15ada0b53efe844cd27e3eea96b522039fc24  xtask/src/harness/rival/qe.rs
+b97dbbe384890932b314a62e5e47ba8e4eb8ac955b441da34a2b41824539e2fd  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
 8d6e609fdf18a359f5ede6a89f9c3ecebd342ac4963bfb49fd920dfc652ab6cd  xtask/src/lib.rs
@@ -43,21 +43,21 @@ af1167b4049c37599a8056a69776738384d5343da8d0f33252f69dc98c3630db  xtask/src/tune
 b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk.rs
 6ab6b9fbdacafa2d2973bdc4f0a7ef366da2d5b9af21a5516a80e379e3219b26  xtask/tests/atompaw.rs
 2ae958a7b8eb74840b96c5ddf9d8b9a4c2dfab0f9cc1b958dc230f14c51815a8  xtask/tests/bench.rs
-00163bddb786576cbd43ab7063a877d6d561a4f1e138ca713c48e13664477547  xtask/tests/case.rs
+6fae8f1a813a1809a6f47f905c708609924789fae0e549ffa4d0b72aeae6218c  xtask/tests/case.rs
 26dbcac50eaf0e847fc058f3a469de39dbfcfd204d8068a9008537feb634c687  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
-862158c9c49eba5b5708430e9f0abe487b4a463e8cfc73ab35a77f6d252cb513  xtask/tests/harness.rs
+dd55ac563b3726d9fdb69466c40173616ffdef21ba59c6ae87b82efe705af06b  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
 34bb356c822a8e35907af2fdbd5033f4fb84d7525f941599a30694a0995cf02e  xtask/tests/harness/datasets.rs
 3a76633569c2153ae6114e2157563e635df9c12c3204da6d4cbcab29a0118629  xtask/tests/harness/engine.rs
 ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/harness/eos.rs
 34801334b9ae70ef5de3d307c17bad6eec2ed1a47efc8f4d782348e59ae96dca  xtask/tests/harness/load.rs
-c030d119503bea5f4427744b9e54583d5cbb64c5ee6a1ca1693775dceca67d4b  xtask/tests/harness/record.rs
+c8355dd07f4f62c40ee8103e9d86da41dbe1f3a73d33fbd047df699db9b5420a  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
-f69f32f4b81cfac890d658d02fdd5e4efd4a70708f6dca93d2ca66e0d76b41a8  xtask/tests/harness/rival.rs
+16528e6bb4d155cf92c05a87805696c1e171b1342e35472b7351d63eebda13ab  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
-79b18e4d73fcd36f8f1ed31c8c20dd6575061eba0e6ac530879d6ca788c1fd8b  xtask/tests/harness/speed.rs
+1922adbf8f869b34d6c7cd494039e7dc061a0fd1ff19bc132fceeeabedc02d30  xtask/tests/harness/speed.rs
 33467b75f6e238946868cd25d6d62922bbb10c6d99ee156bab47117d798cbae5  xtask/tests/layers.rs
 749f8ec5618c7c1d46dda9faec5dc7fc4a987489d187a4c5b57f1654439a58dc  xtask/tests/layout.rs
 9623a0ce43ca494bdbb524b5c69b3173c4d9ef8238b93768c2cb2bdce46a20b0  xtask/tests/lib.rs
@@ -94,8 +94,8 @@ d6be09d9c32bdd299b9deccfbc75bc04d39ae963dec5166aec77fe8419e2bb9b  .github/workfl
 1c64aab23b9bc43e83ed64a50d2b871ffaa32f7ccbf3f3e4b78bc83ac117d95b  Cargo.lock
 2e6420f7a8d85f8f2e01c1246b63d0ef756d81948ad0c8d1f82687e16127d7d2  benchmarks/NODE.toml
 40802dfb2389005c0264bdfe41e25ada7280c42b87c472a515870a467c5d0334  benchmarks/DATASETS.toml
-d374ec09407af254988f1de17457a3b245ff279064e191cff72d9d5cf538fa4d  benchmarks/RIVALS.toml
-12f146b3624e42ba2a426fc8fca525e78280815456aff5e8d5d8d4c81fbd6220  benchmarks/TUNED.toml
+2bb0c87ca4752f75f33300bace91f551262b7ce1e17fc3ba34a169b6354ea015  benchmarks/RIVALS.toml
+dd37dfb97831155fcc1a42bbe986b530e7e9c6ae43f823130ea035b23b0fc7b2  benchmarks/TUNED.toml
 307acf155bb662a248adafb0cc46c6527aa0de850f6fe952d29739e890b75ade  benchmarks/ACWF.toml
 1b917f41e68f633e9d7a5e45f68e68c565253276541da9029db43aadc3edfad4  datasets/jth-2.0.toml
 # 1_free_electron reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
@@ -210,11 +210,14 @@ f7d6b38bb77323246b016a35290833fdf804fda030bf5e9d076b776691ed6863  benchmarks/11_
 aa23af9e5576cfd7f03f6e2e9f51eff87b1e675bd0318e4c9e1eee47ad7a3fd4  benchmarks/11_speed_scaling/reference/si32.abi
 f88d90b4234019adce78b2f80e12adeb1047baea20ae245b212c201305353d9d  benchmarks/11_speed_scaling/reference/si32.json
 30acc85e5e94ee4af1e5a545f5285ca47e6004e94fc0bd17dde707ded0d24a47  tests/benchmarks/11_speed_scaling/case.rs
-# 12_memory_scaling reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-3a608d7ff6d8a89e93759b3f3256dd996f8bda6a225920ab8b586b61a090b643  benchmarks/12_memory_scaling/case.toml
+# 12_memory_scaling reviewer=captain-final-call after codex-review3-16 reason=claim-tools-2 at 034ac30 merged with size-series-2: case 12 is the size series Si 2 to 128 against QE and ABINIT; series readouts with coverage; the 14 GB guard from comparable measured peaks, stopping later launches after an over-budget run and keeping failed, timed-out and rejected runs' peaks; the Γ mode and fitted lines per block; a fold-equivalent repeat's accuracy from its case's anchor row alone; verify needs every declared code and size; a claim runs under a systemd-run --user scope (prlimit --as for pilots only), case 12 calibration rows from chain2
+6042c26be76e709161280b7418d76bc0a7e5dd6279294efe919bf1ca1b1bd185  benchmarks/12_memory_scaling/case.toml
+2a16e6e416ba9dbb050c31895a212bc64b2868ffb2af7b7e0d9a7cadf8d30a93  benchmarks/12_memory_scaling/cells.py
 0c53e07e56068c09e5c1605fbeeeb606425af5ceef58fb3b7feac9a6be9b35a9  benchmarks/12_memory_scaling/input.toml
+496ed4afa4fc535eaf3c348e0bfa38a687944832c1bce7d410eee8b80ce1eb92  benchmarks/12_memory_scaling/inputs/si128.toml
 eff2a786a361c68bad968623e491b17cb760e9cf5a4e3daa0ae0944b7fefd079  benchmarks/12_memory_scaling/inputs/si16.toml
 3ae30d6df5f3a956f749ad25cdaf65108299d497c5065e361582f40466607f0c  benchmarks/12_memory_scaling/inputs/si32.toml
+40d53dedba96911514522f46b6996f988813200702190f7dc3c6171552a48899  benchmarks/12_memory_scaling/inputs/si64.toml
 2719754d18181ee2df523d20303f5aced6814422461a167318602a6c414b740a  benchmarks/12_memory_scaling/inputs/si8.toml
 a0296121ee8ff14ba02a995f9a08eabe6ae1018754f7784762212cc841de77a6  tests/benchmarks/12_memory_scaling/case.rs
 # 13_forces_derivative reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
