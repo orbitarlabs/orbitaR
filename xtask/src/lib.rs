@@ -1,15 +1,14 @@
 pub mod harness;
 
 pub use release::mac::{
-    Build, Built, Installed, MATURIN, PYTHON, Steps, about_config, about_pin, about_plan,
-    ase_verdict, c_flags, data_plan, floor_plan, maturin_pin, maturin_plan, maturin_requirement,
-    metadata_plan, one_wheel, pair_verdict, proof, python_plan, readme_plan, remaps, tools_plan,
-    tracked,
+    Build, Built, Installed, MATURIN, PYTHON, Steps, UV, about_config, about_pin, about_plan,
+    ase_verdict, build_pin, c_flags, data_plan, floor_plan, maturin_plan, metadata_plan, one_wheel,
+    pair_verdict, proof, python_plan, readme_plan, remaps, tools_plan, tools_requirement, tracked,
 };
 pub use release::{
-    Image, Install, Invocation, Machine, PAW_SCAN, PAW_SCAN_BYTES, Program, Wheels, baked, clear,
-    host_paths, image_verdict, in_venv, install, install_plan, install_verdict, machine,
-    readme_lines,
+    Image, Install, Invocation, Linker, Machine, PAW_SCAN, PAW_SCAN_BYTES, Program, Wheels, baked,
+    clear, hashes, host_paths, image_verdict, in_venv, install, install_plan, install_verdict,
+    linker, listed, machine, readme_lines, same,
 };
 pub use reproduce::stamp;
 
@@ -101,12 +100,14 @@ enum Cli {
         #[arg(long)]
         reason: String,
     },
-    /// wheel [--check <file>] [--target <Mac>]: build orbitar's and orbitar-jth's wheels (in manylinux_2_28 or on a Mac), check each, install both, run README
+    /// wheel [--check <file>] [--target <Mac>] [--same <a> <b>]: build orbitar's and orbitar-jth's wheels (in manylinux_2_28 or on a Mac), check each, install both, run README; --same: two wheels are one byte stream, or the first differing byte with its member and field, and each differing member, header field and record
     Wheel {
         #[arg(long)]
         check: Option<PathBuf>,
         #[arg(long)]
         target: Option<String>,
+        #[arg(long, num_args = 2, value_names = ["A", "B"], conflicts_with_all = ["check", "target"])]
+        same: Option<Vec<PathBuf>>,
     },
     /// image [--scan <file>]: build the runtime and bench images; each runs case 1's input as user 1000, read-only
     Image {
@@ -353,9 +354,14 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
         Cli::Bench { tier, case } => bench::tier(root, &tier, case.as_deref(), env),
         Cli::NewCase { slug, reference } => layout::new_case(root, &slug, &reference),
         Cli::Lock { reviewer, reason } => lock::write(root, &reviewer, &reason),
-        Cli::Wheel { check, target } => {
-            release::wheel(root, check.as_deref(), target.as_deref(), env)
-        }
+        Cli::Wheel {
+            check,
+            target,
+            same,
+        } => match same.as_deref() {
+            Some([a, b]) => release::same(root, a, b),
+            _ => release::wheel(root, check.as_deref(), target.as_deref(), env),
+        },
         Cli::Image { scan } => release::image(root, scan.as_deref()),
         Cli::Reproduce { check } => reproduce::check(root, check.as_deref(), env),
         Cli::Layout => layout::check(root),

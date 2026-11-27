@@ -207,6 +207,58 @@ fn a_rival_in_a_memory_scope_runs_the_probed_tool_and_finds_its_programs_on_its_
     }
 }
 
+#[test]
+fn each_code_records_how_it_runs_gamma_only_cells_and_records_nothing_for_other_meshes() {
+    let gamma = INPUT
+        .replace("shift = [0.5, 0.5, 0.5]\n", "")
+        .replace("[2, 2, 2]", "[1, 1, 1]");
+    for (name, input, want) in [
+        (
+            "rival-gamma-modes",
+            gamma.as_str(),
+            [
+                Some("real: orbitaR pairs G with -G at k = 0"),
+                Some("real: K_POINTS gamma"),
+                Some("real: ABINIT's default istwfk at Γ"),
+            ],
+        ),
+        ("rival-gamma-none", INPUT, [None, None, None]),
+    ] {
+        let root = rivals_tree(name, input, TUNED, PW, ABINIT);
+        let (_, record) = claim(&root, true);
+        for (code, want) in ["orbitar", "qe", "abinit"].into_iter().zip(want) {
+            let seen = blocks(&record, code);
+            assert!(!seen.is_empty(), "{code}: {record}");
+            for b in seen {
+                assert_eq!(b["gamma"].as_str(), want, "{code}: {b}");
+            }
+        }
+    }
+}
+
+#[test]
+fn each_rivals_layout_policy_is_a_digest_of_the_k_points_of_its_layout_cells() {
+    let gamma = INPUT
+        .replace("shift = [0.5, 0.5, 0.5]\n", "")
+        .replace("[2, 2, 2]", "[1, 1, 1]");
+    let policies = |name: &str, input: &str| {
+        let root = rivals_tree(name, input, TUNED, PW, ABINIT);
+        xtask::harness::rival_layout_policies(&root).unwrap()
+    };
+    let (one, eight) = (
+        policies("rival-policy-one", &gamma),
+        policies("rival-policy-eight", INPUT),
+    );
+    for policy in one.values().chain(eight.values()) {
+        assert!(
+            policy.len() == 64 && policy.chars().all(|c| c.is_ascii_hexdigit()),
+            "{policy}"
+        );
+    }
+    assert_ne!(one["qe"], eight["qe"]);
+    assert_ne!(one["qe"], one["abinit"]);
+}
+
 fn first_inputs(name: &str, input: &str) -> [String; 4] {
     first_inputs_in(name, input, |_| {})
 }
@@ -1801,6 +1853,38 @@ fn a_rival_run_that_misses_t_delta_is_a_loss_that_keeps_its_peak() {
     );
 }
 
+#[test]
+fn a_run_that_fails_before_its_engine_starts_is_never_refused_on_an_earlier_runs_peak() {
+    let root = memory_rivals("rival-stale-peak", INPUT, TUNED, PW, ABINIT);
+    let two = INPUT
+        .replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]")
+        .replace("[[0.0, 0.0, 0.25]]", "[[0.0, 0.0, 0.25], [0.5, 0.5, 0.75]]");
+    write(&root, "benchmarks/1_a/inputs/b.toml", &two);
+    let bin = root.join("fake-engine");
+    let body = format!(
+        "if grep -qx 'cutoff_ha = 1.0' input.toml && [ \"$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' ')\" = 1 ]; then\n\
+         dd if=/dev/zero of=/dev/null bs=100000000 count=1 2>/dev/null; rm -f '{}'\nfi\nstep -2",
+        bin.display()
+    );
+    let record = guarded(&root, &body, 50e6);
+    let ours = |input: &str| {
+        (blocks(&record, "orbitar").into_iter())
+            .find(|b| b["input"] == input)
+            .unwrap_or_else(|| panic!("no orbitar {input}: {record}"))
+            .clone()
+    };
+    assert!(
+        ours("input")["refused"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("refused after its correctness run"),
+        "{record}"
+    );
+    assert!(ours("b").get("refused").is_none(), "{record}");
+    let failures = record["failures"].to_string();
+    assert!(failures.contains("No such file"), "{record}");
+}
+
 fn own_cutoff_runs(name: &str, heavy: &str) -> (Value, usize) {
     let log = std::env::temp_dir().join(format!("xtask-{name}-{}.log", std::process::id()));
     let _ = std::fs::remove_file(&log);
@@ -1847,6 +1931,13 @@ fn a_measured_peak_past_the_guard_at_v2_or_correctness_stops_the_later_orbitar_l
             .contains("refused after its correctness run"),
         "{record}"
     );
+    for code in ["qe", "abinit"] {
+        let theirs = blocks(&record, code);
+        assert!(!theirs.is_empty(), "{record}");
+        for b in theirs {
+            assert!(b.get("refused").is_none(), "{code}: {b}");
+        }
+    }
 }
 
 #[test]
@@ -1910,6 +2001,170 @@ fn anchored(name: &str, tuned: &str) -> Value {
     guarded(&root, "step -2", 14e9)
 }
 
+fn folds(record: &Value, name: &str) -> bool {
+    record["failures"].to_string().contains(&format!(
+        "qe: {name} at 8 threads: {name}: a fold-equivalent repeat of benchmarks/1_a/input.toml"
+    ))
+}
+
+#[test]
+fn only_a_whole_repeat_of_the_anchor_on_its_folded_mesh_with_equal_settings_and_tiled_sites_is_fold_equivalent()
+ {
+    let base = INPUT.replace("shift = [0.5, 0.5, 0.5]\n", "");
+    let repeat = base
+        .replace(
+            "cell_bohr = [[0.0, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+            "cell_bohr = [[0.0, 10.0, 10.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+        )
+        .replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]")
+        .replace("[[0.0, 0.0, 0.25]]", "[[0.0, 0.0, 0.25], [0.5, 0.0, 0.25]]")
+        .replace("mesh = [2, 2, 2]", "mesh = [1, 2, 2]");
+    let first_row = "[[0.0, 10.0, 10.0],";
+    let variants = [
+        ("repeat", repeat.clone(), true),
+        (
+            "nudged",
+            repeat.replace(first_row, "[[0.0, 10.000000000001, 10.0],"),
+            true,
+        ),
+        (
+            "wrapped",
+            repeat.replace(
+                "[[0.0, 0.0, 0.25], [0.5",
+                "[[0.9999999999999, 0.0, 0.25], [0.5",
+            ),
+            true,
+        ),
+        (
+            "strained",
+            repeat.replace(first_row, "[[0.0, 10.3, 10.0],"),
+            false,
+        ),
+        (
+            "shifted",
+            repeat.replace(
+                "mesh = [1, 2, 2]\n",
+                "mesh = [1, 2, 2]\nshift = [0.5, 0.5, 0.5]\n",
+            ),
+            false,
+        ),
+        (
+            "symmetric",
+            repeat.replace("symmetry = false", "symmetry = true"),
+            false,
+        ),
+        (
+            "wider",
+            repeat.replace("width_ha = 0.01", "width_ha = 0.02"),
+            false,
+        ),
+        (
+            "displaced",
+            repeat.replace("[0.5, 0.0, 0.25]]", "[0.5, 0.1, 0.25]]"),
+            false,
+        ),
+        (
+            "edge",
+            repeat.replace("[[0.0, 0.0, 0.25], [0.5", "[[0.0, 1e-9, 0.25], [0.5"),
+            false,
+        ),
+    ];
+    let root = memory_rivals("rival-fold", &base, TUNED, PW, ABINIT);
+    for (name, text, _) in &variants {
+        assert_ne!(text, &base, "{name}");
+        assert!(*name == "repeat" || text != &repeat, "{name}");
+        write(&root, &format!("benchmarks/1_a/inputs/{name}.toml"), text);
+    }
+    let record = guarded(&root, "step -2", 14e9);
+    for (name, _, repeats) in &variants {
+        assert_eq!(folds(&record, name), *repeats, "{name}: {record}");
+    }
+}
+
+#[test]
+fn a_repeat_with_a_calibration_row_of_its_own_takes_that_row_and_not_the_anchors() {
+    let base = INPUT.replace("shift = [0.5, 0.5, 0.5]\n", "");
+    let repeat = base
+        .replace(
+            "cell_bohr = [[0.0, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+            "cell_bohr = [[0.0, 10.0, 10.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+        )
+        .replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]")
+        .replace("[[0.0, 0.0, 0.25]]", "[[0.0, 0.0, 0.25], [0.5, 0.0, 0.25]]")
+        .replace("mesh = [2, 2, 2]", "mesh = [1, 2, 2]");
+    let rows = "\"benchmarks/1_a/input.toml\" = [[10.0, 1e-6, 0.0, 2e-6, 0.0], [13.0, 1e-6, 0.0, 2e-6, 0.0]]";
+    let own = TUNED.replace(
+        rows,
+        &format!("{rows}\n\"benchmarks/1_a/inputs/b.toml\" = [[10.0, 3e-6, 0.0, 4e-6, 0.0], [13.0, 3e-6, 0.0, 4e-6, 0.0]]"),
+    );
+    assert_ne!(own, TUNED);
+    let root = memory_rivals("rival-own-row", &base, &own, PW, ABINIT);
+    write(&root, "benchmarks/1_a/inputs/b.toml", &repeat);
+    let record = guarded(&root, "step -2", 14e9);
+    assert!(!folds(&record, "b"), "{record}");
+    let b = (blocks(&record, "abinit").into_iter())
+        .find(|b| b["input"] == "b")
+        .unwrap();
+    assert_eq!(b["accuracy"]["e_ha_per_atom"], json!(3e-6), "{b}");
+}
+
+#[test]
+fn a_held_out_variant_is_never_its_inputs_fold_equivalent_repeat() {
+    let base = INPUT.replace("shift = [0.5, 0.5, 0.5]\n", "");
+    assert_ne!(base, INPUT);
+    let root = memory_rivals("rival-held-repeat", &base, TUNED, PW, ABINIT);
+    let held = std::env::temp_dir().join(format!("xtask-held-repeat-{}", std::process::id()));
+    write(&held, "1_a/input.toml", &format!("{base}\n"));
+    let bin = fake(&root, "step -2");
+    let _ = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_held_out(&held)
+        .evaluate("1_a", both);
+    let _ = std::fs::remove_dir_all(&held);
+    let record: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    assert_eq!(record["held_out"][0]["input"], "held-out-input", "{record}");
+    assert!(!blocks(&record, "qe").is_empty(), "{record}");
+    assert!(!folds(&record, "held-out-input"), "{record}");
+}
+
+#[test]
+fn a_repeat_of_an_anchor_with_fixed_occupations_folds_on_each_axis_by_its_own_count() {
+    let tiny = INPUT
+        .replace("shift = [0.5, 0.5, 0.5]\n", "")
+        .replace(
+            "cell_bohr = [[0.0, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+            "cell_bohr = [[1.0, 0.0, 0.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]]",
+        )
+        .replace("mesh = [2, 2, 2]", "mesh = [3, 3, 1]")
+        .replace(
+            "[occupations]\nsmearing = \"fermi-dirac\"\nwidth_ha = 0.01\n",
+            "",
+        );
+    let sites: Vec<String> = (0..3)
+        .flat_map(|i| {
+            (0..3).map(move |j| format!("[{}, {}, 0.25]", f64::from(i) / 3.0, f64::from(j) / 3.0))
+        })
+        .collect();
+    let repeat = tiny
+        .replace(
+            "cell_bohr = [[1.0, 0.0, 0.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0]]",
+            "cell_bohr = [[3.0, 0.0, 0.0], [0.0, 3.0, 3.0], [0.0, 0.0, 1.0]]",
+        )
+        .replace(
+            "species = [\"Si\"]",
+            &format!("species = [{}]", ["\"Si\""; 9].join(", ")),
+        )
+        .replace("[[0.0, 0.0, 0.25]]", &format!("[{}]", sites.join(", ")))
+        .replace("mesh = [3, 3, 1]", "mesh = [1, 1, 1]");
+    assert!(!tiny.contains("smearing") && repeat.contains("[0.0, 3.0, 3.0]"));
+    let root = memory_rivals("rival-fold-tiny", &tiny, TUNED, PW, ABINIT);
+    write(&root, "benchmarks/1_a/inputs/b.toml", &repeat);
+    let record = guarded(&root, "step -2", 14e9);
+    assert!(folds(&record, "b"), "{record}");
+}
+
 #[test]
 fn a_fold_equivalent_repeat_takes_its_accuracy_from_its_cases_anchor_row_alone() {
     let rows = "\"benchmarks/1_a/input.toml\" = [[10.0, 1e-6, 0.0, 2e-6, 0.0], [13.0, 1e-6, 0.0, 2e-6, 0.0]]";
@@ -1938,6 +2193,13 @@ fn a_fold_equivalent_repeat_takes_its_accuracy_from_its_cases_anchor_row_alone()
     assert_eq!(
         ours["accuracy"]["e_p_from"], "benchmarks/1_a/input.toml's row",
         "{ours}"
+    );
+    let own = (blocks(&record, "orbitar").into_iter())
+        .find(|b| b["input"] == "input")
+        .unwrap();
+    assert_eq!(
+        own["accuracy"]["e_p_from"], "benchmarks/1_a/input.toml's row",
+        "{own}"
     );
     let failures = record["failures"].to_string();
     assert!(

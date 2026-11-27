@@ -1,3 +1,3 @@
-sha256 = "b013bafa32259563c4a43144c3b3c501828e6cba029e1bf9641ca9eb079fb85b"
-reviewer = "captain-final-call after codex-review3-21"
-reason = "lock-split: the lock is one file per hashed file under benchmarks/locks, so PRs that change different files stop conflicting; S5 and S9 read it, S9 also an old one-file LOCK at the base; the old benchmarks/LOCK moved with every review kept"
+sha256 = "87399a4b6a4b0539a2fa416b323baa2eead844da39b49d92d37dad713270634f"
+reviewer = "PENDING"
+reason = "merge of integration-2 63f8cda (main cf0ae67: #19 the Mac wheel, #27 on-site projections) into lock-split: git merges xtask/src/lib.rs without a conflict; #19's wheel --same hunks and this branch's bench and lock hunks touch different lines"
