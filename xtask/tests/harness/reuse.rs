@@ -10,9 +10,16 @@ use xtask::harness::{Outcome, Session, Tier};
 
 const QUIET: &str = r#"{"quiet": {"load_avg": [8.0, 8.0, 8.0], "others_runnable": 0, "psi_some_avg10": 20.0, "psi_some_share": 0.0}}"#;
 const ALONE: &str = r#"{"quiet": {"wall_s": 0.2, "busy_cpu_s": 1.6, "child_cpu_s": 1.5, "harness_cpu_s": 0.05, "others_cpu_s": 0.05, "share": 0.03125}}"#;
+const HELD_BYTES: u64 = 32 << 20;
 
 fn pace(root: &Tree, code: &str, seconds: f64) {
     write(root, &format!("pace/{code}"), &seconds.to_string());
+}
+
+fn holding(body: &str) -> String {
+    assert_eq!(body.matches("sleep $t").count(), 1, "{body}");
+    let held = format!("dd if=/dev/zero bs={HELD_BYTES} count=1 2>/dev/null | sleep $t");
+    body.replace("sleep $t", &held)
 }
 
 fn reusable(name: &str) -> (Tree, PathBuf) {
@@ -22,7 +29,7 @@ fn reusable(name: &str) -> (Tree, PathBuf) {
         ("abinit", "rivals/abinit/bin/abinit"),
     ] {
         let body = std::fs::read_to_string(root.join(bin)).unwrap();
-        let body = body.trim_start_matches("#!/bin/sh\n");
+        let body = holding(body.trim_start_matches("#!/bin/sh\n"));
         let paced = root.join(format!("pace/{code}"));
         script(
             &root.join(bin),
@@ -156,6 +163,10 @@ fn a_rival_block_whose_key_matches_an_earlier_record_is_reused_with_its_source_a
     let codes: Vec<&Value> = drift.iter().map(|d| &d["code"]).collect();
     assert_eq!(codes, [&json!("qe"), &json!("abinit")], "{reuse}");
     for d in drift {
+        for run in d["runs"].as_array().unwrap() {
+            let pss = run["peak_pss_bytes"].as_u64().unwrap();
+            assert!(!cfg!(target_os = "linux") || pss >= HELD_BYTES, "{d}");
+        }
         assert_eq!(d["held"], true, "{d}");
         assert_eq!(d["runs"].as_array().unwrap().len(), 3, "{d}");
     }
