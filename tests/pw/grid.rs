@@ -50,6 +50,26 @@ fn both_boxes_equal_abinits_for_cubic_hexagonal_and_triclinic_cells() {
 }
 
 #[test]
+fn the_integral_of_a_constant_is_the_constant_times_the_volume_to_the_last_bits() {
+    let cell = fcc(10.26);
+    let grid = Grid::coarse(&cell, 40.0);
+    let value = 0.123_456_789;
+    let integral = grid.integral(std::iter::repeat_n(value, grid.points().len()));
+    let exact = value * cell.volume();
+    assert!(
+        ((integral - exact) / exact).abs() < 4.0 * f64::EPSILON,
+        "{integral} against {exact}"
+    );
+}
+
+#[test]
+#[should_panic(expected = "one value per grid point")]
+fn an_integral_of_another_number_of_values_is_refused() {
+    let grid = Grid::coarse(&fcc(10.26), 5.0);
+    grid.integral(std::iter::repeat_n(1.0, grid.points().len() - 1));
+}
+
+#[test]
 fn a_ball_holds_each_grid_point_once_per_lattice_image_within_its_radius() {
     let cell = scaled(
         [[6.1, 0.0, 0.0], [1.9, 5.7, 0.0], [1.3, 2.2, 6.8]],

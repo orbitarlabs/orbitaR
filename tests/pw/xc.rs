@@ -1,3 +1,4 @@
+use compensated_summation::KahanBabuskaNeumaier;
 use orbitar::model::{Cell, Functional};
 use orbitar::pw::{
     Grid, Kinetic, Spins, Xc, exchange_correlation, grid_defect, grid_energy, grid_gap, grid_points,
@@ -20,6 +21,26 @@ fn density(grid: &Grid, scale: f64) -> Vec<f64> {
                     + 0.015 * (TAU * (2.0 * f[2] - f[0]) + 0.3).sin())
         })
         .collect()
+}
+
+#[test]
+fn a_uniform_density_gives_one_energy_on_eight_points_and_on_ninety_thousand_to_the_last_bits() {
+    let energy = |cutoff_ha: f64| {
+        let grid = Grid::coarse(grid().cell(), cutoff_ha);
+        let rho = vec![0.0123; grid.points().len()];
+        (
+            grid.points().len(),
+            exchange_correlation(&grid, Functional::Lda, Spins::Unpolarized(&rho), None, None)
+                .energy_ha,
+        )
+    };
+    let ((few, coarse), (many, fine)) = (energy(0.01), energy(40.0));
+    assert_eq!(few, 8);
+    assert!(many > 90_000, "{many} points");
+    assert!(
+        ((fine - coarse) / coarse).abs() < 8.0 * f64::EPSILON,
+        "{fine} against {coarse}"
+    );
 }
 
 #[test]
@@ -245,7 +266,7 @@ fn an_lda_grid_is_the_point_entry_at_each_point_bit_for_bit() {
         };
         let xc = exchange_correlation(&grid, Functional::Lda, spins, Some(&core), None);
         let last = channels.len() - 1;
-        let mut energy = 0.0;
+        let mut energy = KahanBabuskaNeumaier::<f64>::new();
         for r in 0..n {
             let (e, vrho) = if polarized {
                 let p = Point::of(channels[0][r], channels[last][r], [0.0; 3]);
@@ -263,7 +284,7 @@ fn an_lda_grid_is_the_point_entry_at_each_point_bit_for_bit() {
                 assert_eq!(v[r].to_bits(), vrho[s].to_bits(), "point {r}");
             }
         }
-        let want = energy * grid.cell().volume() / n as f64;
+        let want = energy.total() * grid.cell().volume() / n as f64;
         assert_eq!(xc.energy_ha.to_bits(), want.to_bits());
     }
 }

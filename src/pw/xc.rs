@@ -303,7 +303,6 @@ fn evaluated(
             }
         })
     });
-    let energy = local.iter().fold(0.0, |sum, (e, ..)| sum + e);
     let mut gradient_strain_ha = [[0.0; 3]; 3];
     if let Some(gradients) = &gradients {
         let scale = -grid.cell().volume() / n as f64 / weight;
@@ -342,7 +341,7 @@ fn evaluated(
             .collect()
     });
     let xc = Xc {
-        energy_ha: energy * grid.cell().volume() / n as f64,
+        energy_ha: grid.integral(local.iter().map(|(e, ..)| *e)),
         potential,
         gradient_strain_ha,
         kinetic_potential,
