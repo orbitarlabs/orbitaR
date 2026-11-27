@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=release 0.0.1 limits: the install proof resolves orbitar alone, offline, without uv config, uv or pip environment overrides, or the uv cache, against a hash-pinned wheelhouse of the whole pylock closure; the pinned download of datasets.rs is shared with it; merged with main's light-run peak Pss bound; a test proves an inherited UV_OVERRIDE is cleared
+# harness reviewer=captain after codex-review2-8 (test-only addition) reason=release 0.0.1 limits: the install proof resolves orbitar alone, offline, without uv config, uv or pip environment overrides, or the uv cache, against a hash-pinned wheelhouse of the whole pylock closure; the pinned download of datasets.rs is shared with it; merged with main's light-run peak Pss bound; a test proves an inherited UV_OVERRIDE is cleared
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
