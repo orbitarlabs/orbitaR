@@ -195,10 +195,36 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                     };
                     let [p] = speed.threads;
                     let timed = settings.as_ref().is_none_or(|s| s.times(p.get()));
+                    let names: Vec<&str> = (record["inputs"].as_array().into_iter().flatten())
+                        .filter_map(Value::as_str)
+                        .collect();
+                    let mut bases = BTreeMap::new();
+                    let variants: BTreeSet<&str> =
+                        (record["held_out"].as_array().into_iter().flatten())
+                            .filter_map(|h| h["input"].as_str())
+                            .collect();
+                    for held in record["held_out"].as_array().into_iter().flatten() {
+                        let (Some(name), Some(base)) =
+                            (held["input"].as_str(), held["base"].as_str())
+                        else {
+                            findings.push(format!(
+                                "{}: {id} record holds a held-out variant without the input it varies: {held}",
+                                tier.name()
+                            ));
+                            continue;
+                        };
+                        if !names.contains(&base) || variants.contains(base) {
+                            findings.push(format!(
+                                "{}: {id} record's held-out {name} varies {base}, which is no input of the record",
+                                tier.name()
+                            ));
+                        }
+                        bases.insert(name, base);
+                    }
                     let due: usize = (record["inputs"].as_array().into_iter().flatten())
                         .filter_map(Value::as_str)
                         .map(|name| {
-                            let path = rival::base_path(id, name);
+                            let path = rival::input_path(id, bases.get(name).unwrap_or(&name));
                             let theirs = (case.rivals().iter())
                                 .filter(|&&code| {
                                     !settings
@@ -293,6 +319,15 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                                 tier.name(),
                                 block.code,
                                 t.len() + lost
+                            ));
+                        }
+                        let scored = usize::from(block.warmup.get("loss").is_none()) + t.len();
+                        let alone = block.during.iter().filter(|d| d.quiet()).count();
+                        if block.during.len() != 1 + t.len() + lost || alone != scored {
+                            findings.push(format!(
+                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its {scored} warm-up and judged runs",
+                                tier.name(),
+                                block.code,
                             ));
                         }
                         if block.code == speed::Code::Orbitar {
@@ -744,7 +779,7 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
         println!(
             "block {} {} p={}: timed runs {} losses {}; medians of the runs alone: T(δ) {} s, wall {} s, peak Pss {} \
              bytes; noisy {} E_ref {} accuracy {}; SCF steps {:?}, E_ref's {:?}, cap {:?}; a quiet node before {} of {} \
-             runs, the warm-up first: {:?}",
+             runs, the warm-up first: {:?}; no other load through {} of them: {:?}",
             b.code,
             b.input,
             b.threads,
@@ -768,7 +803,9 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
             b.step_cap,
             b.load.iter().filter(|r| r.quiet()).count(),
             b.load.len(),
-            b.load
+            b.load,
+            b.during.iter().filter(|d| d.quiet()).count(),
+            b.during
         );
     }
     let mut lost: Vec<&str> = (blocks.iter())

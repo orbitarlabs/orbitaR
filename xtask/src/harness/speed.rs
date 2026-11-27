@@ -2,7 +2,7 @@ use super::rival::Rival;
 use super::{
     Block, Metrics,
     engine::{self, Failure, Run, Step},
-    load::{Gate, Reading},
+    load::{During, Gate, Reading},
 };
 use crate::case::Speed;
 use serde::{Deserialize, Serialize};
@@ -69,6 +69,8 @@ pub(crate) struct BlockRecord {
     pub(crate) losses: Vec<String>,
     #[serde(default)]
     pub(crate) load: Vec<Reading>,
+    #[serde(default)]
+    pub(crate) during: Vec<During>,
     pub(crate) noisy: bool,
     #[serde(flatten)]
     pub(crate) timing: Option<Timing>,
@@ -251,12 +253,21 @@ pub(crate) fn time(
         }
         Ok(judged)
     };
-    let mut load: Vec<Vec<Reading>> = blocks.iter().map(|_| Vec::new()).collect();
-    let mut read = |i: usize| -> Result<(), Failure> {
-        if let Some(gate) = gate {
-            load[i].push(gate.before(&blocks[i].at(), speed)?);
-        }
-        Ok(())
+    let load: RefCell<Vec<Vec<Reading>>> =
+        RefCell::new(blocks.iter().map(|_| Vec::new()).collect());
+    let during: RefCell<Vec<Vec<During>>> =
+        RefCell::new(blocks.iter().map(|_| Vec::new()).collect());
+    let judged = |i: usize| -> Result<Result<(f64, Run), String>, Failure> {
+        let Some(gate) = gate else {
+            return judged(&blocks[i]);
+        };
+        let at = blocks[i].at();
+        let (reading, start) = gate.before(&at, speed)?;
+        load.borrow_mut()[i].push(reading);
+        let out = judged(&blocks[i])?;
+        let child = out.as_ref().ok().map(|(_, run)| run.cpu_s);
+        during.borrow_mut()[i].push(gate.after(&at, speed, start, child)?);
+        Ok(out)
     };
     let mut warmups = vec![Value::Null; blocks.len()];
     for i in shuffled(seed, 0, blocks.len()) {
@@ -265,8 +276,7 @@ pub(crate) fn time(
             warmups[i] = json!({ "refused": why });
             continue;
         }
-        read(i)?;
-        warmups[i] = match judged(&blocks[i])? {
+        warmups[i] = match judged(i)? {
             Ok((t, warm)) => {
                 json!({ "t_delta_s": t, "wall_s": warm.seconds, "peak_rss_bytes": warm.peak_rss_bytes, "peak_pss_bytes": warm.peak_pss_bytes, "steps": warm.steps.len() })
             }
@@ -301,8 +311,7 @@ pub(crate) fn time(
         }
         for k in shuffled(seed, round, due.len()) {
             let (b, i) = (&blocks[due[k]], due[k]);
-            read(i)?;
-            match judged(b)? {
+            match judged(i)? {
                 Ok((t, next)) => {
                     if b.rival.is_none() {
                         engine::same_output(&runs[i], &next).map_err(|f| named(b, f))?;
@@ -322,67 +331,76 @@ pub(crate) fn time(
         .zip(times)
         .zip(warmups)
         .zip(losses)
-        .zip(load))
-    .map(|((((((i, b), runs), t), warmup), losses), load)| {
-        let refusal =
-            (refused.get(&key(b)).cloned()).or_else(|| over.borrow().get(&owned(b)).cloned());
-        let noisy = refusal.is_none() && noisy(&t, losses.len(), repeats);
-        let (low, high) = (t.iter()).fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), &x| {
-            (l.min(x), h.max(x))
-        });
-        let rss: Vec<u64> = runs.iter().map(|r| r.peak_rss_bytes).collect();
-        let pss: Vec<u64> = runs.iter().map(|r| r.peak_pss_bytes).collect();
-        let (e_ref_ha, e_ref_shift_ha, e_ref_steps) = (references[&key(b)].as_ref())
-            .map_or((None, None, None), |&(e, s, n)| (Some(e), Some(s), Some(n)));
-        let record = BlockRecord {
-            code: b.code(),
-            input: b.input.to_owned(),
-            threads: b.threads.unwrap_or(NonZeroUsize::MIN),
-            atoms: b.atoms,
-            e_ref_ha,
-            e_ref_shift_ha,
-            delta_ha: delta_ha(b.atoms),
-            warmup,
-            step_cap: b.step_cap(),
-            steps: runs.iter().map(|r| r.steps.len()).collect(),
-            e_ref_steps,
-            wall_s: runs.iter().map(|r| r.seconds).collect(),
-            timing: (!t.is_empty()).then(|| Timing {
-                median_t_delta_s: medians[i],
-                range_t_delta_s: [low, high],
-                cv_t_delta: number(cv(&t)),
-                median_peak_rss_bytes: median(&rss.iter().map(|&x| x as f64).collect::<Vec<_>>()),
-                median_peak_pss_bytes: median(&pss.iter().map(|&x| x as f64).collect::<Vec<_>>()),
-            }),
-            peak_rss_bytes: rss,
-            peak_pss_bytes: pss,
-            losses,
-            load,
-            rival: (b.rival.as_ref()).map(|r| {
-                let claim = r.claim.as_ref();
-                json!({
-                    "cutoff_ha": r.cutoff_ha,
-                    "layout": r.layout,
-                    "mixing": r.mixing,
-                    "mpiexec": r.mpiexec,
-                    "datasets": claim.map(|c| &c.files),
-                    "stop_floor_ha": claim.and_then(|c| c.floor_ha),
-                    "busy_cores": claim.map(|c| c.busy_cores),
-                })
-            }),
-            accuracy: None,
-            refused: refusal,
-            failed_peak_bytes: failed.borrow().get(&owned(b)).cloned().unwrap_or_default(),
-            gamma: b.gamma(),
-            noisy,
-            t_delta_s: t,
-        };
-        Timed {
-            stdout: runs.first().map(|r| r.stdout.clone()).unwrap_or_default(),
-            runs,
-            record,
-        }
-    })
+        .zip(load.into_inner())
+        .zip(during.into_inner()))
+    .map(
+        |(((((((i, b), runs), t), warmup), losses), load), during)| {
+            let refusal =
+                (refused.get(&key(b)).cloned()).or_else(|| over.borrow().get(&owned(b)).cloned());
+            let noisy = refusal.is_none() && noisy(&t, losses.len(), repeats);
+            let (low, high) = (t.iter()).fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), &x| {
+                (l.min(x), h.max(x))
+            });
+            let rss: Vec<u64> = runs.iter().map(|r| r.peak_rss_bytes).collect();
+            let pss: Vec<u64> = runs.iter().map(|r| r.peak_pss_bytes).collect();
+            let (e_ref_ha, e_ref_shift_ha, e_ref_steps) = (references[&key(b)].as_ref())
+                .map_or((None, None, None), |&(e, s, n)| (Some(e), Some(s), Some(n)));
+            let record = BlockRecord {
+                code: b.code(),
+                input: b.input.to_owned(),
+                threads: b.threads.unwrap_or(NonZeroUsize::MIN),
+                atoms: b.atoms,
+                e_ref_ha,
+                e_ref_shift_ha,
+                delta_ha: delta_ha(b.atoms),
+                warmup,
+                step_cap: b.step_cap(),
+                steps: runs.iter().map(|r| r.steps.len()).collect(),
+                e_ref_steps,
+                wall_s: runs.iter().map(|r| r.seconds).collect(),
+                timing: (!t.is_empty()).then(|| Timing {
+                    median_t_delta_s: medians[i],
+                    range_t_delta_s: [low, high],
+                    cv_t_delta: number(cv(&t)),
+                    median_peak_rss_bytes: median(
+                        &rss.iter().map(|&x| x as f64).collect::<Vec<_>>(),
+                    ),
+                    median_peak_pss_bytes: median(
+                        &pss.iter().map(|&x| x as f64).collect::<Vec<_>>(),
+                    ),
+                }),
+                peak_rss_bytes: rss,
+                peak_pss_bytes: pss,
+                losses,
+                load,
+                during,
+                rival: (b.rival.as_ref()).map(|r| {
+                    let claim = r.claim.as_ref();
+                    json!({
+                        "cutoff_ha": r.cutoff_ha,
+                        "layout": r.layout,
+                        "thread_env": super::rival::thread_env(&r.layout),
+                        "mixing": r.mixing,
+                        "mpiexec": r.mpiexec,
+                        "datasets": claim.map(|c| &c.files),
+                        "stop_floor_ha": claim.and_then(|c| c.floor_ha),
+                        "busy_cores": claim.map(|c| c.busy_cores),
+                    })
+                }),
+                accuracy: None,
+                refused: refusal,
+                failed_peak_bytes: failed.borrow().get(&owned(b)).cloned().unwrap_or_default(),
+                gamma: b.gamma(),
+                noisy,
+                t_delta_s: t,
+            };
+            Timed {
+                stdout: runs.first().map(|r| r.stdout.clone()).unwrap_or_default(),
+                runs,
+                record,
+            }
+        },
+    )
     .collect())
 }
 

@@ -154,6 +154,38 @@ fn smoke_judges_only_the_records_of_this_run() {
 }
 
 #[test]
+fn a_run_of_one_case_clears_that_cases_record_and_keeps_its_peers() {
+    let stale =
+        "{\"schema\": 3, \"case\": \"<id>\", \"outcome\": \"pass\", \"started_unix_ms\": 1}";
+    let root = tree(
+        "bench-one-case-records",
+        &[
+            ("benchmarks/1_a/case.toml", ACTIVE),
+            ("benchmarks/2_b/case.toml", ACTIVE),
+            (
+                "target/benchmarks/push/1_a.json",
+                &stale.replace("<id>", "1_a"),
+            ),
+            (
+                "target/benchmarks/push/2_b.json",
+                &stale.replace("<id>", "2_b"),
+            ),
+        ],
+    );
+    let f = xtask::run(
+        &["bench", "push", "2_b"],
+        &root,
+        &fake_cargo(&root, "exit 0"),
+    );
+    assert!(has(&f, "push: 2_b left no readable record"), "{f:?}");
+    assert!(!root.join("target/benchmarks/push/2_b.json").exists());
+    assert_eq!(
+        std::fs::read_to_string(root.join("target/benchmarks/push/1_a.json")).unwrap(),
+        stale.replace("<id>", "1_a")
+    );
+}
+
+#[test]
 fn a_run_that_rewrites_the_lock_fails() {
     let root = tree("bench-lock", &[("benchmarks/1_a/case.toml", ACTIVE)]);
     let body =

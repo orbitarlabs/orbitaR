@@ -131,7 +131,11 @@ fn mixing_without_mixing_cells_freezes_nothing() {
         has(&findings, "rivals: qe: no mixing cells"),
         "{findings:?}"
     );
-    assert_eq!(tuned, toml::from_str::<toml::Table>(TUNED).unwrap());
+    assert_eq!(
+        tuned,
+        toml::from_str::<toml::Table>(&crate::harness::rival::with_layout_policies(&root, TUNED))
+            .unwrap()
+    );
 }
 
 fn two_cells(name: &str, stuck: &str, e: &str) -> (Vec<String>, toml::Table) {

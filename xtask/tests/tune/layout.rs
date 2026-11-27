@@ -276,7 +276,8 @@ fn a_layout_left_untried_by_its_share_of_the_budget_fails_the_job_and_freezes_no
     );
     assert_eq!(
         tuned,
-        toml::from_str::<toml::Table>(TUNED).unwrap(),
+        toml::from_str::<toml::Table>(&crate::harness::rival::with_layout_policies(&root, TUNED))
+            .unwrap(),
         "TUNED.toml stays as it was"
     );
 }
@@ -298,7 +299,9 @@ fn a_thread_count_where_every_layout_fails_fails_the_job_and_keeps_the_old_layou
         ),
         "{findings:?}"
     );
-    let old = toml::from_str::<toml::Table>(TUNED).unwrap();
+    let old =
+        toml::from_str::<toml::Table>(&crate::harness::rival::with_layout_policies(&root, TUNED))
+            .unwrap();
     for (p, layout) in old["qe"]["layout"].as_table().unwrap() {
         for key in ["ranks", "threads"] {
             assert_eq!(tuned["qe"]["layout"][p][key], layout[key], "{p}: {tuned}");
