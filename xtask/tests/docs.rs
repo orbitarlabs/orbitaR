@@ -1779,3 +1779,68 @@ fn writing_the_quickstart_refuses_a_symlink_or_a_directory_at_its_path_and_write
     assert!(has(&f, "its directory is no real directory"), "{f:?}");
     assert!(!root.join("elsewhere/quickstart.ipynb").exists());
 }
+
+#[test]
+fn a_python_block_outside_the_ase_section_or_under_an_ase_title_of_another_level_is_not_the_quickstart_source()
+ {
+    let before = ["## Before", "", "```python", "before = 1", "```", ""];
+    let mut lines = before.to_vec();
+    lines.extend(["## ASE", "", "```python", "ase = 2", "```"]);
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let proofs = "readme_block(\"Before\") readme_block(\"ASE\")\n";
+    let files = [("README.md", readme.as_str()), ("tests/ase.rs", proofs)];
+    let root = docs_tree(
+        "notebook-before",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &files,
+    );
+    let text = written(tracked(&root));
+    assert_eq!(sources(&text)[1], "ase = 2");
+    let mut lines = before.to_vec();
+    lines.extend(["# ASE", "", "```python", "ase = 2", "```"]);
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let files = [("README.md", readme.as_str()), ("tests/ase.rs", proofs)];
+    let root = docs_tree(
+        "notebook-title",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &files,
+    );
+    let f = lever(&["notebook", "--write"], tracked(&root));
+    assert_eq!(
+        f,
+        [format!(
+            "notebook: {NOTEBOOK}: README.md has no python block under `## ASE`"
+        )]
+    );
+}
+
+#[test]
+fn a_python_block_below_a_subheading_of_the_ase_section_is_the_quickstart_source() {
+    let lines = [
+        "## ASE",
+        "",
+        "### Run it",
+        "",
+        "```python",
+        "ase = 2",
+        "```",
+    ];
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let files = [
+        ("README.md", readme.as_str()),
+        ("tests/ase.rs", "readme_block(\"ASE\")\n"),
+    ];
+    let root = docs_tree(
+        "notebook-sub",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &files,
+    );
+    let text = written(tracked(&root));
+    assert_eq!(sources(&text)[1], "ase = 2");
+}
