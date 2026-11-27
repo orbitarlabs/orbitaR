@@ -1,3 +1,3 @@
-sha256 = "86d3278e8ac53dc138b5dbc94563c47415efe5bcc097c9844ccb7a80ee7bafd2"
+sha256 = "59a9cb80d90924422eac3908de8c3da736b7068bdd05900902770626cfc36387"
 reviewer = "PENDING"
-reason = "lock-split round 2: S9 needs a review not at the base for each new, changed, moved or revived entry; the move stages into benchmarks/locks.partial and finishes a move whose old file stayed; hashed paths refuse control characters, git cat-file reads NUL-framed paths"
+reason = "lock-split round 3: the move takes benchmarks/locks.move for its whole run, stages in benchmarks/locks.<pid>.partial, renames once, re-reads the lock and only then deletes benchmarks/LOCK; a hashed path or an old LOCK entry with a control character is refused by name"
