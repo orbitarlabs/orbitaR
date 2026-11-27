@@ -53,12 +53,15 @@ jobs:
       - run: sha256sum target/wheel/wheel/*.whl target/wheel/jth-wheel/*.whl
       - name: Print the sha256 of every wheel member
         run: |
-          for wheel in target/wheel/wheel/*.whl target/wheel/jth-wheel/*.whl; do
-            echo "$wheel"
-            unzip -Z1 "$wheel" | while IFS= read -r member; do
-              echo "$(unzip -p "$wheel" "$member" | sha256sum | cut -d' ' -f1)  $member"
-            done
-          done
+          python3 -I - target/wheel/wheel/*.whl target/wheel/jth-wheel/*.whl <<'EOF'
+          import hashlib, sys, zipfile
+          for wheel in sys.argv[1:]:
+              print(wheel)
+              with zipfile.ZipFile(wheel) as z:
+                  for info in z.infolist():
+                      digest = hashlib.sha256(z.read(info)).hexdigest()
+                      print(f"{digest}  {info.header_offset:>10}  {info.filename}")
+          EOF
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheel
