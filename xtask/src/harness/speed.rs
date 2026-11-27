@@ -76,6 +76,10 @@ pub(crate) struct BlockRecord {
     pub(crate) accuracy: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) refused: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) failed_peak_bytes: Vec<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) gamma: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -103,39 +107,67 @@ pub(crate) fn time(
     repeats: usize,
     seed: u64,
     gate: Option<&Gate>,
-    guarded: bool,
+    guard: Option<f64>,
 ) -> Result<Vec<Timed>, Failure> {
     for b in blocks {
         timed_stop(b)?;
         reference_stop(b)?;
     }
-    let peaks: RefCell<Vec<(Code, Peak)>> = RefCell::default();
+    type Key<'a> = (Code, &'a str, Vec<String>);
+    let key = reference_key;
+    let peaks: RefCell<Vec<(Comparable, Peak)>> = RefCell::default();
+    type Owned = (Code, String, Vec<String>);
+    let owned = |b: &Block| -> Owned {
+        let (code, input, lines) = key(b);
+        (code, input.to_owned(), lines)
+    };
+    let over: RefCell<BTreeMap<Owned, String>> = RefCell::default();
+    let failed: RefCell<BTreeMap<Owned, Vec<u64>>> = RefCell::default();
     let run = |b: &Block, stop: f64, pass: Pass| {
-        let ran = run(b, stop, pass).map_err(|f| named(b, f))?;
-        if guarded {
-            let bytes = match ran.peak_pss_bytes {
-                0 => ran.peak_rss_bytes,
-                pss => pss,
-            };
-            let peak = Peak {
-                atoms: b.atoms,
-                in_flight: b.in_flight().map_err(Failure::Harness)?,
-                bytes: bytes as f64,
-            };
-            peaks.borrow_mut().push((b.code(), peak));
+        if let Some(why) = over.borrow().get(&owned(b)) {
+            return Err(Failure::Engine(why.clone()));
         }
-        Ok(ran)
+        engine::forget_peaks();
+        let ran = run(b, stop, pass);
+        if let Some(limit) = guard {
+            let measured = match &ran {
+                Ok(r) => Some([r.peak_rss_bytes, r.peak_pss_bytes]),
+                Err(_) => engine::last_peaks(),
+            };
+            if let Some([rss, pss]) = measured {
+                let bytes = if pss == 0 { rss } else { pss };
+                if ran.is_err() {
+                    failed.borrow_mut().entry(owned(b)).or_default().push(bytes);
+                }
+                let peak = Peak {
+                    atoms: b.atoms,
+                    in_flight: b.in_flight().map_err(Failure::Harness)?,
+                    bytes: bytes as f64,
+                };
+                peaks.borrow_mut().push((b.comparable(), peak));
+                if bytes as f64 > limit {
+                    let why = format!(
+                        "{}: refused after a run: its measured peak {:.2} GB passes the {} GB guard",
+                        b.at(),
+                        bytes as f64 / 1e9,
+                        limit / 1e9
+                    );
+                    println!("speed: {why}");
+                    over.borrow_mut().entry(owned(b)).or_insert(why);
+                }
+            }
+        }
+        ran.map_err(|f| named(b, f))
     };
     let lost = |b: &Block, f: Failure| match (b.rival.is_some(), f) {
         (true, Failure::Engine(e)) => Ok(e),
         (_, f) => Err(f),
     };
     type Reference = Result<(f64, f64, [usize; 2]), String>;
-    let key = reference_key;
-    let mut references: BTreeMap<(Code, &str, Vec<String>), Reference> = BTreeMap::new();
-    let mut refused: BTreeMap<(Code, &str, Vec<String>), String> = BTreeMap::new();
+    let mut references: BTreeMap<Key, Reference> = BTreeMap::new();
+    let mut refused: BTreeMap<Key, String> = BTreeMap::new();
     let mut order: Vec<usize> = (0..blocks.len()).collect();
-    if guarded {
+    if guard.is_some() {
         order.sort_by_key(|&i| blocks[i].atoms);
     }
     for b in order.into_iter().map(|i| &blocks[i]) {
@@ -143,7 +175,9 @@ pub(crate) fn time(
         if references.contains_key(&key) {
             continue;
         }
-        if guarded && let Some(why) = refusal(b, &peaks.borrow()).map_err(Failure::Harness)? {
+        if let Some(limit) = guard
+            && let Some(why) = refusal(b, &peaks.borrow(), limit).map_err(Failure::Harness)?
+        {
             println!("speed: {why}");
             references.insert(key.clone(), Err(why.clone()));
             refused.insert(key, why);
@@ -168,6 +202,11 @@ pub(crate) fn time(
             }
             Ok((e_ref, shift, [n, m]))
         });
+        if let Some(why) = over.borrow().get(&owned(b)).cloned() {
+            references.insert(key.clone(), Err(why.clone()));
+            refused.insert(key, why);
+            continue;
+        }
         let checked = match checked {
             Ok(pair) => Ok(pair),
             Err(f) => Err(lost(b, f)?),
@@ -221,7 +260,8 @@ pub(crate) fn time(
     };
     let mut warmups = vec![Value::Null; blocks.len()];
     for i in shuffled(seed, 0, blocks.len()) {
-        if let Some(why) = refused.get(&key(&blocks[i])) {
+        let stopped = over.borrow().get(&owned(&blocks[i])).cloned();
+        if let Some(why) = refused.get(&key(&blocks[i])).cloned().or(stopped) {
             warmups[i] = json!({ "refused": why });
             continue;
         }
@@ -245,6 +285,7 @@ pub(crate) fn time(
     for round in 1.. {
         let due: Vec<usize> = (0..blocks.len())
             .filter(|&i| runs[i].len() + losses[i].len() < target[i])
+            .filter(|&i| !over.borrow().contains_key(&owned(&blocks[i])))
             .collect();
         if due.is_empty() {
             let grown: Vec<usize> = (0..blocks.len())
@@ -283,7 +324,8 @@ pub(crate) fn time(
         .zip(losses)
         .zip(load))
     .map(|((((((i, b), runs), t), warmup), losses), load)| {
-        let refusal = refused.get(&key(b)).cloned();
+        let refusal =
+            (refused.get(&key(b)).cloned()).or_else(|| over.borrow().get(&owned(b)).cloned());
         let noisy = refusal.is_none() && noisy(&t, losses.len(), repeats);
         let (low, high) = (t.iter()).fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), &x| {
             (l.min(x), h.max(x))
@@ -330,6 +372,8 @@ pub(crate) fn time(
             }),
             accuracy: None,
             refused: refusal,
+            failed_peak_bytes: failed.borrow().get(&owned(b)).cloned().unwrap_or_default(),
+            gamma: b.gamma(),
             noisy,
             t_delta_s: t,
         };
@@ -365,42 +409,94 @@ pub(crate) const T_DELTA_EXPONENT: &str = "t_delta_exponent";
 pub(crate) const PSS_EXPONENT: &str = "pss_exponent";
 pub(crate) const SERIES: [&str; 2] = [T_DELTA_EXPONENT, PSS_EXPONENT];
 
-pub(crate) fn series(blocks: &[Block], timed: &[Timed]) -> (Value, Metrics) {
-    let mut codes: Vec<Code> = blocks.iter().map(Block::code).collect();
+pub(crate) struct Expected<'a> {
+    pub(crate) code: Code,
+    pub(crate) input: &'a str,
+    pub(crate) atoms: usize,
+    pub(crate) skipped: Option<&'a str>,
+}
+
+struct Point<'a> {
+    expected: &'a Expected<'a>,
+    status: String,
+    t_delta_s: Option<f64>,
+    pss_bytes: Option<f64>,
+}
+
+pub(crate) struct Series {
+    pub(crate) entries: Value,
+    pub(crate) exponents: Metrics,
+    pub(crate) holes: Vec<String>,
+}
+
+pub(crate) fn series(blocks: &[Block], timed: &[Timed], expected: &[Expected]) -> Series {
+    let mut codes: Vec<Code> = expected.iter().map(|e| e.code).collect();
     codes.sort();
     codes.dedup();
-    let (mut entries, mut metrics) = (Vec::new(), Metrics::new());
+    let (mut entries, mut exponents, mut holes) = (Vec::new(), Metrics::new(), Vec::new());
     for code in codes {
-        let mut points: Vec<(usize, &str, &Timing)> = (blocks.iter().zip(timed))
-            .filter(|(b, _)| b.code() == code)
-            .filter_map(|(b, t)| Some((b.atoms, b.input, t.record.timing.as_ref()?)))
-            .collect();
-        points.sort_by_key(|&(atoms, input, _)| (atoms, input));
-        let fit = |y: fn(&Timing) -> f64| {
+        let mut points: Vec<Point> = Vec::new();
+        for e in expected.iter().filter(|e| e.code == code) {
+            let found =
+                (blocks.iter().zip(timed)).find(|(b, _)| b.code() == code && b.input == e.input);
+            let record = found.map(|(_, t)| &t.record);
+            let t_delta = record
+                .and_then(|r| r.timing.as_ref())
+                .map(|t| t.median_t_delta_s);
+            let measured: Vec<f64> = (record.into_iter())
+                .flat_map(|r| r.peak_pss_bytes.iter())
+                .filter(|&&bytes| bytes > 0)
+                .map(|&bytes| bytes as f64)
+                .collect();
+            let pss = (!measured.is_empty()).then(|| median(&measured));
+            let status = match (record, e.skipped) {
+                (None, Some(why)) => format!("skipped: {why}"),
+                (None, None) => "no block".to_owned(),
+                (Some(r), _) if r.refused.is_some() => "refused".to_owned(),
+                (Some(r), _) if t_delta.is_none() => format!("lost: {} losses", r.losses.len()),
+                (Some(_), _) if pss.is_none() => "pss unmeasured: no Pss poll landed".to_owned(),
+                (Some(_), _) => "measured".to_owned(),
+            };
+            if status != "measured" {
+                holes.push(format!("{code} {}: {status}", e.input));
+            }
+            points.push(Point {
+                expected: e,
+                status,
+                t_delta_s: t_delta,
+                pss_bytes: pss,
+            });
+        }
+        points.sort_by_key(|p| (p.expected.atoms, p.expected.input));
+        let fit = |y: fn(&Point) -> Option<f64>| {
             let xy: Vec<(f64, f64)> = (points.iter())
-                .map(|&(atoms, _, t)| ((atoms as f64).ln(), y(t).ln()))
+                .filter_map(|p| Some(((p.expected.atoms as f64).ln(), y(p)?.ln())))
                 .collect();
             log_log_slope(&xy)
         };
-        let (t_alpha, pss_alpha) = (
-            fit(|t| t.median_t_delta_s),
-            fit(|t| t.median_peak_pss_bytes),
-        );
-        metrics.insert(format!("{T_DELTA_EXPONENT}_{code}"), t_alpha);
-        metrics.insert(format!("{PSS_EXPONENT}_{code}"), pss_alpha);
+        let (t_alpha, pss_alpha) = (fit(|p| p.t_delta_s), fit(|p| p.pss_bytes));
+        exponents.insert(format!("{T_DELTA_EXPONENT}_{code}"), t_alpha);
+        exponents.insert(format!("{PSS_EXPONENT}_{code}"), pss_alpha);
+        let full = points.iter().all(|p| p.status == "measured");
         entries.push(json!({
             "code": code,
+            "coverage": if full { "full" } else { "partial" },
             "t_delta_exponent": finite(t_alpha),
             "pss_exponent": finite(pss_alpha),
-            "points": (points.iter()).map(|&(atoms, input, t)| json!({
-                "input": input,
-                "atoms": atoms,
-                "median_t_delta_s": t.median_t_delta_s,
-                "median_peak_pss_bytes": t.median_peak_pss_bytes,
+            "points": (points.iter()).map(|p| json!({
+                "input": p.expected.input,
+                "atoms": p.expected.atoms,
+                "status": p.status,
+                "median_t_delta_s": p.t_delta_s,
+                "median_peak_pss_bytes": p.pss_bytes,
             })).collect::<Vec<_>>(),
         }));
     }
-    (Value::Array(entries), metrics)
+    Series {
+        entries: Value::Array(entries),
+        exponents,
+        holes,
+    }
 }
 
 pub fn log_log_slope(points: &[(f64, f64)]) -> f64 {
@@ -442,20 +538,25 @@ pub fn estimated_peak(smaller: &[Peak], atoms: usize, in_flight: usize) -> Optio
     Some(m.bytes * dense.max(fitted))
 }
 
-fn refusal(b: &Block, peaks: &[(Code, Peak)]) -> Result<Option<String>, String> {
+pub(crate) type Comparable = (Code, Vec<String>, Option<NonZeroUsize>, Vec<String>);
+
+pub const ORBITAR_SOLVES_IN_FLIGHT: usize = 2;
+
+fn refusal(b: &Block, peaks: &[(Comparable, Peak)], limit: f64) -> Result<Option<String>, String> {
+    let same = b.comparable();
     let smaller: Vec<Peak> = (peaks.iter())
-        .filter(|(code, _)| *code == b.code())
-        .map(|&(_, peak)| peak)
+        .filter(|(of, _)| *of == same)
+        .map(|(_, peak)| *peak)
         .collect();
     let estimate = estimated_peak(&smaller, b.atoms, b.in_flight()?);
-    Ok(estimate.filter(|&e| e > PEAK_PSS_GUARD_BYTES).map(|e| {
+    Ok(estimate.filter(|&e| e > limit).map(|e| {
         format!(
             "{}: refused before it runs: its peak memory estimate {:.2} GB from the smaller sizes of {} passes the {} \
              GB guard",
             b.at(),
             e / 1e9,
             b.code(),
-            PEAK_PSS_GUARD_BYTES / 1e9
+            limit / 1e9
         )
     }))
 }

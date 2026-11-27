@@ -697,6 +697,9 @@ impl<'a> Block<'a> {
     }
 
     fn in_flight(&self) -> Result<usize, String> {
+        if self.rival.is_some() {
+            return Ok(1);
+        }
         let input = Input(&self.table);
         let k = match input.mesh() {
             Ok(mesh) => usize::try_from(mesh.iter().product::<u64>()).map_err(|e| e.to_string())?,
@@ -707,7 +710,33 @@ impl<'a> Block<'a> {
         } else {
             1
         };
-        Ok(k.min(self.threads.map_or(1, NonZeroUsize::get)))
+        Ok(k.min(speed::ORBITAR_SOLVES_IN_FLIGHT))
+    }
+
+    fn comparable(&self) -> speed::Comparable {
+        let lines = (self.rival.as_ref()).map_or_else(Vec::new, |job| job.layout.lines().to_vec());
+        let mut elements = Input(&self.table).species().unwrap_or_default();
+        elements.sort();
+        elements.dedup();
+        (self.code(), lines, self.threads, elements)
+    }
+
+    fn gamma(&self) -> Option<String> {
+        let cell = rival::Cell::parse(&self.table).ok()?;
+        if !cell.gamma_only() {
+            return None;
+        }
+        let mode = match &self.rival {
+            None => "real: orbitaR pairs G with -G at k = 0".to_owned(),
+            Some(job) if job.code == rival::Rival::Qe => "real: K_POINTS gamma".to_owned(),
+            Some(job) => match (job.layout.lines().iter().chain(&job.mixing))
+                .find(|l| l.starts_with("istwfk"))
+            {
+                Some(line) => format!("set by the layout's `{line}`; ABINIT's istwfk 1 is complex"),
+                None => "real: ABINIT's default istwfk at Γ".to_owned(),
+            },
+        };
+        Some(mode)
     }
 
     fn floor_ha(&self) -> f64 {
@@ -968,6 +997,7 @@ pub struct Session {
     table: Option<PathBuf>,
     pilot: bool,
     load: Option<PathBuf>,
+    guard_bytes: f64,
 }
 
 impl Session {
@@ -1022,7 +1052,13 @@ impl Session {
             table: None,
             pilot: false,
             load: None,
+            guard_bytes: speed::PEAK_PSS_GUARD_BYTES,
         }
+    }
+
+    pub fn with_memory_guard(mut self, bytes: f64) -> Session {
+        self.guard_bytes = bytes;
+        self
     }
 
     pub fn with_load(mut self, proc: &Path) -> Session {
@@ -1377,7 +1413,7 @@ impl Session {
                 };
                 let gate = (self.load.as_deref())
                     .map(|proc| load::Gate::new(proc, &self.root, !self.pilot));
-                let guarded = case.claims().contains(&Claim::Memory);
+                let guard = (case.claims().contains(&Claim::Memory)).then_some(self.guard_bytes);
                 let ran = speed::time(
                     &run,
                     &blocks,
@@ -1385,7 +1421,7 @@ impl Session {
                     repeats,
                     self.seed,
                     gate.as_ref(),
-                    guarded,
+                    guard,
                 );
                 ran.map(|mut timed| {
                     for t in &timed {
@@ -1422,9 +1458,37 @@ impl Session {
                     }
                     if case.claims().contains(&Claim::Memory) {
                         reserved = speed::memory(&blocks, &timed);
-                        let (series, exponents) = speed::series(&blocks, &timed);
-                        trace.series = series;
-                        reserved.extend(exponents);
+                        let mut codes = vec![speed::Code::Orbitar];
+                        if rivals.is_some() {
+                            codes.extend(case.rivals().iter().map(|&r| speed::Code::Rival(r)));
+                        }
+                        let skipped = |code: speed::Code, input: &str| match (code, &rivals) {
+                            (speed::Code::Rival(r), Some(rivals)) => {
+                                rivals.settings.skips(r, &rival::input_path(id, input))
+                            }
+                            _ => None,
+                        };
+                        let expected: Vec<speed::Expected> = (inputs.iter().enumerate())
+                            .filter(|(_, (name, _))| !held.contains(name))
+                            .flat_map(|(i, (name, _))| {
+                                codes.iter().map(move |&code| (i, name.as_str(), code))
+                            })
+                            .map(|(i, input, code)| speed::Expected {
+                                code,
+                                input,
+                                atoms: atoms[i],
+                                skipped: skipped(code, input),
+                            })
+                            .collect();
+                        let series = speed::series(&blocks, &timed, &expected);
+                        trace.series = series.entries;
+                        reserved.extend(series.exponents);
+                        if !self.pilot && !series.holes.is_empty() {
+                            failures.push(format!(
+                                "series: a full-series claim needs every code at every declared size; {}",
+                                series.holes.join("; ")
+                            ));
+                        }
                     }
                     (blocks.iter().zip(timed))
                         .filter_map(|(b, t)| {
@@ -2036,8 +2100,8 @@ impl Discretization {
 
 pub use record::{readout, union, verify};
 pub use speed::{
-    G_MIN, G_RESAMPLES, G_SEED, PEAK_PSS_GUARD_BYTES, Peak, estimated_peak, g_interval,
-    log_log_slope,
+    G_MIN, G_RESAMPLES, G_SEED, ORBITAR_SOLVES_IN_FLIGHT, PEAK_PSS_GUARD_BYTES, Peak,
+    estimated_peak, g_interval, log_log_slope,
 };
 
 pub fn main(cases: &[(&'static str, Measure)]) -> ! {

@@ -238,9 +238,24 @@ pub(crate) fn cold(
                 watched(&mut command, &dir, stream, timeout)
             }
         })
-        .and_then(|watch| finish(watch, stream, step));
+        .and_then(|watch| {
+            LAST_PEAKS.set(Some([watch.peak_rss_bytes, watch.peak_pss_bytes]));
+            finish(watch, stream, step)
+        });
     let _ = fs::remove_dir_all(&dir);
     result
+}
+
+thread_local! {
+    static LAST_PEAKS: std::cell::Cell<Option<[u64; 2]>> = const { std::cell::Cell::new(None) };
+}
+
+pub(crate) fn forget_peaks() {
+    LAST_PEAKS.set(None);
+}
+
+pub(crate) fn last_peaks() -> Option<[u64; 2]> {
+    LAST_PEAKS.get()
 }
 
 const SHIMMED: bool = cfg!(target_os = "linux");

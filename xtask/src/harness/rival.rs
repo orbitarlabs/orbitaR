@@ -574,6 +574,10 @@ impl Cell {
         }
     }
 
+    pub(crate) fn gamma_only(&self) -> bool {
+        self.mesh == [1, 1, 1] && self.shifted == [false; 3]
+    }
+
     pub(crate) fn mesh_points(&self) -> usize {
         self.mesh.iter().product::<i64>() as usize
     }

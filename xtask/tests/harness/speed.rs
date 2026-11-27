@@ -541,7 +541,7 @@ fn rss_exponent_sees_an_atoms_squared_term_that_a_fit_over_every_size_would_hide
     let (outcome, record, _) = memory_case("speed-memory-growth", "", bytes);
     let exponent = record["metrics"]["rss_exponent"].as_f64().unwrap();
     assert!((1.35..=1.55).contains(&exponent), "{record}");
-    assert_eq!(outcome, Outcome::Promote, "{record}");
+    assert!(promotes_but_for_unpolled_pss(&outcome), "{outcome:?}");
     assert_eq!(
         record["readouts"],
         serde_json::json!([
@@ -581,21 +581,41 @@ fn a_memory_claim_records_each_codes_medians_per_size_and_their_least_squares_ex
         let block = (record["speed"].as_array().unwrap().iter())
             .find(|b| b["input"] == p["input"])
             .unwrap();
-        for key in ["median_t_delta_s", "median_peak_pss_bytes"] {
-            assert_eq!(p[key], block[key], "{key}: {record}");
+        assert_eq!(p["median_t_delta_s"], block["median_t_delta_s"], "{record}");
+        let polled: Vec<f64> = numbers(&block["peak_pss_bytes"])
+            .into_iter()
+            .filter(|&b| b > 0.0)
+            .collect();
+        match polled.is_empty() {
+            true => {
+                assert!(p["median_peak_pss_bytes"].is_null(), "{record}");
+                assert!(
+                    p["status"].as_str().unwrap().starts_with("pss unmeasured"),
+                    "{record}"
+                );
+            }
+            false => {
+                assert_eq!(
+                    p["median_peak_pss_bytes"].as_f64().unwrap(),
+                    median(&polled),
+                    "{record}"
+                );
+                assert_eq!(p["status"], "measured", "{record}");
+            }
         }
     }
+    let full = points.iter().all(|p| p["status"] == "measured");
+    assert_eq!(
+        series[0]["coverage"],
+        if full { "full" } else { "partial" },
+        "{record}"
+    );
     for (key, metric) in [
         ("median_peak_pss_bytes", "pss_exponent"),
         ("median_t_delta_s", "t_delta_exponent"),
     ] {
         let xy: Vec<(f64, f64)> = (points.iter())
-            .map(|p| {
-                (
-                    (p["atoms"].as_f64().unwrap()).ln(),
-                    p[key].as_f64().unwrap().ln(),
-                )
-            })
+            .filter_map(|p| Some(((p["atoms"].as_f64().unwrap()).ln(), p[key].as_f64()?.ln())))
             .collect();
         let (expected, alpha) = (
             xtask::harness::log_log_slope(&xy),
@@ -615,6 +635,100 @@ fn a_memory_claim_records_each_codes_medians_per_size_and_their_least_squares_ex
             ),
         }
     }
+}
+
+#[test]
+fn the_harness_counts_orbitars_solves_in_flight_as_the_engine_caps_them() {
+    let engine = include_str!("../../../src/ks/crystal.rs");
+    let cap = format!(
+        "const SOLVES_IN_FLIGHT: usize = {};",
+        xtask::harness::ORBITAR_SOLVES_IN_FLIGHT
+    );
+    assert!(
+        engine.contains(&cap),
+        "src/ks/crystal.rs no longer holds `{cap}`"
+    );
+}
+
+fn meshed(atoms: usize, mesh: &str) -> String {
+    chain(atoms).replace("list = [[0.0, 0.0, 0.0]]", &format!("mesh = {mesh}"))
+}
+
+#[test]
+fn an_orbitar_size_on_fewer_k_points_still_holds_two_solves_in_flight_in_its_estimate() {
+    let (small, big) = (meshed(1, "[1, 2, 2]"), meshed(2, "[1, 1, 2]"));
+    let files = [
+        ("input.toml", small.as_str()),
+        ("inputs/b.toml", big.as_str()),
+    ];
+    let body = "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' ')\n\
+                m=$((a == 1 ? 40000000 : 1000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2";
+    let root = tree(
+        "speed-in-flight",
+        &[
+            ("benchmarks/1_a/case.toml", &memory_claim()),
+            ("target/datasets/JTH-PBE-v2.0/Si/Si.xml", "si"),
+        ],
+    );
+    for (path, input) in files {
+        write(&root, &format!("benchmarks/1_a/{path}"), input);
+    }
+    write(
+        &root,
+        "datasets/jth-2.0.toml",
+        &super::jth("file:///nowhere", &[("pbe", "Si", "si", None)]),
+    );
+    let bin = fake(&root, body);
+    let outcome = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_memory_guard(120e6)
+        .evaluate("1_a", both);
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains("b at 8 threads: refused before it runs")),
+        "{outcome:?}"
+    );
+}
+
+#[test]
+fn a_measured_peak_past_the_guard_stops_every_later_launch_of_its_block() {
+    let log = std::env::temp_dir().join(format!("xtask-speed-over-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let (one, two) = (chain(1), chain(2));
+    let files = [
+        ("input.toml", one.as_str()),
+        ("inputs/b.toml", two.as_str()),
+    ];
+    let body = format!(
+        "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' '); echo $a >> '{}'\n\
+         m=$((a == 1 ? 1000000 : 100000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2",
+        log.display()
+    );
+    let root = tree(
+        "speed-over",
+        &[
+            ("benchmarks/1_a/case.toml", &memory_claim()),
+            ("target/datasets/JTH-PBE-v2.0/Si/Si.xml", "si"),
+        ],
+    );
+    for (path, input) in files {
+        write(&root, &format!("benchmarks/1_a/{path}"), input);
+    }
+    write(
+        &root,
+        "datasets/jth-2.0.toml",
+        &super::jth("file:///nowhere", &[("pbe", "Si", "si", None)]),
+    );
+    let bin = fake(&root, &body);
+    let outcome = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_memory_guard(50e6)
+        .evaluate("1_a", both);
+    let ran = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert_eq!(ran.lines().filter(|a| *a == "2").count(), 1, "{ran}");
+    assert!(ran.lines().filter(|a| *a == "1").count() > 2, "{ran}");
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains("b at 8 threads: refused after a run: its measured peak")),
+        "{outcome:?}"
+    );
 }
 
 #[test]
@@ -644,6 +758,7 @@ fn the_peak_estimate_scales_the_largest_smaller_size_by_atoms_squared_per_k_poin
     assert_eq!(estimated_peak(&[peak(128, 1, 1.0)], 128, 1), None);
     assert!(near(estimated_peak(&[peak(64, 2, 3.5)], 128, 1), 7.0));
     assert!(near(estimated_peak(&[peak(16, 8, 1.0)], 32, 4), 2.0));
+    assert!(near(estimated_peak(&[peak(32, 2, 2.0)], 64, 2), 8.0));
     assert!(near(
         estimated_peak(&[peak(32, 4, 2.0), peak(64, 2, 3.0)], 128, 1),
         6.0
@@ -719,8 +834,25 @@ fn a_size_whose_peak_estimate_passes_the_guard_never_runs_and_is_named() {
     assert_eq!(block["noisy"], false, "{block}");
     assert!(block["warmup"]["refused"].is_string(), "{block}");
     let points = record["series"][0]["points"].as_array().unwrap();
-    assert_eq!(points.len(), 2, "{record}");
+    let status: Vec<&str> = points
+        .iter()
+        .map(|p| p["status"].as_str().unwrap())
+        .collect();
+    assert_eq!(status.len(), 3, "{record}");
+    assert_eq!(status[2], "refused", "{record}");
+    assert_eq!(record["series"][0]["coverage"], "partial", "{record}");
     assert!(record["metrics"]["rss_exponent"].is_number(), "{record}");
+}
+
+fn promotes_but_for_unpolled_pss(outcome: &Outcome) -> bool {
+    let unpolled = |hole: &str| hole.ends_with("pss unmeasured: no Pss poll landed");
+    match outcome {
+        Outcome::Promote => true,
+        Outcome::Planned(why) => why
+            .strip_prefix("series: a full-series claim needs every code at every declared size; ")
+            .is_some_and(|holes| holes.split("; ").all(unpolled)),
+        _ => false,
+    }
 }
 
 #[test]
@@ -801,7 +933,7 @@ fn rss_exponent_is_nan_below_two_atom_counts() {
         ONE_SI,
         "step -2",
     );
-    assert_eq!(outcome, Outcome::Promote, "{record}");
+    assert!(promotes_but_for_unpolled_pss(&outcome), "{outcome:?}");
     assert!(record["metrics"]["rss_exponent"].is_null(), "{record}");
 }
 

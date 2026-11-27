@@ -1538,3 +1538,84 @@ fn a_rival_block_noisy_over_its_first_runs_that_lost_the_rest_keeps_its_cv_and_i
         "{outcome:?}"
     );
 }
+
+#[test]
+fn the_series_holds_each_codes_declared_sizes_alone_with_a_status_for_each_and_keeps_a_failed_runs_peak()
+ {
+    let pw = format!("dd if=/dev/zero of=/dev/null bs=30000000 count=1 2>/dev/null\n{PW}\nexit 7");
+    let root = rivals_tree("rival-series", INPUT, TUNED, &pw, ABINIT);
+    let case = CASE
+        .replace("\"active\"", "\"planned\"")
+        .replace("\"correctness\"", "\"correctness\", \"memory\"");
+    write(&root, "benchmarks/1_a/case.toml", &case);
+    let two = INPUT
+        .replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]")
+        .replace(
+            "[[0.0, 0.0, 0.25]]",
+            "[[0.0, 0.0, 0.25], [0.25, 0.25, 0.5]]",
+        );
+    write(&root, "benchmarks/1_a/inputs/b.toml", &two);
+    write(
+        &root,
+        "benchmarks/RIVALS.toml",
+        &RIVALS.replace(
+            "density_ratio = 8.0\n",
+            "density_ratio = 8.0\nskip_cells = [{ cell = \"benchmarks/1_a/inputs/b.toml\", reason = \"no dataset\" }]\n",
+        ),
+    );
+    let held = std::env::temp_dir().join(format!("xtask-series-variants-{}", std::process::id()));
+    write(
+        &held,
+        "1_a/x.toml",
+        &two.replace("cutoff_ha = 1.0", "cutoff_ha = 1.5"),
+    );
+    let bin = fake(&root, "step -2");
+    let session = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_held_out(&held);
+    let _ = session.evaluate("1_a", both);
+    let _ = std::fs::remove_dir_all(&held);
+    let record: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    let series = record["series"].as_array().unwrap();
+    let codes: Vec<&str> = series.iter().map(|s| s["code"].as_str().unwrap()).collect();
+    assert_eq!(codes, ["orbitar", "qe", "abinit"], "{record}");
+    for entry in series {
+        let inputs: Vec<&str> = (entry["points"].as_array().unwrap().iter())
+            .map(|p| p["input"].as_str().unwrap())
+            .collect();
+        assert_eq!(inputs, ["input", "b"], "{record}");
+    }
+    let qe = &series[1];
+    assert_eq!(qe["coverage"], "partial", "{record}");
+    assert!(
+        qe["points"][0]["status"]
+            .as_str()
+            .unwrap()
+            .starts_with("lost"),
+        "{record}"
+    );
+    assert_eq!(qe["points"][1]["status"], "skipped: no dataset", "{record}");
+    assert!(qe["t_delta_exponent"].is_string(), "{record}");
+    let failures = record["failures"].to_string();
+    assert!(
+        failures.contains("series: a full-series claim needs every code at every declared size")
+            && failures.contains("qe b: skipped: no dataset"),
+        "{record}"
+    );
+    let lost = (record["speed"].as_array().unwrap().iter())
+        .find(|b| b["code"] == "qe" && b["input"] == "input")
+        .unwrap();
+    let kept = numbers_of(&lost["failed_peak_bytes"]);
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{lost}"
+    );
+}
+
+fn numbers_of(value: &Value) -> Vec<u64> {
+    (value.as_array().into_iter().flatten())
+        .filter_map(Value::as_u64)
+        .collect()
+}
