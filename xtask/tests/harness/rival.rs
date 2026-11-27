@@ -1989,3 +1989,60 @@ fn a_fold_equivalent_repeat_takes_its_accuracy_from_its_cases_anchor_row_alone()
         "{record}"
     );
 }
+
+fn abinit_lines(gap: f64, own: f64, span: f64) -> Vec<(f64, String)> {
+    let step = |k: u32, at: f64| {
+        [
+            (
+                at,
+                format!(" ETOT  {k}  -2.0    -2.000E+00 1.0E-04 1.0E+00"),
+            ),
+            (
+                at,
+                format!("{{SCF_istep: {k} , Vnl|psi>: 437 , wall_time: '  0.60 [s] '}} <<< TIME"),
+            ),
+        ]
+    };
+    let mut lines = vec![(0.0, " ABINIT 10.0.3".to_owned())];
+    lines.extend(step(1, 0.1));
+    lines.extend(step(2, 0.1 + gap));
+    lines.push((
+        span,
+        format!(" Proc.   0 individual time (sec): cpu=          {own}  wall=          {own}"),
+    ));
+    lines
+}
+
+#[test]
+fn a_step_loses_exactly_when_it_arrives_sooner_than_half_its_own_clock_less_fifty_ms() {
+    use xtask::harness::{Rival, clocks_agree};
+    assert_eq!(
+        clocks_agree(Rival::Abinit, &abinit_lines(0.24, 1.0, 1.0)),
+        Err("its step 2 arrived 0.240 s after the one before, but its own clock gives 0.600 s: its output buffers".to_owned())
+    );
+    assert_eq!(
+        clocks_agree(Rival::Abinit, &abinit_lines(0.26, 1.0, 1.0)),
+        Ok(())
+    );
+}
+
+#[test]
+fn a_run_loses_exactly_when_its_lines_span_differs_from_its_own_clock_past_its_slack_and_share() {
+    use xtask::harness::{Rival, clocks_agree};
+    for span in [1.169, 0.831] {
+        assert_eq!(
+            clocks_agree(Rival::Abinit, &abinit_lines(0.5, 1.0, span)),
+            Ok(()),
+            "{span}"
+        );
+    }
+    for (span, text) in [(1.171, "1.171"), (0.829, "0.829")] {
+        assert_eq!(
+            clocks_agree(Rival::Abinit, &abinit_lines(0.5, 1.0, span)),
+            Err(format!(
+                "its lines span {text} s, but its own clock reads 1.000 s: its output buffers"
+            )),
+            "{span}"
+        );
+    }
+}
