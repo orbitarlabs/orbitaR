@@ -728,7 +728,7 @@ const SOURCES: [&str; 6] = [
     "ghcr.io/astral-sh/uv",
 ];
 
-pub(crate) fn email(word: &str) -> bool {
+fn email(word: &str) -> bool {
     word.rsplit_once('@').is_some_and(|(user, domain)| {
         let user = user.rsplit([':', '/']).next().unwrap_or(user);
         !user.is_empty()

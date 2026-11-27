@@ -1,5 +1,5 @@
 use crate::{
-    Findings, commands, git, layers, layout, release, results,
+    Findings, commands, git, layers, layout, results,
     syntax::{self, Tree},
     walk,
 };
@@ -226,7 +226,19 @@ fn plain(path: &str) -> bool {
 }
 
 fn in_tree(root: &Path, path: &str) -> bool {
-    plain(path) && resolves_inside(root, path) && public(root, path)
+    let normal: Vec<&str> = (Path::new(path).components())
+        .filter_map(|c| c.as_os_str().to_str())
+        .collect();
+    !scheme(path) && plain(path) && resolves_inside(root, path) && public(root, &normal.join("/"))
+}
+
+fn scheme(path: &str) -> bool {
+    path.split_once(':').is_some_and(|(name, _)| {
+        name.starts_with(|c: char| c.is_ascii_alphabetic())
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "+.-".contains(c))
+    })
 }
 
 fn public(root: &Path, path: &str) -> bool {
@@ -489,14 +501,39 @@ struct Parsed {
     html: BTreeSet<usize>,
 }
 
+fn mails(text: &str) -> Vec<&str> {
+    let local = |c: char| c.is_ascii_alphanumeric() || "._%+-".contains(c);
+    let host = |c: char| c.is_ascii_alphanumeric() || ".-".contains(c);
+    (text.match_indices('@'))
+        .filter_map(|(at, _)| {
+            let start = (text[..at].char_indices().rev())
+                .find(|&(_, c)| !local(c))
+                .map_or(0, |(i, c)| i + c.len_utf8());
+            let after = &text[at + 1..];
+            let domain = after[..after.find(|c| !host(c)).unwrap_or(after.len())]
+                .trim_end_matches(['.', '-']);
+            let (_, tld) = domain.rsplit_once('.')?;
+            (start < at && tld.len() >= 2 && tld.bytes().all(|b| b.is_ascii_alphabetic()))
+                .then(|| &text[start..at + 1 + domain.len()])
+        })
+        .collect()
+}
+
 fn addresses(prose: &str) -> Vec<&str> {
     let edge = |c: char| "\"'()[]<>.,;:!?*_~".contains(c);
-    (prose.split_whitespace())
+    let web = (prose.split_whitespace())
         .map(|word| word.trim_matches(edge))
-        .filter(|word| {
-            word.contains("://")
-                || word.to_ascii_lowercase().contains("www.")
-                || release::email(word)
+        .filter(|word| word.contains("://") || word.to_ascii_lowercase().contains("www."));
+    web.chain(mails(prose)).collect()
+}
+
+fn visible(raw: &str) -> String {
+    let mut inside = false;
+    (raw.chars())
+        .filter(|&c| {
+            let shown = !inside && c != '<';
+            inside = (inside || c == '<') && c != '>';
+            shown
         })
         .collect()
 }
@@ -526,8 +563,14 @@ fn parse_readme(root: &Path, text: &str) -> Parsed {
         }
         match event {
             Event::Html(raw) | Event::InlineHtml(raw) => {
-                let tagged = (raw.split('\n').enumerate()).filter(|(_, l)| markup(l));
-                html.extend(tagged.map(|(k, _)| line(span.start) + k));
+                for (k, raw_line) in raw.split('\n').enumerate() {
+                    let at = line(span.start) + k;
+                    if markup(raw_line) {
+                        html.insert(at);
+                    }
+                    let shown = visible(raw_line);
+                    found.extend(addresses(&shown).into_iter().map(|a| (at, gone(a))));
+                }
             }
             Event::Start(Tag::CodeBlock(_)) => code += 1,
             Event::End(TagEnd::CodeBlock) => code -= 1,

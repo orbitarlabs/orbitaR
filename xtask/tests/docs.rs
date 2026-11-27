@@ -584,6 +584,8 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
         "",
         "- [Fixture](probe*.bin)",
         "- [Odd](odd*name.txt)",
+        "- [Dot](benchmarks/./README.md) and [Double](benchmarks//README.md)",
+        "- [Web](https://example.com) and [Mail](ftp:LICENSE)",
     ];
     let readme = format!("{README}\n{}\n", lines.join("\n"));
     let root = docs_tree(
@@ -600,6 +602,8 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
             ("benchmarks/README.md", "# B\n"),
             ("probe-tracked.bin", ""),
             ("odd*name.txt", ""),
+            ("https:/example.com", ""),
+            ("ftp:LICENSE", ""),
         ],
     );
     tracked(&root);
@@ -621,6 +625,8 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
             gone(2, "private/plan.toml"),
             gone(3, "private/"),
             gone(9, "probe*.bin"),
+            gone(12, "ftp:LICENSE"),
+            gone(12, "https://example.com"),
         ]
     );
     git(&root, &["rm", "-q", "--cached", "benchmarks/README.md"]);
@@ -633,6 +639,10 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
             gone(2, "private/plan.toml"),
             gone(3, "private/"),
             gone(9, "probe*.bin"),
+            gone(11, "benchmarks/./README.md"),
+            gone(11, "benchmarks//README.md"),
+            gone(12, "ftp:LICENSE"),
+            gone(12, "https://example.com"),
         ]
     );
 }
@@ -658,29 +668,38 @@ fn readme_html_that_the_parser_sees_must_stand_on_its_own_line_whatever_the_back
 
 #[test]
 fn any_web_or_mail_address_outside_code_is_a_link_out_of_the_tree() {
-    let mail = format!("- Mail someone{0}example.org or (ops{0}example.org).", '@');
-    let code = format!(
-        "- Code `https://example.com`, `www.example.com`, and `a{}example.org` pass; so does [text](LICENSE).",
-        '@'
-    );
+    let at = |text: &str| text.replace('#', "@");
+    let lines = [
+        "- See https://example.com/a for more.".to_owned(),
+        "- Or (www.example.com) and *HTTP://EXAMPLE.COM*.".to_owned(),
+        "- See(https://example.org/) for details.".to_owned(),
+        at("- Mail someone#example.org or (ops#example.org)."),
+        "- [https://example.com/text](LICENSE) is a link with an address in its text.".to_owned(),
+        at("- Write(name#example.org) now, or name#example.net; more text."),
+        at(
+            "- Code `https://example.com`, `www.example.com`, and `a#example.org` pass; so does [text](LICENSE).",
+        ),
+        at("- A handle #name or a#b is no address."),
+        String::new(),
+        "<a href=\"benchmarks/README.md\">".to_owned(),
+        "Results at https://example.org/results".to_owned(),
+        "</a>".to_owned(),
+        String::new(),
+        "```text".to_owned(),
+        at("https://example.com/in/a/block and a#example.org"),
+        "```".to_owned(),
+    ];
+    let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
     let f = readme_findings(
         "docs-readme-addresses",
-        &[
-            "- See https://example.com/a for more.",
-            "- Or (www.example.com) and *HTTP://EXAMPLE.COM*.",
-            "- See(https://example.org/) for details.",
-            &mail,
-            "- [https://example.com/text](LICENSE) is a link with an address in its text.",
-            &code,
-            "",
-            "```text",
-            "https://example.com/in/a/block",
-            "```",
-        ],
-        &[("LICENSE", "x\n")],
+        &lines,
+        &[("LICENSE", "x\n"), ("benchmarks/README.md", "# B\n")],
     );
     let gone = |n: usize, target: &str| {
-        readme_line(n, &format!("the link `{target}` names no file of the tree"))
+        readme_line(
+            n,
+            &format!("the link `{}` names no file of the tree", at(target)),
+        )
     };
     let links: Vec<String> = f.into_iter().filter(|x| x.contains("the link")).collect();
     assert_eq!(
@@ -690,9 +709,12 @@ fn any_web_or_mail_address_outside_code_is_a_link_out_of_the_tree() {
             gone(1, "HTTP://EXAMPLE.COM"),
             gone(1, "www.example.com"),
             gone(2, "See(https://example.org/"),
-            gone(3, &format!("ops{}example.org", '@')),
-            gone(3, &format!("someone{}example.org", '@')),
+            gone(3, "ops#example.org"),
+            gone(3, "someone#example.org"),
             gone(4, "https://example.com/text"),
+            gone(5, "name#example.net"),
+            gone(5, "name#example.org"),
+            gone(10, "https://example.org/results"),
         ]
     );
 }
