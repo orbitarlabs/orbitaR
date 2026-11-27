@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=repro-wheels: the Mac wheel build turns off rustc's post-link strip (rust-objcopy loads libLLVM only through DYLD_FALLBACK_LIBRARY_PATH, so the strip ran on CI and failed on a Mac), builds the data wheel with the hash-pinned uv 0.13.7 (uv_build==0.13.7), wheel --check holds the Mac engine to SDK 27.2 and exactly one ld record, ld 27106.1, of the Command Line Tools 27.2.0.0.1792721180 that CI's mac-wheel job selects on xcode-27; wheel --same passes only when the two files are one byte stream that reads as a release wheel: local headers, stored data, central headers and the end record cover every byte, no member uses a data descriptor or a ZIP64 extra field (maturin and uv_build write neither), and Python's zipfile reads each member with its CRC; on a difference it names the first differing byte with its member and field and each differing local header, stored data, central header and end record by field name, never by value, and a zipfile failure in one line; it conflicts with --check and --target; CI's same-jth job runs it on the Linux and the Mac data wheel; publish allows xcode-27 and actions/download-artifact
+# harness reviewer=captain-final-call after codex-review3-19 reason=repro-wheels: the Mac wheel build turns off rustc's post-link strip (rust-objcopy loads libLLVM only through DYLD_FALLBACK_LIBRARY_PATH, so the strip ran on CI and failed on a Mac), builds the data wheel with the hash-pinned uv 0.13.7 (uv_build==0.13.7), wheel --check holds the Mac engine to SDK 27.2 and exactly one ld record, ld 27106.1, of the Command Line Tools 27.2.0.0.1792721180 that CI's mac-wheel job selects on xcode-27; wheel --same passes only when the two files are one byte stream that reads as a release wheel: local headers, stored data, central headers and the end record cover every byte, no member uses a data descriptor or a ZIP64 extra field (maturin and uv_build write neither), and Python's zipfile reads each member with its CRC; that equal-input check and the hash listing report a zipfile failure in one line; on a difference --same names the first differing byte with its member and field and each differing local header, stored data, central header and end record by field name, never by value; member names print escaped; --same conflicts with --check and --target; CI's same-jth job runs it on the Linux and the Mac data wheel; publish allows xcode-27 and actions/download-artifact
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -28,7 +28,7 @@ f530929261fe8c539fedeb0c983726a7d98d6abaaf1df032b9e22ddd8576649b  xtask/src/node
 a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_text.rs
 36b99e5a53344bbe4f2da44f7bcd646c07adc1c8af5ed64905bc465ac6a20e37  xtask/src/publish.rs
 8b35d980026a40a1ff81b6e841e1b15bf13004321aa00fd50039d0ea3b111c07  xtask/src/release.rs
-36e3f36aa390efb958ae24927a299f136a42f671a17627f9e4127c1a659d862d  xtask/src/release/archive.rs
+4d10ba6cf4d1ad3a872bd32434cc852cbeb0df9d29baf26cdd24959ca0c5404a  xtask/src/release/archive.rs
 e39c9e39f45f11364aeca1051ee4e75e5122dae7d62459ce9b7dd919d2ad56a3  xtask/src/release/mac.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
 70747986eb676692dccad69e5b12b3417d6b7e19e9adb7fdcb8a2b7e0240cdff  xtask/src/results.rs
@@ -69,7 +69,7 @@ c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/no
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
 adbbdc00ab51db5acb2968db1f53f8b3b022c4ff5a885bc26c697a133bf313be  xtask/tests/publish.rs
 9b9f3220b49c3f47d25873de7410b06de25ad6a1954bd1b0621b86e907538201  xtask/tests/release.rs
-69cde0a425c4b48d0edd37195f5a1f5b46814c6c9c39928fc0d326d4dbad4932  xtask/tests/release/archive.rs
+6ff5f524c416e1205336fa5973b9eadfde9a2cedce9c489921e2ea224547f744  xtask/tests/release/archive.rs
 445712a3248ffe26d7f8ae34898d83a8f60657603ef9b4b1df3e6942619b88ed  xtask/tests/release/mac.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 2fa5406c310212330ec85de4db654fd788127734cfa88b654f4ebae7dd28e3ae  xtask/tests/results.rs
