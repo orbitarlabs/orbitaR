@@ -204,13 +204,14 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
                             .filter_map(|h| h["input"].as_str())
                             .collect();
                     for held in record["held_out"].as_array().into_iter().flatten() {
-                        let (Some(name), Some(base)) =
-                            (held["input"].as_str(), held["base"].as_str())
-                        else {
+                        let Some(name) = held["input"].as_str() else {
                             findings.push(format!(
-                                "{}: {id} record holds a held-out variant without the input it varies: {held}",
+                                "{}: {id} record holds a held-out variant without its input name: {held}",
                                 tier.name()
                             ));
+                            continue;
+                        };
+                        let Some(base) = held["base"].as_str() else {
                             continue;
                         };
                         if !names.contains(&base) || variants.contains(base) {
@@ -321,13 +322,13 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
                                 t.len() + lost
                             ));
                         }
-                        let scored = usize::from(block.warmup.get("loss").is_none()) + t.len();
                         let alone = block.during.iter().filter(|d| d.quiet()).count();
-                        if block.during.len() != 1 + t.len() + lost || alone != scored {
+                        if block.during.len() != 1 + t.len() + lost || alone != 1 + t.len() + lost {
                             findings.push(format!(
-                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its {scored} warm-up and judged runs",
+                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its warm-up and each of its {} runs, judged or lost",
                                 tier.name(),
                                 block.code,
+                                t.len() + lost
                             ));
                         }
                         if block.code == speed::Code::Orbitar {
@@ -343,11 +344,16 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
                             ));
                     }
                     if case.claims().contains(&crate::case::Claim::Memory) {
-                        findings.extend(series_holes(record, case.rivals()).into_iter().map(
-                            |hole| {
-                                format!("{}: {id} passes a memory claim, but {hole}", tier.name())
-                            },
-                        ));
+                        findings.extend(
+                            series_holes(root, id, record, case.rivals())
+                                .into_iter()
+                                .map(|hole| {
+                                    format!(
+                                        "{}: {id} passes a memory claim, but {hole}",
+                                        tier.name()
+                                    )
+                                }),
+                        );
                     }
                     let milestone = case.milestone();
                     for code in case
@@ -664,20 +670,33 @@ pub fn union(root: &Path, id: &str, dir: &Path) -> Findings {
     findings
 }
 
-fn series_holes(record: &Value, rivals: &[rival::Rival]) -> Vec<String> {
-    let held: Vec<&str> = (record["held_out"].as_array().into_iter().flatten())
-        .filter_map(|h| h["input"].as_str())
-        .collect();
-    let declared = (record["inputs"].as_array().into_iter().flatten())
-        .filter_map(Value::as_str)
-        .filter(|name| !held.contains(name));
+fn series_holes(root: &Path, id: &str, record: &Value, rivals: &[rival::Rival]) -> Vec<String> {
+    let dir = root.join("benchmarks").join(id);
+    let declared: Vec<String> = match super::inputs(root, &dir, None) {
+        Ok((inputs, _)) => inputs.into_iter().map(|(name, _)| name).collect(),
+        Err(e) => return vec![format!("its declared inputs do not load: {e}")],
+    };
+    if declared.is_empty() {
+        return vec![format!("benchmarks/{id} declares no input")];
+    }
     let codes: Vec<String> = std::iter::once(speed::Code::Orbitar)
         .chain(rivals.iter().map(|&r| speed::Code::Rival(r)))
         .map(|code| code.to_string())
         .collect();
     let mut holes = Vec::new();
-    for input in declared {
+    for input in declared.iter().map(String::as_str) {
         for code in &codes {
+            let polled = (record["speed"].as_array().into_iter().flatten())
+                .filter(|b| {
+                    b["code"].as_str() == Some(code.as_str()) && b["input"].as_str() == Some(input)
+                })
+                .flat_map(|b| b["peak_pss_bytes"].as_array().into_iter().flatten())
+                .any(|bytes| bytes.as_u64().is_some_and(|b| b > 0));
+            if !polled {
+                holes.push(format!(
+                    "no {code} block at {input} holds a timed run with a positive Pss"
+                ));
+            }
             let point = (record["series"].as_array().into_iter().flatten())
                 .filter(|entry| entry["code"].as_str() == Some(code.as_str()))
                 .flat_map(|entry| entry["points"].as_array().into_iter().flatten())

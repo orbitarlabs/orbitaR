@@ -605,8 +605,87 @@ impl Cell {
         }
     }
 
+    pub(crate) fn repeats(&self, base: &Cell) -> Option<[i64; 3]> {
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs().max(1.0);
+        let mut n = [0_i64; 3];
+        for (k, times) in n.iter_mut().enumerate() {
+            let (row, of) = (self.cell[k], base.cell[k]);
+            let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+            *times = (dot(row, of) / dot(of, of)).round() as i64;
+            if *times < 1 || !(0..3).all(|i| close(row[i], *times as f64 * of[i])) {
+                return None;
+            }
+            if self.mesh[k] * *times != base.mesh[k] {
+                return None;
+            }
+        }
+        let plain = self.shifted == [false; 3] && base.shifted == [false; 3];
+        let same = self.symmetry == base.symmetry
+            && self.steps == base.steps
+            && self.moments.is_none()
+            && base.moments.is_none()
+            && match (self.smearing, base.smearing) {
+                (None, None) => true,
+                (Some((a, x)), Some((b, y))) => {
+                    std::mem::discriminant(&a) == std::mem::discriminant(&b) && x == y
+                }
+                _ => false,
+            };
+        let copies = n.iter().product::<i64>() as usize;
+        if !plain || !same || self.species.len() != base.species.len() * copies {
+            return None;
+        }
+        let tiled = (self.species.iter().zip(&self.positions)).all(|(species, p)| {
+            let folded: [f64; 3] = std::array::from_fn(|k| (p[k] * n[k] as f64).rem_euclid(1.0));
+            (base.species.iter().zip(&base.positions)).any(|(s, q)| {
+                s == species
+                    && (0..3).all(|k| {
+                        let d = (folded[k] - q[k].rem_euclid(1.0)).abs();
+                        d.min(1.0 - d) < 1e-9
+                    })
+            })
+        });
+        tiled.then_some(n)
+    }
+
     pub(crate) fn gamma_only(&self) -> bool {
         self.mesh == [1, 1, 1] && self.shifted == [false; 3]
+    }
+
+    pub(crate) fn variation_from(&self, base: &Cell) -> Result<(f64, f64), String> {
+        let size = (base.cell.iter().flatten()).fold(0.0_f64, |m, x| m.max(x.abs()));
+        let strain = (self.cell.iter().flatten().zip(base.cell.iter().flatten()))
+            .fold(0.0_f64, |m, (a, b)| m.max((a - b).abs()))
+            / size;
+        if self.species.len() != base.species.len() {
+            return Err(format!(
+                "{} atoms, not the base's {}",
+                self.species.len(),
+                base.species.len()
+            ));
+        }
+        let shift = |a: &[f64; 3], b: &[f64; 3]| {
+            let d: Vec<f64> = (0..3)
+                .map(|k| a[k] - b[k] - (a[k] - b[k]).round())
+                .collect();
+            (0..3)
+                .map(|axis| (0..3).map(|k| d[k] * base.cell[k][axis]).sum::<f64>().abs())
+                .fold(0.0_f64, f64::max)
+        };
+        let mut free: Vec<bool> = vec![true; base.positions.len()];
+        let mut largest = 0.0_f64;
+        for (species, here) in self.species.iter().zip(&self.positions) {
+            let nearest = (0..base.positions.len())
+                .filter(|&j| free[j] && base.species[j] == *species)
+                .map(|j| (shift(here, &base.positions[j]), j))
+                .min_by(|a, b| a.0.total_cmp(&b.0));
+            let Some((moved, j)) = nearest else {
+                return Err(format!("its {species} atoms do not pair with the base's"));
+            };
+            free[j] = false;
+            largest = largest.max(moved);
+        }
+        Ok((strain, largest))
     }
 
     pub(crate) fn mesh_points(&self) -> usize {
@@ -829,6 +908,29 @@ impl Rivals {
         }
     }
 
+    pub(crate) fn cell_at(&self, path: &str) -> Result<Cell, String> {
+        let text = fs::read_to_string(self.root.join(path)).map_err(|e| format!("{path}: {e}"))?;
+        let table = toml::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
+        Cell::parse(&table)
+    }
+
+    pub(crate) fn calibrated_own(
+        &self,
+        code: Rival,
+        path: &str,
+        cutoff: f64,
+    ) -> Option<(Row, String)> {
+        (self
+            .tuned
+            .of(code)
+            .calibration
+            .get(path)
+            .into_iter()
+            .flatten())
+        .find(|r| r[0] == cutoff && !r[1].is_nan())
+        .map(|r| (*r, path.to_owned()))
+    }
+
     pub(crate) fn calibrated(
         &self,
         code: Rival,
@@ -843,7 +945,7 @@ impl Rivals {
                 .map(|r| (*r, cell.to_owned()))
         };
         if rows.contains_key(path) {
-            return Ok(at(path));
+            return Ok(self.calibrated_own(code, path, cutoff));
         }
         let (mut worst, mut worst_p): (Option<(Row, String)>, f64) = (None, f64::NEG_INFINITY);
         for other in rows.keys() {

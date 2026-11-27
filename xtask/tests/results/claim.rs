@@ -429,8 +429,8 @@ fn the_pairs_follow_the_case_manifest_of_declared_inputs_and_held_out_names() {
     let good = claim_record(&root, &head, &cells());
     let renamed = {
         let mut r = good.clone();
-        r["inputs"][4] = json!("held-out-x");
-        r["held_out"][0]["input"] = json!("held-out-x");
+        r["inputs"][4] = json!("held-out-c");
+        r["held_out"][0]["input"] = json!("held-out-c");
         r
     };
     let dropped = {

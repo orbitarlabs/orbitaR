@@ -813,7 +813,7 @@ pub fn rival_layout_policies(root: &Path) -> Result<BTreeMap<String, String>, St
 
 struct RivalPaths<'a> {
     id: &'a str,
-    held: &'a BTreeMap<String, String>,
+    held: &'a BTreeMap<String, Option<String>>,
 }
 
 impl RivalPaths<'_> {
@@ -821,16 +821,79 @@ impl RivalPaths<'_> {
         rival::input_path(self.id, name)
     }
 
+    fn calibration(
+        &self,
+        rivals: &rival::Rivals,
+        code: rival::Rival,
+        name: &str,
+        cell: &rival::Cell,
+    ) -> Result<Option<(rival::Row, String)>, String> {
+        let cutoff = rivals.cutoff(code, cell)?;
+        if let Some(anchor) = self.anchor(rivals, name, cell)? {
+            return match rivals.calibrated_own(code, &anchor, cutoff) {
+                Some(row) => Ok(Some(row)),
+                None => Err(format!(
+                    "{name}: a fold-equivalent repeat of {anchor}, a calibration cell, takes its accuracy from that \
+                     matched row alone, and {} has none at {cutoff} Ha; run `cargo xtask rivals calibrate --cell \
+                     {anchor}` on the node",
+                    code.adapter().name()
+                )),
+            };
+        }
+        if self.held.get(name) != Some(&None) {
+            return rivals.calibrated(code, &self.keyed(name), cell, cutoff);
+        }
+        let own = self.own(name);
+        match rivals.calibrated_own(code, &own, cutoff) {
+            Some(row) => Ok(Some(row)),
+            None => Err(format!(
+                "held-out {name}: no calibration of its own; run `cargo xtask rivals calibrate --cell {own}`"
+            )),
+        }
+    }
+
+    fn anchor(
+        &self,
+        rivals: &rival::Rivals,
+        name: &str,
+        cell: &rival::Cell,
+    ) -> Result<Option<String>, String> {
+        let (own, base) = (self.own(name), rival::input_path(self.id, "input"));
+        let tuned_own = rival::Rival::all()
+            .iter()
+            .any(|&code| rivals.tuned.of(code).calibration.contains_key(&own));
+        if name == "input" || self.held.contains_key(name) || tuned_own {
+            return Ok(None);
+        }
+        if !rivals.settings.calibration_cells.contains(&base) {
+            return Ok(None);
+        }
+        let anchor = rivals.cell_at(&base)?;
+        Ok(cell.repeats(&anchor).map(|_| base))
+    }
+
+    fn matched(&self, name: &str, from: &str) -> bool {
+        name != "input"
+            && !self.held.contains_key(name)
+            && from == rival::input_path(self.id, "input")
+            && from != self.own(name)
+    }
+
     fn keyed(&self, name: &str) -> String {
-        rival::input_path(self.id, self.held.get(name).map_or(name, String::as_str))
+        rival::input_path(
+            self.id,
+            (self.held.get(name).cloned().flatten())
+                .as_deref()
+                .unwrap_or(name),
+        )
     }
 }
 
 fn borrows(paths: &RivalPaths, b: &Block, rivals: &rival::Rivals) -> bool {
     let abinit = rival::Rival::Abinit;
-    let (path, base) = (paths.own(b.input), paths.keyed(b.input));
+    let path = paths.own(b.input);
     (rival::Cell::parse(&b.table))
-        .and_then(|cell| rivals.calibrated(abinit, &base, &cell, rivals.cutoff(abinit, &cell)?))
+        .and_then(|cell| paths.calibration(rivals, abinit, b.input, &cell))
         .is_ok_and(|row| row.is_some_and(|(_, from)| from != path))
 }
 
@@ -848,14 +911,19 @@ fn accuracies(
     let target_p = rivals.settings.target.pressure_gpa;
     let path = |b: &Block| paths.own(b.input);
     let calibrated = |code: rival::Rival, b: &Block| {
-        rival::Cell::parse(&b.table).and_then(|cell| {
-            let cutoff = rivals.cutoff(code, &cell)?;
-            rivals.calibrated(code, &paths.keyed(b.input), &cell, cutoff)
-        })
+        rival::Cell::parse(&b.table)
+            .and_then(|cell| paths.calibration(rivals, code, b.input, &cell))
     };
-    let basis = |b: &Block, from: &str| match from == path(b) {
-        true => "own".to_owned(),
-        false => format!("borrowed from {from}"),
+    let basis = |b: &Block, from: &str| match (from == path(b), paths.matched(b.input, from)) {
+        (true, _) => "own".to_owned(),
+        (false, true) => format!(
+            "matched anchor {from}: a fold-equivalent repeat at the same cutoff, energy and pressure residuals from that one row"
+        ),
+        (false, false) => format!("borrowed from {from}"),
+    };
+    let e_p_from = |b: &Block, from: &str| match from == path(b) || paths.matched(b.input, from) {
+        true => format!("{from}'s row"),
+        false => "the largest pressure error among the rows of cells with its elements".to_owned(),
     };
     let pressure_of = |b: &Block| {
         (pressures.get(&(b.code(), b.index)).cloned())
@@ -940,7 +1008,7 @@ fn accuracies(
             "p_orbitar_gpa": ours.as_ref().ok(),
             "p_abinit_gpa": theirs_p.as_ref().ok(),
             "p_abinit_from": row.map(|_| if own { "its calibration row" } else { "its reference run at c" }),
-            "e_p_from": calibration.as_ref().map(|(_, from)| format!("{from}'s row")),
+            "e_p_from": calibration.as_ref().map(|(_, from)| e_p_from(b, from)),
             "d_p_gpa": d_p,
             "e_p_gpa": e_p,
             "bound_p": "2 d_P + e_P",
@@ -1000,7 +1068,7 @@ pub enum Outcome {
 
 struct HeldOut {
     inputs: Vec<(String, String)>,
-    held: BTreeMap<String, String>,
+    held: BTreeMap<String, Option<String>>,
     tuned: Vec<String>,
 }
 
@@ -1085,13 +1153,15 @@ impl Session {
     }
 
     pub fn contained(&self) -> Result<(), String> {
-        match (self.contain_required, &self.containment) {
-            (true, None) => Err(format!(
-                "a claim runs each timed process tree under a {} GB memory limit, and neither `systemd-run --user \
-                 --scope` nor `prlimit` works from this PATH; install one, or run a pilot (ORBITAR_PILOT=1)",
+        let tree_wide = (self.containment.as_ref()).is_some_and(engine::Containment::tree_wide);
+        match self.contain_required && !tree_wide {
+            true => Err(format!(
+                "a claim (not a pilot) runs each timed process tree in a `systemd-run --user --scope` with MemoryMax \
+                 {} GB, and no such scope works from this PATH; `prlimit --as` bounds each process alone, so it \
+                 serves a pilot (ORBITAR_PILOT=1) only",
                 self.guard_bytes / 1e9
             )),
-            _ => Ok(()),
+            false => Ok(()),
         }
     }
 
@@ -1571,7 +1641,7 @@ impl Session {
                             }
                             let loaded = t.record.load.iter().filter(|r| !r.quiet()).count();
                             let contended = (t.record.during.iter())
-                                .filter(|d| !d.quiet() && **d != load::During::Lost)
+                                .filter(|d| !d.quiet())
                                 .count();
                             if loaded + contended > 0 {
                                 failures.push(format!(
@@ -1814,10 +1884,18 @@ impl Session {
                     path.display()
                 )
             })?;
+            let within = generated_from(&base.1, &text);
+            let geometry = match &within {
+                Ok((strain, shift)) => {
+                    json!({ "cell_strain": strain, "largest_shift_bohr": shift })
+                }
+                Err(why) => json!({ "beyond_the_generators": why }),
+            };
+            let base = within.is_ok().then_some(stem);
             trace
                 .held_out
-                .push(json!({ "input": name, "base": stem, "sha256": hash }));
-            held.insert(name.clone(), stem);
+                .push(json!({ "input": name, "base": base, "geometry": geometry, "sha256": hash }));
+            held.insert(name.clone(), base);
             inputs.push((name, text));
         }
         Ok(HeldOut {
@@ -1890,8 +1968,7 @@ impl Session {
 
 fn past_guard(at: &str, run: &str, guard: Option<f64>) -> Option<String> {
     let limit = guard?;
-    let [rss, pss] = engine::last_peaks()?;
-    let bytes = if pss == 0 { rss } else { pss } as f64;
+    let bytes = speed::peak_bytes(engine::last_peaks()?) as f64;
     (bytes > limit).then(|| {
         format!(
             "{at}: refused after its {run} run: its measured peak {:.2} GB passes the {} GB guard",
@@ -1925,6 +2002,29 @@ const VARIANT_IDENTITY: [(&str, Option<&str>); 4] = [
     ("spin", None),
     ("occupations", None),
 ];
+
+const RATTLE_MAX_ANGSTROM: f64 = 0.05;
+const VARIANT_SHIFT_MAX_BOHR: f64 = 2.0 * RATTLE_MAX_ANGSTROM / acwf::BOHR_ANGSTROM;
+const CELL_STRAIN_MAX: f64 = 1e-9;
+
+fn generated_from(base: &str, variant: &str) -> Result<(f64, f64), String> {
+    let cell = |text: &str| {
+        let table: toml::Table = toml::from_str(text).map_err(|e| e.to_string())?;
+        rival::Cell::parse(&table)
+    };
+    let (strain, shift) = cell(variant)?.variation_from(&cell(base)?)?;
+    if strain > CELL_STRAIN_MAX {
+        return Err(format!(
+            "its cell is strained by {strain} of the base's, past {CELL_STRAIN_MAX}"
+        ));
+    }
+    if shift > VARIANT_SHIFT_MAX_BOHR {
+        return Err(format!(
+            "an atom moved {shift} Bohr along an axis from its base site, past {VARIANT_SHIFT_MAX_BOHR}"
+        ));
+    }
+    Ok((strain, shift))
+}
 
 fn same_identity(base: &str, variant: &str) -> Result<(), String> {
     let parse = |text: &str| toml::from_str::<toml::Table>(text).map_err(|e| e.to_string());
@@ -1961,7 +2061,7 @@ fn preflight(
     dir: &Path,
     inputs: &[(String, String)],
     tables: &[toml::Table],
-    held: &BTreeMap<String, String>,
+    held: &BTreeMap<String, Option<String>>,
     measure: Measure,
 ) -> Option<String> {
     let mut missing = BTreeSet::new();
@@ -2284,15 +2384,16 @@ pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String>
         .collect();
     let mut sizes_of_held = Vec::new();
     let mut manifest: Vec<String> = declared.iter().map(|(name, _)| name.clone()).collect();
-    let mut held: BTreeMap<String, String> = BTreeMap::new();
+    let mut held: BTreeMap<String, Option<String>> = BTreeMap::new();
     for h in record["held_out"].as_array().into_iter().flatten() {
-        let (Some(name), Some(base)) = (h["input"].as_str(), h["base"].as_str()) else {
-            return Err(format!("a held-out entry names no input and base: {h}"));
-        };
-        let size = *atoms.get(base).ok_or(format!(
-            "the held-out {name} varies {base}, which is no input of {id}"
+        let name = h["input"]
+            .as_str()
+            .ok_or(format!("a held-out entry names no input: {h}"))?;
+        let stem = name.strip_prefix(rival::HELD_OUT).unwrap_or(name);
+        let size = *atoms.get(stem).ok_or(format!(
+            "the held-out {name} varies {stem}, which is no input of {id}"
         ))?;
-        held.insert(name.to_owned(), base.to_owned());
+        held.insert(name.to_owned(), h["base"].as_str().map(str::to_owned));
         manifest.push(name.to_owned());
         sizes_of_held.push((name.to_owned(), size));
     }
@@ -2402,7 +2503,12 @@ pub fn main(cases: &[(&'static str, Measure)]) -> ! {
     let trials = match session {
         Ok(Some(session)) if session.contained().is_err() => {
             let refused = session.contained().err().unwrap_or_default();
-            vec![Trial::test("session", move || Err(Failed::from(refused.clone())))]
+            (cases.iter())
+                .map(|&(id, _)| {
+                    let refused = refused.clone();
+                    Trial::test(id, move || Err(Failed::from(refused.clone())))
+                })
+                .collect()
         }
         Ok(Some(session)) => cases
             .iter()
