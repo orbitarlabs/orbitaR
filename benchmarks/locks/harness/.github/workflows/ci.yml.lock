@@ -1,3 +1,3 @@
-sha256 = "1b163dc0af0ee6ec9ccd7608ec3d27d85e642bc0fc218b693a3b3600bf1cfb61"
-reviewer = "int2-fix, captain to review"
-reason = "PR 18 green on Linux, on integration-2 as its reviewers passed it: a run's guarded peak (the memory guard, its size estimates, a failed run's kept peak) is the larger of wait4's RSS high-water mark and the Pss samples, which miss a peak between two 50 ms polls; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH, a symlink to the probed file, then the wrapped command's own PATH or /usr/bin:/bin; a test runs both rivals in a scope beside a decoy tool on their own PATH"
+sha256 = "530ac1e8004b95fc89bff528a7879b847d22a8a1417c1dd5d04f10980d8d81e4"
+reviewer = "PENDING"
+reason = "ci: check splits into lint, three capped unit shards and bench; timing tests read their own clocks"

@@ -1,0 +1,3 @@
+sha256 = "422a15c92d7858ec30033e9597c0407abcb3346abc72dada1ebccb4a50305f64"
+reviewer = "PENDING"
+reason = "ci: check splits into lint, three capped unit shards and bench; timing tests read their own clocks"
