@@ -1,4 +1,4 @@
-# harness reviewer=captain-final-call after codex-review3-22 reason=rival-reuse final (#22 after review round 3): reuse serves pilots alone and every claim times its rivals fresh; the verifier, results collect, render and S11 refuse any record or carried-forward row that holds a reused block; the runtime key lists libraries with ldd under the rival's own cold environment and resolves an env-named interpreter on the rival's PATH, else no reuse; the key holds the held-out paired digest and the harness's and user service's cgroup limits; the systemd scope's slice limits are a named pilot-only limit
+# harness reviewer=PENDING reason=rival-reuse fixture (#30 mutants baseline): the reuse tests' fake rivals hold one touched 32 MiB dd buffer through their paced sleep, so their measured peak Pss lies far inside the drift share; on Linux the exact-reuse test checks that each drift run's peak Pss holds that buffer; the drift rule, its 10% share and every threshold are unchanged; no file under xtask/src changed
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -58,7 +58,7 @@ ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/ha
 34801334b9ae70ef5de3d307c17bad6eec2ed1a47efc8f4d782348e59ae96dca  xtask/tests/harness/load.rs
 1433c0de12d03c68058c667a912056b43808f0fdaae54985aeafbdbac7bd60fe  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
-8bd6e8d3b1f4f7e33396c08a1765649b3263e41e3c920ab5246099c1ebe66274  xtask/tests/harness/reuse.rs
+4c49575bb9d5453a0be295913b28c60332eea46b3f26504c33aefcdb30c6dd2e  xtask/tests/harness/reuse.rs
 f1185cc01e165ad8c348c161e30a4dea063df738a0002b5b666606ad2e1c4db8  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
