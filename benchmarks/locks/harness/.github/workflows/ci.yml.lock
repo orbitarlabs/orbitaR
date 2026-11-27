@@ -1,3 +1,3 @@
-sha256 = "a6438c6931f5a682ae8f650cde9ce117973f51a59758afa17b3a1f4bb1ddf22b"
+sha256 = "49a07befd7ade9569697a9aa6fce6c6d76dc306cf0f4c4dd159ea149fb7e625c"
 reviewer = "PENDING"
-reason = "merge of ci-speed (round 1 fixes, main cf0ae67) into mutants-size"
+reason = "ci: the mutants plan counts the pull request's own diff and fails closed"
