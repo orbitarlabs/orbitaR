@@ -1831,3 +1831,14 @@ fn a_listed_wheel_prints_its_hashes_and_a_missing_one_is_a_finding() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(has(&found, "gone.whl"), "{found:?}");
 }
+
+#[test]
+fn wheel_same_with_check_or_target_fails_before_any_work() {
+    let root = tree("same-conflict", &[]);
+    for extra in [["--check", "a.whl"], ["--target", "aarch64-apple-darwin"]] {
+        let args = [&["wheel", "--same", "a.whl", "b.whl"], extra.as_slice()].concat();
+        let found = lever(&args, &root);
+        assert_eq!(found.len(), 1, "{extra:?}: {found:?}");
+        assert!(has(&found, "cannot be used with"), "{extra:?}: {found:?}");
+    }
+}

@@ -106,7 +106,7 @@ enum Cli {
         check: Option<PathBuf>,
         #[arg(long)]
         target: Option<String>,
-        #[arg(long, num_args = 2, value_names = ["A", "B"])]
+        #[arg(long, num_args = 2, value_names = ["A", "B"], conflicts_with_all = ["check", "target"])]
         same: Option<Vec<PathBuf>>,
     },
     /// image [--scan <file>]: build the runtime and bench images; each runs case 1's input as user 1000, read-only
