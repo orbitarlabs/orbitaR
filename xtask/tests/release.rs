@@ -1104,9 +1104,8 @@ fn locked_dep(name: &str, sha: Option<&str>) -> crate::Tree {
     root
 }
 
-#[test]
-fn pip_install_orbitar_takes_no_wheel_that_uv_config_offers_beside_the_house() {
-    let root = installable_with("unchecked", true, "Requires-Dist: top==1.0\n");
+fn offered_beside_the_house(name: &str) -> crate::Tree {
+    let root = installable_with(name, true, "Requires-Dist: top==1.0\n");
     let top = dist(&root, "locked", "top", "1.0", "Requires-Dist: dep\n");
     let dep = dist(&root, "locked", "dep", "1.0", "");
     dist(&root, "offered", "dep", "2.0", "");
@@ -1115,17 +1114,50 @@ fn pip_install_orbitar_takes_no_wheel_that_uv_config_offers_beside_the_house() {
         "python/pylock.toml",
         &format!("{LOCK_HEAD}{top}{dep}"),
     );
+    root
+}
+
+fn installs_the_verified_dep(root: &Path) {
+    let found = xtask::install(root, "abc").err();
+    let site = root.join("target/wheel/venv/lib/python3.12/site-packages");
+    assert!(!site.join("dep-2.0.dist-info").exists(), "{found:?}");
+    assert_eq!(found, None);
+    assert!(site.join("dep-1.0.dist-info").is_dir());
+}
+
+#[test]
+fn pip_install_orbitar_takes_no_wheel_that_uv_config_offers_beside_the_house() {
+    let root = offered_beside_the_house("unchecked");
     let offered = root.join("offered").display().to_string();
     write(
         &root,
         "uv.toml",
         &format!("[pip]\nfind-links = [\"{offered}\"]\n"),
     );
-    let found = xtask::install(&root, "abc").err();
-    let site = root.join("target/wheel/venv/lib/python3.12/site-packages");
-    assert!(!site.join("dep-2.0.dist-info").exists(), "{found:?}");
-    assert_eq!(found, None);
-    assert!(site.join("dep-1.0.dist-info").is_dir());
+    installs_the_verified_dep(&root);
+}
+
+const SEALED_ROOT: &str = "XTASK_TEST_SEALED_ROOT";
+
+#[test]
+fn pip_install_orbitar_keeps_the_verified_wheel_under_an_inherited_uv_override() {
+    if let Some(root) = std::env::var_os(SEALED_ROOT) {
+        installs_the_verified_dep(Path::new(&root));
+        return;
+    }
+    let root = offered_beside_the_house("unchecked-env");
+    write(&root, "override.txt", "dep==2.0\n");
+    let test =
+        "release::pip_install_orbitar_keeps_the_verified_wheel_under_an_inherited_uv_override";
+    let out = Command::new(std::env::current_exe().unwrap())
+        .args([test, "--exact", "--nocapture", "--test-threads=1"])
+        .env(SEALED_ROOT, &*root)
+        .env("UV_OVERRIDE", root.join("override.txt"))
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout) + String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "{text}");
+    assert!(text.contains("1 passed"), "{text}");
 }
 
 fn sha256(bytes: &[u8]) -> String {

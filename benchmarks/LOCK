@@ -1,4 +1,4 @@
-# harness reviewer=codex-review2-8 reason=release 0.0.1 limits: the install proof resolves orbitar alone, offline, without uv config, uv or pip environment overrides, or the uv cache, against a hash-pinned wheelhouse of the whole pylock closure; the pinned download of datasets.rs is shared with it; merged with main's light-run peak Pss bound
+# harness reviewer=PENDING reason=release 0.0.1 limits: the install proof resolves orbitar alone, offline, without uv config, uv or pip environment overrides, or the uv cache, against a hash-pinned wheelhouse of the whole pylock closure; the pinned download of datasets.rs is shared with it; merged with main's light-run peak Pss bound; a test proves an inherited UV_OVERRIDE is cleared
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -66,7 +66,7 @@ c42a2e5450ddcbdc637f26637bcd8a869c26f3a206edf8fe0d5d1e802a8b3087  xtask/tests/na
 c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/node.rs
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
 0250980bef23a5cd4d1deb47b20b80ee8283d9f4701b0a16dde71cf63a930a5c  xtask/tests/publish.rs
-d8a8d4ca168d646e5392ea242ebec434ff4cbabb3f586e885fb21c359d03cd75  xtask/tests/release.rs
+9d5fd9793d00fbddea94c609d085b5a17b7f9efb7ed431ee74c38ee71ad4d55a  xtask/tests/release.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 2fa5406c310212330ec85de4db654fd788127734cfa88b654f4ebae7dd28e3ae  xtask/tests/results.rs
 830a1dd7ff8024b5dd4bb93394a481f1aa5d3ac06293f108cab5f6484219db48  xtask/tests/same.rs
