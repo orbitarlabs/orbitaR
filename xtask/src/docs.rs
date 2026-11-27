@@ -563,14 +563,12 @@ fn parse_readme(root: &Path, text: &str) -> Parsed {
         }
         match event {
             Event::Html(raw) | Event::InlineHtml(raw) => {
-                for (k, raw_line) in raw.split('\n').enumerate() {
-                    let at = line(span.start) + k;
-                    if markup(raw_line) {
-                        html.insert(at);
-                    }
-                    let shown = visible(raw_line);
-                    found.extend(addresses(&shown).into_iter().map(|a| (at, gone(a))));
+                let at = line(span.start);
+                if markup(&raw) {
+                    html.insert(at);
                 }
+                let shown = visible(&raw);
+                found.extend(addresses(&shown).into_iter().map(|a| (at, gone(a))));
             }
             Event::Start(Tag::CodeBlock(_)) => code += 1,
             Event::End(TagEnd::CodeBlock) => code -= 1,

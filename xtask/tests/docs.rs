@@ -585,7 +585,7 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
         "- [Fixture](probe*.bin)",
         "- [Odd](odd*name.txt)",
         "- [Dot](benchmarks/./README.md) and [Double](benchmarks//README.md)",
-        "- [Web](https://example.com) and [Mail](ftp:LICENSE)",
+        "- [Web](https://example.com) and [Mail](ftp:LICENSE); [Colon](a_b:notes.txt) and [Digit](1abc:notes.txt) pass",
     ];
     let readme = format!("{README}\n{}\n", lines.join("\n"));
     let root = docs_tree(
@@ -604,6 +604,8 @@ fn a_readme_link_or_picture_to_a_file_outside_the_public_tree_is_refused() {
             ("odd*name.txt", ""),
             ("https:/example.com", ""),
             ("ftp:LICENSE", ""),
+            ("a_b:notes.txt", ""),
+            ("1abc:notes.txt", ""),
         ],
     );
     tracked(&root);
@@ -679,7 +681,7 @@ fn any_web_or_mail_address_outside_code_is_a_link_out_of_the_tree() {
         at(
             "- Code `https://example.com`, `www.example.com`, and `a#example.org` pass; so does [text](LICENSE).",
         ),
-        at("- A handle #name or a#b is no address."),
+        at("- A handle #name, a#b, #example.org, a#example.c, and a#host.c0 are no address."),
         String::new(),
         "<a href=\"benchmarks/README.md\">".to_owned(),
         "Results at https://example.org/results".to_owned(),
@@ -716,6 +718,28 @@ fn any_web_or_mail_address_outside_code_is_a_link_out_of_the_tree() {
             gone(5, "name#example.org"),
             gone(10, "https://example.org/results"),
         ]
+    );
+}
+
+#[test]
+fn a_tag_on_a_later_line_of_an_html_block_is_found_on_its_line() {
+    let f = readme_findings(
+        "docs-readme-html-block",
+        &[
+            "<details>",
+            "<summary>Every key</summary>",
+            "An unmatched ` and then <b>a tag</b>",
+            "</details>",
+        ],
+        &[],
+    );
+    let readme: Vec<&String> = f.iter().filter(|x| x.contains("README.md:")).collect();
+    assert_eq!(
+        readme,
+        [&readme_line(
+            2,
+            "put HTML on its own line, from the allowlist"
+        )]
     );
 }
 
