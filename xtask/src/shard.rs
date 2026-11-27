@@ -25,17 +25,30 @@ pub const NAMED: [&[&str]; 2] = [
 
 pub const SHARDS: usize = NAMED.len() + 1;
 
-pub(crate) fn filter(shard: usize) -> Result<Vec<&'static str>, String> {
+pub const UNIT: [&str; 2] = ["--test", "unit"];
+
+pub struct Selection {
+    pub targets: &'static [&'static str],
+    pub filter: Vec<&'static str>,
+}
+
+pub fn selection(shard: usize) -> Result<Selection, String> {
     match shard {
         0 => Err(format!("check --unit 0: name a shard 1 to {SHARDS}")),
-        k if k <= NAMED.len() => Ok([&["--exact"][..], NAMED[k - 1]].concat()),
-        SHARDS => Ok(std::iter::once("--exact")
-            .chain(
-                NAMED
-                    .iter()
-                    .flat_map(|s| s.iter().flat_map(|t| ["--skip", t])),
-            )
-            .collect()),
+        k if k <= NAMED.len() => Ok(Selection {
+            targets: &UNIT,
+            filter: [&["--exact"][..], NAMED[k - 1]].concat(),
+        }),
+        SHARDS => Ok(Selection {
+            targets: &[],
+            filter: std::iter::once("--exact")
+                .chain(
+                    NAMED
+                        .iter()
+                        .flat_map(|s| s.iter().flat_map(|t| ["--skip", t])),
+                )
+                .collect(),
+        }),
         k => Err(format!("check --unit {k}: name a shard 1 to {SHARDS}")),
     }
 }

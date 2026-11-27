@@ -1,6 +1,6 @@
 use crate::{cargo_stub_read_by_shell, env, tree, write};
 use std::{fs, os::unix::fs::PermissionsExt, path::Path};
-use xtask::shard::{CAP, NAMED, SHARDS};
+use xtask::shard::{CAP, NAMED, SHARDS, selection};
 use yaml_rust2::{Yaml, YamlLoader};
 
 fn repo() -> &'static Path {
@@ -44,7 +44,7 @@ fn a_named_shard_runs_the_test_step_on_its_tests_alone_under_the_mutants_cap() {
         let (findings, log) = shard_log(&format!("shard-named-{k}"), &(k + 1).to_string());
         assert!(findings.is_empty(), "{findings:?}");
         let want = format!(
-            "{} | test --workspace --all-features --locked -- --exact {}",
+            "{} | test --workspace --all-features --locked --test unit -- --exact {}",
             CAP.join(" "),
             names.join(" ")
         );
@@ -158,4 +158,84 @@ fn the_mutants_jobs_run_their_tests_under_the_cap_of_the_unit_shards() {
         ci()["env"]["TEST_RUNNER"].as_str(),
         Some(CAP.join(" ").as_str())
     );
+}
+
+fn listed(args: &[&str]) -> Vec<String> {
+    let out = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--list", "--format", "terse"])
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{args:?}: {out:?}");
+    let text = String::from_utf8(out.stdout).unwrap();
+    let mut names: Vec<String> = (text.lines())
+        .filter_map(|l| l.strip_suffix(": test"))
+        .map(str::to_owned)
+        .collect();
+    names.sort();
+    names
+}
+
+#[test]
+fn the_shards_partition_the_listing_of_a_libtest_binary_and_each_exits_zero() {
+    let all = listed(&[]);
+    let mut union: Vec<String> = (1..=SHARDS)
+        .flat_map(|k| listed(&selection(k).unwrap().filter))
+        .collect();
+    union.sort();
+    assert_eq!(union, all);
+}
+
+#[test]
+fn only_the_last_shard_reaches_the_benchmarks_harness_which_runs_every_case_under_it() {
+    use clap::Parser as _;
+    let table = fs::read_to_string(repo().join("tests/benchmarks.rs")).unwrap();
+    let cases: Vec<libtest_mimic::Trial> = (table.lines())
+        .filter_map(|l| l.trim().strip_prefix("(\"")?.split_once('"'))
+        .map(|(id, _)| libtest_mimic::Trial::test(id, || Ok(())))
+        .collect();
+    assert!(cases.len() > 1, "{table}");
+    for k in 1..SHARDS {
+        let shard = selection(k).unwrap();
+        assert_eq!(shard.targets, xtask::shard::UNIT);
+        let args = std::iter::once("benchmarks").chain(shard.filter.iter().copied());
+        assert!(libtest_mimic::Arguments::try_parse_from(args).is_err());
+    }
+    let last = selection(SHARDS).unwrap();
+    assert!(last.targets.is_empty());
+    let args = std::iter::once("benchmarks").chain(last.filter.iter().copied());
+    let args = libtest_mimic::Arguments::try_parse_from(args).unwrap();
+    assert!(cases.iter().all(|c| !args.is_filtered_out(c)));
+}
+
+#[test]
+fn each_cargo_cache_save_writes_the_key_and_the_paths_that_its_restore_reads() {
+    let ci = ci();
+    let mut saves = 0;
+    for (id, job) in ci["jobs"].as_hash().unwrap() {
+        let steps = job["steps"].as_vec().unwrap();
+        let uses =
+            |s: &Yaml, action: &str| s["uses"].as_str().is_some_and(|u| u.starts_with(action));
+        let Some(restore) = (steps.iter()).find(|s| s["id"].as_str() == Some("cargo-cache")) else {
+            continue;
+        };
+        assert!(uses(restore, "actions/cache/restore@"), "{id:?}");
+        let save = (steps.iter())
+            .find(|s| {
+                uses(s, "actions/cache/save@") && s["with"]["path"] == restore["with"]["path"]
+            })
+            .unwrap_or_else(|| panic!("{id:?}: no save of the restored paths"));
+        assert_eq!(
+            save["with"]["key"].as_str(),
+            Some("${{ steps.cargo-cache.outputs.cache-primary-key }}"),
+            "{id:?}"
+        );
+        let prefix = restore["with"]["restore-keys"].as_str().unwrap().trim();
+        assert!(
+            restore["with"]["key"].as_str().unwrap().starts_with(prefix),
+            "{id:?}"
+        );
+        saves += 1;
+    }
+    assert_eq!(saves, 3);
 }

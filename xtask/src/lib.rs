@@ -29,7 +29,7 @@ mod publish;
 mod release;
 mod reproduce;
 mod results;
-mod same;
+pub mod same;
 mod science;
 pub mod shard;
 mod strain;
@@ -528,8 +528,8 @@ fn check(root: &Path, env: &Env, lint: bool) -> Findings {
 }
 
 fn unit_shard(root: &Path, env: &Env, k: usize) -> Findings {
-    let filter = match shard::filter(k) {
-        Ok(filter) => filter,
+    let selection = match shard::selection(k) {
+        Ok(selection) => selection,
         Err(e) => return vec![e],
     };
     let version = match Command::new(&env.cargo)
@@ -546,7 +546,7 @@ fn unit_shard(root: &Path, env: &Env, k: usize) -> Findings {
         Err(e) => return vec![e],
     };
     let step = (CHECK.iter().find(|s| s[0] == "test")).map_or(&[][..], |s| *s);
-    let args = [step, &["--"], &filter].concat();
+    let args = [step, selection.targets, &["--"], &selection.filter].concat();
     cargo(
         env,
         root,
