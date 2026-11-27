@@ -6,7 +6,7 @@ const ACTIVE: &str = "[case]\ntier = \"push\"\nstatus = \"active\"\nclaims = [\"
 const GOOD: &str = "{\"schema\": 4, \"case\": \"1_a\", \"outcome\": \"pass\", \"inputs\": [\"input\"], \"runs_s\": [0.1], \"rotation_s\": [0.1], \"rotation_max\": 0.0, \"rotation_used\": 0.0, \"rotation_field\": null, \"spent_s\": 0.2, \"started_unix_ms\": 1, \"seed_fixed\": false, \"peak_rss_bytes\": [1]}";
 
 fn findings(root: &Path) -> Vec<String> {
-    verify(root, Tier::Push, &root.join("records"), UNIX_EPOCH)
+    verify(root, Tier::Push, &root.join("records"), UNIX_EPOCH, None)
 }
 
 #[test]
@@ -138,7 +138,7 @@ fn a_record_must_come_from_this_run_with_a_random_seed() {
     let root = tree("record-fresh", &[("benchmarks/1_a/case.toml", ACTIVE)]);
     write(&root, "records/1_a.json", GOOD);
     let later = UNIX_EPOCH + std::time::Duration::from_millis(2);
-    let f = verify(&root, Tier::Push, &root.join("records"), later);
+    let f = verify(&root, Tier::Push, &root.join("records"), later, None);
     assert!(has(&f, "1_a left a stale record"), "{f:?}");
     write(
         &root,
@@ -286,7 +286,7 @@ fn claim_findings_of(name: &str, claims: &str, record: &str) -> Vec<String> {
             ("records/1_a.json", record),
         ],
     );
-    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH)
+    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH, None)
 }
 
 const QUIET: [f64; 5] = [0.1; 5];
@@ -470,7 +470,7 @@ fn rival_findings_with(name: &str, claim: &str, speed: &[String], rivals: &str) 
             ("records/1_a.json", &record),
         ],
     );
-    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH)
+    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH, None)
 }
 
 #[test]
@@ -696,7 +696,7 @@ fn shards_that_cover_every_input_once_prove_the_case() {
     let root = sharded("shards-cover", ACTIVE, &[FIRST, SECOND]);
     assert_eq!(shards(&root), Vec::<String>::new());
     assert_eq!(
-        verify(&root, Tier::Node, &root.join("records"), UNIX_EPOCH),
+        verify(&root, Tier::Node, &root.join("records"), UNIX_EPOCH, None),
         Vec::<String>::new()
     );
 }
@@ -1379,7 +1379,7 @@ fn a_shard_of_a_candidate_dataset_table_never_proves_the_case() {
         whole.evaluate("1_a", crate::harness::minus_one),
         Outcome::Shard
     );
-    let found = verify(&root, Tier::Node, &records, UNIX_EPOCH);
+    let found = verify(&root, Tier::Node, &records, UNIX_EPOCH, None);
     assert!(
         has(&found, "not the case's own; it proves nothing"),
         "{found:?}"

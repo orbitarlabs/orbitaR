@@ -1,4 +1,8 @@
-use crate::{Env, Findings, cargo, case::Tier, harness, lock, node};
+use crate::{
+    Env, Findings, cargo,
+    case::{Case, Tier},
+    harness, lock, node,
+};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -18,7 +22,7 @@ pub(crate) const BUILD: [&str; 7] = [
 
 pub(crate) const SOURCE_DATE_EPOCH: &str = "1767225600";
 
-pub(crate) fn tier(root: &Path, name: &str, env: &Env) -> Findings {
+pub(crate) fn tier(root: &Path, name: &str, case: Option<&str>, env: &Env) -> Findings {
     let Some(tier) = Tier::parse(name) else {
         let names: Vec<&str> = Tier::ALL.iter().map(|t| t.name()).collect();
         return vec![format!(
@@ -28,6 +32,11 @@ pub(crate) fn tier(root: &Path, name: &str, env: &Env) -> Findings {
     };
     if env.case_filter && tier != Tier::Node {
         return vec![harness::filter_refused(tier)];
+    }
+    if let Some(id) = case
+        && let Err(e) = of_tier(root, id, tier)
+    {
+        return vec![e];
     }
     if tier == Tier::Claim
         && let Err(e) = declared_node(root, env)
@@ -53,8 +62,16 @@ pub(crate) fn tier(root: &Path, name: &str, env: &Env) -> Findings {
         "--test",
         "benchmarks",
     ];
+    let mut libtest = Vec::new();
     if tier.policy().one_case_at_a_time {
-        test.extend(["--", "--test-threads=1"]);
+        libtest.push("--test-threads=1");
+    }
+    if let Some(id) = case {
+        libtest.extend(["--exact", id]);
+    }
+    if !libtest.is_empty() {
+        test.push("--");
+        test.extend(libtest);
     }
     let vars = [
         ("ORBITAR_BIN", bin.into_os_string()),
@@ -70,8 +87,20 @@ pub(crate) fn tier(root: &Path, name: &str, env: &Env) -> Findings {
             tier.name()
         ));
     }
-    findings.extend(harness::verify(root, tier, &records, since));
+    findings.extend(harness::verify(root, tier, &records, since, case));
     findings
+}
+
+fn of_tier(root: &Path, id: &str, tier: Tier) -> Result<(), String> {
+    let case = Case::load(root, id)?;
+    match tier.includes(case.tier()) {
+        true => Ok(()),
+        false => Err(format!(
+            "{id} runs in the {} tier, not in {}",
+            case.tier().name(),
+            tier.name()
+        )),
+    }
 }
 
 pub(crate) fn engine(env: &Env, dir: &Path, target: &Path) -> Result<PathBuf, Findings> {

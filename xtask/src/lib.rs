@@ -82,8 +82,8 @@ enum Cli {
     Check,
     /// Prove It Works: build the release engine, run the push cases, check their records
     Smoke,
-    /// bench <tier>: the same for one tier; `cargo xtask help` lists the tiers
-    Bench { tier: String },
+    /// bench <tier> [case]: the same for one tier, or for one case of it; `cargo xtask help` lists the tiers
+    Bench { tier: String, case: Option<String> },
     /// new-case <slug> <reference>: scaffold the next <N>_<slug>; regenerate the case table
     NewCase { slug: String, reference: String },
     /// lock --reviewer <name> --reason <text>: hash into benchmarks/LOCK; each changed block gets a new review line
@@ -321,8 +321,8 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
     match command {
         Cli::Help => help(),
         Cli::Check => check(root, env),
-        Cli::Smoke => bench::tier(root, "push", env),
-        Cli::Bench { tier } => bench::tier(root, &tier, env),
+        Cli::Smoke => bench::tier(root, "push", None, env),
+        Cli::Bench { tier, case } => bench::tier(root, &tier, case.as_deref(), env),
         Cli::NewCase { slug, reference } => layout::new_case(root, &slug, &reference),
         Cli::Lock { reviewer, reason } => lock::write(root, &reviewer, &reason),
         Cli::Wheel { check } => release::wheel(root, check.as_deref(), env),

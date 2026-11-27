@@ -53,7 +53,13 @@ pub(crate) fn write(dir: &Path, id: &str, record: &Value) -> Result<(), String> 
     fs::write(&path, record.to_string()).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-pub fn verify(root: &Path, tier: Tier, dir: &Path, since: SystemTime) -> Findings {
+pub fn verify(
+    root: &Path,
+    tier: Tier,
+    dir: &Path,
+    since: SystemTime,
+    case: Option<&str>,
+) -> Findings {
     let since_ms = since
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis()) as f64;
@@ -65,7 +71,10 @@ pub fn verify(root: &Path, tier: Tier, dir: &Path, since: SystemTime) -> Finding
     let mut seconds = 0.0;
     let (mut active, mut proved) = (0, 0);
     findings.extend(unreviewed(root, lock::HARNESS).map(|why| format!("{}: {why}", tier.name())));
-    for id in &ids {
+    for id in ids
+        .iter()
+        .filter(|id| case.is_none_or(|c| c == id.as_str()))
+    {
         let case = match Case::load(root, id) {
             Ok(case) => case,
             Err(e) => {

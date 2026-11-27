@@ -122,7 +122,10 @@ fn fake_build(root: &Path, inputs: &str, body: &str) -> Env {
 
 #[test]
 fn smoke_fails_when_the_case_runner_fails() {
-    let root = tree("bench-runner", &[("benchmarks/1_a/case.toml", ACTIVE)]);
+    let root = tree(
+        "bench-runner-fails",
+        &[("benchmarks/1_a/case.toml", ACTIVE)],
+    );
     let env = fake_cargo(&root, "[ \"$1\" = test ] && exit 101\nexit 0");
     let f = xtask::run(&["smoke"], &root, &env);
     assert!(
@@ -374,4 +377,58 @@ fn a_tier_but_node_refuses_a_case_filter_before_it_builds_the_engine() {
             )],
         );
     }
+}
+
+const NIGHTLY: &str = "[case]\ntier = \"nightly\"\nstatus = \"active\"\nclaims = [\"correctness\"]\nreference = \"analytic\"\n\n[tolerance]\nerror_max = 1e-12\n";
+
+fn test_args_after_engine_build(name: &str, ci: bool, args: &[&str]) -> (Vec<String>, String) {
+    let root = tree(
+        name,
+        &[
+            ("benchmarks/1_a/case.toml", ACTIVE),
+            ("benchmarks/2_b/case.toml", ACTIVE),
+            ("benchmarks/3_c/case.toml", NIGHTLY),
+            (
+                "benchmarks/4_d/case.toml",
+                &NIGHTLY.replace("nightly", "node"),
+            ),
+        ],
+    );
+    let env = Env {
+        ci,
+        ..fake_cargo(
+            &root,
+            "[ \"$1\" = test ] && echo \"$*\" > test-args.txt\nexit 0",
+        )
+    };
+    let f = xtask::run(args, &root, &env);
+    let ran = std::fs::read_to_string(root.join("test-args.txt")).unwrap_or_default();
+    (f, ran.trim_end().to_owned())
+}
+
+#[test]
+fn a_tier_run_of_one_case_runs_and_judges_that_case_alone() {
+    let (f, args) =
+        test_args_after_engine_build("bench-one-case", false, &["bench", "push", "2_b"]);
+    assert!(args.ends_with("--test benchmarks -- --exact 2_b"), "{args}");
+    assert!(has(&f, "push: 2_b left no readable record"), "{f:?}");
+    assert!(!has(&f, "1_a") && !has(&f, "3_c"), "{f:?}");
+    let (f, args) = test_args_after_engine_build("bench-every-case", false, &["smoke"]);
+    assert!(args.ends_with("--test benchmarks"), "{args}");
+    assert!(has(&f, "push: 1_a left no readable record"), "{f:?}");
+    let (_, args) =
+        test_args_after_engine_build("bench-one-node-case", true, &["bench", "node", "4_d"]);
+    assert!(args.ends_with("-- --test-threads=1 --exact 4_d"), "{args}");
+}
+
+#[test]
+fn a_case_outside_the_tier_is_refused_before_the_engine_builds() {
+    let (f, args) =
+        test_args_after_engine_build("bench-case-tier", false, &["bench", "push", "3_c"]);
+    assert_eq!(f, ["3_c runs in the nightly tier, not in push"]);
+    assert!(args.is_empty(), "{args}");
+    let (f, args) =
+        test_args_after_engine_build("bench-case-none", false, &["bench", "push", "9_z"]);
+    assert!(has(&f, "benchmarks/9_z/case.toml"), "{f:?}");
+    assert!(args.is_empty(), "{args}");
 }
