@@ -1,12 +1,12 @@
-# harness reviewer=captain-final-call after codex-integration-review round 3, claude-review-no-comments, codex-last-fixes-review, codex-identity-review reason=release 0.0.1: the harness levers of this release (README levers, pr-text, native manifest private, no comments first with src/SOURCE.toml and docs --base, the JTH data wheel, the results lever); commits only as orbitar-admin <noreply> (the publish lever refuses the Claude identity in any commit field, merges included, and in files); the install proof installs both local wheels with --no-deps. Limits accepted by the captain for the first public PR: docs --base against d7ca05c flags existing reference-script and dataset comments; a README reference definition split over two block-quoted lines passes the link guard; the install proof does not resolve ase's own dependencies; the publish lever's log framing and its range on a direct main push (main takes PRs only); external contributors' commits fail publish until the rule widens
+# harness reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
 c153cd3c43ddb362e788598752d9c87b697f392cc5600b45d21f1718aa9cc746  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
 b801d44f73e3e9107711b16fb32be4c5964d9bc68cd0e41528e73321d08a7f32  xtask/src/bench.rs
-50d1d3bdf959e66e72f303a4d7c0fe26de41db3d0c135b4bfa0637532b499c79  xtask/src/case.rs
+f921d565baeac8964b4b8a2c0eb776123123173aa875d80600fd6d2581b94474  xtask/src/case.rs
 acc25a9a7a6f0f575332050c2763702da4b313cc3e8160eea822521c77e21935  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
-2aae1310124515b7441b7de9c939241777f6d7d15b0e86f085972e7aab073a24  xtask/src/harness.rs
+00dc9e370629c4c522b85e3c56870cf61ec9f897890a530f87a0b35b08f6b9cc  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 03878ff9cd97a82b22af1417c9b7497191d232877176b85c1daf8378b2174578  xtask/src/harness/datasets.rs
 9c2c75e70f8b5ec234a6e1e00b4701489bcb517a46f03b9d2452ea026a70b9a0  xtask/src/harness/engine.rs
@@ -42,10 +42,10 @@ af1167b4049c37599a8056a69776738384d5343da8d0f33252f69dc98c3630db  xtask/src/tune
 b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk.rs
 6ab6b9fbdacafa2d2973bdc4f0a7ef366da2d5b9af21a5516a80e379e3219b26  xtask/tests/atompaw.rs
 90316a2227e058f9413f28877d49657bdc0418990a0659cb552888827797b2fd  xtask/tests/bench.rs
-00163bddb786576cbd43ab7063a877d6d561a4f1e138ca713c48e13664477547  xtask/tests/case.rs
+7d8c43fc681e0431bee3bf2b7b07fb784f79ee3f448db3a53c9e9cbea4ec9ec0  xtask/tests/case.rs
 26dbcac50eaf0e847fc058f3a469de39dbfcfd204d8068a9008537feb634c687  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
-2304e09104522f6d6cb88eecfdf1df5356859a4f4c397319faf3a0b937251a24  xtask/tests/harness.rs
+5e815b6eccf5bb3aa5fab7ea4288d9e05d64dd75827d6dc34af242e59b329f0a  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
 34bb356c822a8e35907af2fdbd5033f4fb84d7525f941599a30694a0995cf02e  xtask/tests/harness/datasets.rs
 0739faee7795181f7c37e750f90392369e783475d39ee5aa685108506f5bd3f7  xtask/tests/harness/engine.rs
@@ -116,22 +116,22 @@ dd5af61e184f59edef1bda54eba1165a7cf2a9b73f7731489a884ff587ba02dc  benchmarks/2_e
 91b42f357dd06300cdf14d268b70a8b7fbb65e6d8b7d284e382ab7dd7b4c01f9  benchmarks/3_hartree_gaussians/input.toml
 550e92ef3ce587b5b1b6aaecd6aea5b7b71311e1ce175bf517c1b8c058f9f5f8  benchmarks/3_hartree_gaussians/inputs/skewed.toml
 17405ce559db7fbfc4ba765bf6d1502424cd8935ff59c712805c22049ad4286c  tests/benchmarks/3_hartree_gaussians/case.rs
-# 4_xc_libxc reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-05e3f486d45c46c66686d51e861e3b4169ede01b4c592a5330b3a40bf30ea504  benchmarks/4_xc_libxc/case.toml
+# 4_xc_libxc reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+72a4b400ad1e7225b8ce56b8958c77949a547e1c82b4e292276ffb0b143dac54  benchmarks/4_xc_libxc/case.toml
 89f00a67d43eedf0c68f5fdf0645b3e37d4ab248eef746f560f65945fa46e2c8  benchmarks/4_xc_libxc/input.toml
 1759a9336b6ed79628ea4731445edfe3d793098d5daa8feffda5a9c28b5afd50  benchmarks/4_xc_libxc/inputs/pbe.toml
 2f1f0b579c67c8a283b9bf06ccce09f03bd9c111fe3771dd04183517188a6c20  benchmarks/4_xc_libxc/inputs/r2scan.toml
 46c172a6a3635d102216b87bc1a41619eef1032e8b2f24ca34583a430be7404b  benchmarks/4_xc_libxc/reference/SOURCE.toml
 0d77d084ab17e148543b796c2d1c005c26ffd0033dbd08f9b525a651fc89bb34  benchmarks/4_xc_libxc/reference/table.json
-13bc1c4923206b22178dfd95b5ea348cc166f6522c18222dde2dc289b676d87a  benchmarks/4_xc_libxc/reference/table.py
+ca776a6475ac239d4d61f6ccab9f754a1da9251a53a9e2940ad8b914b86c3be4  benchmarks/4_xc_libxc/reference/table.py
 d67621b4410f679158bb408a589c9dd0dbdd6c2ef74bc544f7a11345fcd5e179  tests/benchmarks/4_xc_libxc/case.rs
-# 5_lobpcg_dense reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-a3bf8ce8f6ca37d44fbac525934b9ed89ffb54c82f24b6ca8d6d627f431cd19a  benchmarks/5_lobpcg_dense/case.toml
+# 5_lobpcg_dense reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+189cbee0f614c236a10c7a33ba274af090fe7c6e69a79534554035e4984e35e7  benchmarks/5_lobpcg_dense/case.toml
 1187fafad1b4dfddea33f60146b36a7fa8f75288ef6755adc3337ef38b52e723  benchmarks/5_lobpcg_dense/input.toml
 19128bd89ee82b8f62a764b0eb458da946f26037d32251351eadd49d4169a342  benchmarks/5_lobpcg_dense/inputs/dense.toml
 829cbcbc2db9e612e7be2cbba20e388fc925bd18c450ba7ea7e37f0590ea2149  tests/benchmarks/5_lobpcg_dense/case.rs
-# 6_abinit_jth reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-b28bf0ba6770da93c803baa1533e97d0bf245710f64d05ebc04cdc8727ff6f50  benchmarks/6_abinit_jth/case.toml
+# 6_abinit_jth reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+a182efb2c6a7aeb38f80b967fc14208c8e3a08d77bbb36572f4e517d6cf1ca17  benchmarks/6_abinit_jth/case.toml
 fbfcdf0ca5047cdf7131eef48daf9b3e472a3fc3460263b76d712b764962021f  benchmarks/6_abinit_jth/input.toml
 34541dd3728ed256f22389527e4910ddc413b8cb25ae4dcb23c81464bbacfb3b  benchmarks/6_abinit_jth/inputs/afm.toml
 5094c62614e3ea722af22e77f5d977ec161dfd32c0e003c2371294709e2ac987  benchmarks/6_abinit_jth/inputs/al.toml
@@ -151,11 +151,11 @@ c6314e4534d80255d7b28552318aa143f1d13a20b6b591d046b05074ad9e7efb  benchmarks/6_a
 7fb494347a5d510c1c234b5e276c9376bfafb1ff2790dc5cdf5096124a61bd04  benchmarks/6_abinit_jth/reference/gaas.json
 5b4200534785a4a218ba382013d6c4a7126dbb704aa06ee69b7ccfa0af75a9bc  benchmarks/6_abinit_jth/reference/input.abi
 56244bca0032c39a7b12c9d19cfa21c109c1828402f1f2d078dd0692e73a4ad3  benchmarks/6_abinit_jth/reference/input.json
-8b7b244824434d82ec0a3d570eb91b0120c81108a9a1622a37ec4e3d58afd299  benchmarks/6_abinit_jth/reference/reference.py
+4b155cec9bbee6fd004c4724b367651ae6d0819d9a4ca1706c6851ed94ef65e0  benchmarks/6_abinit_jth/reference/reference.py
 39c30c081b58fed68a67c455ae14868af9cd79e93baaa8ca541e7a07e0f3db9a  benchmarks/6_abinit_jth/reference/run.sh
 9871883d4ec4fb44e85fcc74a719ff5d4fcc88c0adf08cf3906b87d6c3c3b018  tests/benchmarks/6_abinit_jth/case.rs
-# 7_symmetry reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-8fb3145dba94a02bd1392bd9f33e781acbd6dacbaacd81f62208f1d4f2c612b2  benchmarks/7_symmetry/case.toml
+# 7_symmetry reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+8f503671fd29fb61c95f704fe01921904fecd25f3d703abb6aa5557b7b11ff80  benchmarks/7_symmetry/case.toml
 562be3c56dcd0f55f27a28be8044e5927e07fddb52e6f5495de073ef7b2688e2  benchmarks/7_symmetry/input.toml
 22b4d8e6ee59e24162883f8d8fdd7dfdd263a32339ca918ffbdd5b793d6ca556  benchmarks/7_symmetry/inputs/afm-full.toml
 fd16725ac630eb61ef628fbdca131a0811bad284c0434e8ea1c28d2bc25692e0  benchmarks/7_symmetry/inputs/afm.toml
@@ -165,22 +165,22 @@ fc66b807e85c1a7c076ee02c9fc72dc26c610a2f64a35c7bfd3d6819b7c765dd  benchmarks/7_s
 b9f80b8753699f3bf9ec6b3671faf4805eb41eb15192468c55b5d198ef7318b0  benchmarks/7_symmetry/inputs/l12.toml
 30016429fbb15238cfb1132ab9eff5ef563c9dd6d42fd84681eb80af6a1e2fe7  benchmarks/7_symmetry/inputs/si-full.toml
 80e90508d0cdd44e4716ef81416873a9ca372ebdda3c2e68a3e453db19f4330d  tests/benchmarks/7_symmetry/case.rs
-# 8_supercell_invariance reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-0693a0d8115b4dcc4e3d056975864be23a0f0be60dfdd8273a1c098c48ed908f  benchmarks/8_supercell_invariance/case.toml
+# 8_supercell_invariance reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+a8f193d68982b457c70041fbab1b9b7237769e9ab91b890f455ef91c82664dfe  benchmarks/8_supercell_invariance/case.toml
 789d2252711aa495803ac8d585e6cc03372c1e1e23a6d7e3644765a393e11f8c  benchmarks/8_supercell_invariance/input.toml
 cef4d15868c36311c6060a3a26e51c2b1404c7c47dbc057265a2a828be6f43e3  benchmarks/8_supercell_invariance/inputs/fe-double.toml
 c682bb02c6099ac53adc7e65eed0ad139ef0bfef059a4a80d02b0022f358ccc5  benchmarks/8_supercell_invariance/inputs/fe.toml
 1c78ca56b89f946ad0af2be41cd3f093b5573093dd548789cbfed34669efa579  benchmarks/8_supercell_invariance/inputs/si-double.toml
 a3cf1531cd89bb5989d1139ae97f8fd0791ed1d9f4e1c4940d5888879e6d4809  tests/benchmarks/8_supercell_invariance/case.rs
-# 9_thread_invariance reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-99b224fed7f1d9c143dd3fdbf1de416a1546edd902ec4b8a7bab80e7f6ea9e53  benchmarks/9_thread_invariance/case.toml
+# 9_thread_invariance reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+a8eb710c33375708a56d79283223b26173bb4dbfda0c3db67eddcd6f12c9c7d7  benchmarks/9_thread_invariance/case.toml
 0846df1ae327b51a2fa660b44cd5dd172acea353c438442359fb46295af5938b  benchmarks/9_thread_invariance/input.toml
 1152f48b92fd4145dffeea0ac4d74c397c701bf00ae2dd17f6bed33020dcae0d  benchmarks/9_thread_invariance/inputs/afm-1.toml
 302bdd0dd95819cbcb5d4dc2b9654153e6c71fc6dd0aa3eaa41b0bc60bfb5c12  benchmarks/9_thread_invariance/inputs/afm-4.toml
 7858d5c3125645ddc2844ed75d62d2ee9d09df472f44fe1315a3c91424d55400  benchmarks/9_thread_invariance/inputs/al-4.toml
 127df33b7425857d5d58386129d1651d70b43069e1e4b6f677274bbdcc6dd192  tests/benchmarks/9_thread_invariance/case.rs
-# 10_acwf_subset reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-4ea32ac5d6d765081dd2a03c7ddbab4318f8b789de2dc28a143ed3f5043d607a  benchmarks/10_acwf_subset/case.toml
+# 10_acwf_subset reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+3f4955bbbcf45bdde1ac132cf22ecfbc4c24b2ee0afb385ba5f6158aed0af3e5  benchmarks/10_acwf_subset/case.toml
 4bd1a0433d3318f61704c8cbcc4c1fa6766850c07542e78101b56ac27f58ebf6  benchmarks/10_acwf_subset/crystals.json
 12d6e929a028a6de6f824ad1269948e9ecc1e87f279f0e4715bfd896fe96db0b  benchmarks/10_acwf_subset/reference/LICENSE-acwf-verification-scripts
 f290f3bfbcfd260bc562f9a2b09f2098f71c06b5bd20573953cab83516ad9c81  benchmarks/10_acwf_subset/reference/SOURCE.toml
@@ -189,17 +189,17 @@ f290f3bfbcfd260bc562f9a2b09f2098f71c06b5bd20573953cab83516ad9c81  benchmarks/10_
 af533f99f4aa317aa16ecc15385145ec2ea9ddb7b25564cdc2b7329fcf5c8aa3  benchmarks/10_acwf_subset/reference/acwf-qe-sssp-1.3.json
 7a6fe9e4442cae722768dff5ec7d3eabd8f519f6c3665ae0a90cd8924d3f25ea  benchmarks/10_acwf_subset/reference/acwf-vasp.json
 efa4fce399f577cd345952edeb4571492e34814b73dd569ef57f4434adc47d43  tests/benchmarks/10_acwf_subset/case.rs
-# 11_speed_scaling reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-872f9286a9d7df465fb98bb9a559e9f44da51844b92cb749840a92d8c67703b6  benchmarks/11_speed_scaling/case.toml
+# 11_speed_scaling reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+f3d0cdfc7d006f8fd18cffe0d6b317b099ab64cb8efb37137f1e0ca83563dde8  benchmarks/11_speed_scaling/case.toml
 7b06175434fecb08c7fb9aee4cababe563b3627e3732a10a26beb714a4c23800  benchmarks/11_speed_scaling/input.toml
 1114b991f0c455c6d5840025b5cc9c1336e5fa110635fb56ce22c8da79ae560c  benchmarks/11_speed_scaling/inputs/al2o3.toml
 8766e4377b0170a3a1452354b99914bac89762a4915e8289402c4d3f56b73533  benchmarks/11_speed_scaling/inputs/gaas.toml
 925ef22f02b5a7c9144e72b57f0d4bb176df98066a097b4b91dc99dd9be7b35b  benchmarks/11_speed_scaling/inputs/nio.toml
 1b233c731149983214b193d0c74052426680e91033d594083f7d7d25391537f5  benchmarks/11_speed_scaling/inputs/si32.toml
-a40b92c43d2348baf94f522341af08d6de301c969d9952a80c2fedeec4b1a8e3  benchmarks/11_speed_scaling/reference/SOURCE.toml
+61f41caab14371403794d6f24a256c0dcc50e1cc7a4b275ebe7430560555a146  benchmarks/11_speed_scaling/reference/SOURCE.toml
 0d47686ec81efc0a5699ea665ab09e70f5fdad0d7b608ddac0c9b2d450c1a6df  benchmarks/11_speed_scaling/reference/al2o3.abi
 2039c2537c03b5037cb1931000d8e1c32d14edb928b59dbb80d017a047ecea6c  benchmarks/11_speed_scaling/reference/al2o3.json
-246e1293fcd59764a8226ad196195f621e31a0e166f26ecb0a6cafd11edc6cb2  benchmarks/11_speed_scaling/reference/cells.py
+0aa74fa6ac2886fdc4d793577dff37eeb449ebf72e9ee8dbf0ddcfcb76155003  benchmarks/11_speed_scaling/reference/cells.py
 1f3961e279e3599a6b7e20afc743dc71be4cd5a6bdbaeebb9330a9239f4e6a6e  benchmarks/11_speed_scaling/reference/gaas.abi
 f7d6b38bb77323246b016a35290833fdf804fda030bf5e9d076b776691ed6863  benchmarks/11_speed_scaling/reference/gaas.json
 56244bca0032c39a7b12c9d19cfa21c109c1828402f1f2d078dd0692e73a4ad3  benchmarks/11_speed_scaling/reference/input.json
@@ -208,15 +208,15 @@ f7d6b38bb77323246b016a35290833fdf804fda030bf5e9d076b776691ed6863  benchmarks/11_
 aa23af9e5576cfd7f03f6e2e9f51eff87b1e675bd0318e4c9e1eee47ad7a3fd4  benchmarks/11_speed_scaling/reference/si32.abi
 f88d90b4234019adce78b2f80e12adeb1047baea20ae245b212c201305353d9d  benchmarks/11_speed_scaling/reference/si32.json
 30acc85e5e94ee4af1e5a545f5285ca47e6004e94fc0bd17dde707ded0d24a47  tests/benchmarks/11_speed_scaling/case.rs
-# 12_memory_scaling reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-3a608d7ff6d8a89e93759b3f3256dd996f8bda6a225920ab8b586b61a090b643  benchmarks/12_memory_scaling/case.toml
+# 12_memory_scaling reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+a9c2db8224da7cab6cf262647a0f760dab1eae9302a2c3d91d646e7633b79b30  benchmarks/12_memory_scaling/case.toml
 0c53e07e56068c09e5c1605fbeeeb606425af5ceef58fb3b7feac9a6be9b35a9  benchmarks/12_memory_scaling/input.toml
 eff2a786a361c68bad968623e491b17cb760e9cf5a4e3daa0ae0944b7fefd079  benchmarks/12_memory_scaling/inputs/si16.toml
 3ae30d6df5f3a956f749ad25cdaf65108299d497c5065e361582f40466607f0c  benchmarks/12_memory_scaling/inputs/si32.toml
 2719754d18181ee2df523d20303f5aced6814422461a167318602a6c414b740a  benchmarks/12_memory_scaling/inputs/si8.toml
 a0296121ee8ff14ba02a995f9a08eabe6ae1018754f7784762212cc841de77a6  tests/benchmarks/12_memory_scaling/case.rs
-# 13_forces_derivative reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-01fdc539a74c03b6ae38bf0ea269682ecb6b2de0048b3cb76b529329be693d59  benchmarks/13_forces_derivative/case.toml
+# 13_forces_derivative reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+ca7c9807728a088485c629e37fa561c6f962bf87db25c1295d7a0252438f915c  benchmarks/13_forces_derivative/case.toml
 0d77870010eab936b204fdd81f3ae7dad7a4b7d1652c7863d4b7565f21c73b2d  benchmarks/13_forces_derivative/input.toml
 3636a2d77a9a1d883ae0b87285192f8561b9815e4450673b1615548a87949aa9  benchmarks/13_forces_derivative/inputs/fe-lda-minus.toml
 2a750714ac88162e1f922ec89704f76180f1e85ea063810d0c687989a3777e8a  benchmarks/13_forces_derivative/inputs/fe-lda-plus.toml
@@ -233,8 +233,8 @@ dd3ab6567de7a89761c0f14d2c4cfb40000bbf9e3ffe43f0b28b4cc050f2163f  benchmarks/13_
 cdef23c02c13a8dc98c02f03e1ffd959d4e33c25486c6c671799d16d14b060f9  benchmarks/13_forces_derivative/inputs/gaas-plus.toml
 af3633d8f25678c563f6714bcd54a7a673d33eac8c1fba1a1f6ddb7d25857320  benchmarks/13_forces_derivative/reference/SOURCE.toml
 d52e4b4e89177dcfeb7e2faf1e51ba98ed14487b4c1cdfe0035e9c49b4dbbf62  tests/benchmarks/13_forces_derivative/case.rs
-# 14_set_w reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-731e3f5d61a61c55306b50bad145736d944d76c7cc21101c83349c7db825de72  benchmarks/14_set_w/case.toml
+# 14_set_w reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+56d792ac31bec36835eaa492b4ba81ba4036009412cbd6e78eb3974df5fc43bd  benchmarks/14_set_w/case.toml
 eb57a24313bcc05557f7113e841acef4b7c4e98502954237705e41c5f4d9ffe5  benchmarks/14_set_w/inputs/al2o3_40.toml
 f96a3585c4dea772e12b45aa62591c5b4b1fb28716e76408bfe228ed56a14e2c  benchmarks/14_set_w/inputs/al2o3_slab.toml
 cc7a346c4d1a60a8d6d579cd2f670ba2f4408f1b806600bb40bf383db4ae4b41  benchmarks/14_set_w/inputs/fe2o3_30.toml
@@ -242,12 +242,12 @@ c79fe251754991991d8e6d4cc99ea4dbeb956c96f7f017a41c43669708a7aae9  benchmarks/14_
 564859cb7bd5153d4a010bf89f3ff879a339529d49aa492806faa76b12b4e17b  benchmarks/14_set_w/inputs/si128.toml
 d1a684bd6d00a2627d677f578490fab64aa2192aed84cc1d6f6226f379277c8d  benchmarks/14_set_w/inputs/si63_vac.toml
 280b737964bfb6c351466b08992400f4fcca3aea9cc9acb5c73363b6ffc5916e  benchmarks/14_set_w/inputs/sto39_vo.toml
-5cb9413231166fd501f8a27501c729ae64923228d7f7633d4825073295a24f01  benchmarks/14_set_w/reference/SOURCE.toml
+7686a4e1cf852a0ad8b0af1e940b63685a0359f18a6f040a8da1871415b962aa  benchmarks/14_set_w/reference/SOURCE.toml
 c6a94e03bfbce80d5b3ceae80f5899fb0c9be2b57c852b3aab1e62f28a688e30  benchmarks/14_set_w/reference/al2o3_40.abi
 6c2c81d548ab887d66ac24e55941ee32d58a8f5ae7f6e3400121b86f1ae6a761  benchmarks/14_set_w/reference/al2o3_40.json
 ddfd52e2bdd539494e366c117d666b1b275d6d5b6127a2bd4b4b97aa12276f0a  benchmarks/14_set_w/reference/al2o3_slab.abi
 5f51394ce6554c68842be53b1c87de134dadd9764b64fb3bf82efa17e36a75c8  benchmarks/14_set_w/reference/al2o3_slab.json
-5eec29e7d506c91754c48b6a6b24375b9309914803eb66b05ece31f7912e73d8  benchmarks/14_set_w/reference/cells.py
+25e7df31498b7807fab36ce209dfda720fa120b86f8f75bb63cd47545e5b4e46  benchmarks/14_set_w/reference/cells.py
 46a1a7b8a442839835cd1f90dd69d40cfd6ecb724456d85aaec8f45827457da5  benchmarks/14_set_w/reference/fe2o3_30.abi
 f042537ba1715e191bab5fa7d08e6968387c28ff43931391304ead6e22685551  benchmarks/14_set_w/reference/fe2o3_30.json
 24cd42ad198cc30707b3d6d8adb4aca0bae5016f36e913d939c25edd8949fd36  benchmarks/14_set_w/reference/gaas32_as.abi
@@ -270,8 +270,8 @@ c11a7f525bc542823634d236f7a5e0246718a0e4472cbfd58f1cb0d59f602499  benchmarks/14_
 bbae998effc0e86b9e488d6ba81f62cd916a6c821f089a4ce470672db1fe5de2  benchmarks/14_set_w/tuning/fe2o3_10.toml
 8f03718d2896f6ed9730f79a74698ba6820de18dd6233ae9d2b3560481b8f884  benchmarks/14_set_w/tuning/sto5.toml
 c693a7a3f261419f54ce7b3b48aacb62fc9f6f1001a04d2d1e38f4cebb2ccd68  tests/benchmarks/14_set_w/case.rs
-# 15_stress_derivative reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-367bdb310e96bd43c7cce07bf0da8ad5cdbad1a35f145475acd3a0b7306423f0  benchmarks/15_stress_derivative/case.toml
+# 15_stress_derivative reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+d6bcc6deecb27f57af7f2d7ccb44818787ecee9bd82905e9d027b1cb644fa3fe  benchmarks/15_stress_derivative/case.toml
 b609dc94a0fd8a51beba92b9792fa7f402c39e5ad8b01e309cfa21fb1076ed70  benchmarks/15_stress_derivative/input.toml
 b00ea5d45a135bd5207ade8154979002dc0de0c1f49bf8cf916e8e61c17ccaba  benchmarks/15_stress_derivative/inputs/afm-minus.toml
 598bebf8bef11e7a8373d6f0973fc7d3a360c17d64991b9b69cb4ff1d4020fcb  benchmarks/15_stress_derivative/inputs/afm-nm.toml
@@ -294,16 +294,16 @@ bfc3768b8ada31cfe5bf9bbc9219b5798744e0397b01198a719a86b995e5c12d  benchmarks/15_
 e0ae8406c94ce792da3d81212aaa5a86b7204fcc387002870a8c19256b65897b  benchmarks/15_stress_derivative/inputs/gaas-volume-plus.toml
 1476256d08d437eac69fa619cbbcf6819e323aaca590100bdd6ad80f8fdca219  benchmarks/15_stress_derivative/reference/SOURCE.toml
 02116187ff4805e3147e66f5c18e2bd98e541abf6acdcce11e383e9df20e1725  tests/benchmarks/15_stress_derivative/case.rs
-# 16_relax_endpoint reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-63d362da260d48063deb6bfe1fcebd52cd6088d0fc09a9ac8d3071606c2d68ee  benchmarks/16_relax_endpoint/case.toml
+# 16_relax_endpoint reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+bf366af18dc1eb16b7bd1703b3f8cc2e75eddda8ecf656817b7bc5d497d2cc66  benchmarks/16_relax_endpoint/case.toml
 9db1797a38824ecd70a996d210165e60573be4abe786050595cf21301574adbf  benchmarks/16_relax_endpoint/inputs/fe-cell.toml
 d894d4e994a104ca6461c7340f7008ed32640a4796342c292d34595d7bb0a38e  benchmarks/16_relax_endpoint/inputs/fe-ions.toml
 555e620cdee0d31029868f0010bac7eca0cc0357971dc545cf5aa6b8664350e7  benchmarks/16_relax_endpoint/inputs/si-cell.toml
 ef205213e449fe8217f6b024f5f7cecabcc5a32b8fe29f1b2d4304a51ca3b6e5  benchmarks/16_relax_endpoint/inputs/si-ions.toml
 de31a836c7a526f4654dbb7b814b93018e98e925e5a8fbf84ff6f7c5b44e8a85  benchmarks/16_relax_endpoint/reference/SOURCE.toml
 e1141985ffeb1503f2c4fde7c879fa74ebdfa2b1c988e4d9df7c63ed2970e748  tests/benchmarks/16_relax_endpoint/case.rs
-# 17_magnetic_ae reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-6fb7c690afeb1c45571cfdca20d948042227e6b241328018d8a5e1af6dd991dd  benchmarks/17_magnetic_ae/case.toml
+# 17_magnetic_ae reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+387ecc2bee071736a97c010f277fa24184d6449bc50904d17a657f85cdce5f80  benchmarks/17_magnetic_ae/case.toml
 202278aa77cb463b6e4e02ae4be4f16edd7c09ae78ee2fd6d1d6c087ad5001e5  benchmarks/17_magnetic_ae/inputs/co-v0.94-e10.toml
 82e504a5dc09815640edfb530f48adfe7046b542bd59c4bc674bb16f40a58d75  benchmarks/17_magnetic_ae/inputs/co-v0.94-e20.toml
 77ff4f7f75a7e2ea27b18e5535b0699160b9001f48589f51b359e87b39e18845  benchmarks/17_magnetic_ae/inputs/co-v0.94-half.toml
@@ -417,8 +417,8 @@ fd6e4d6307780ae07c07db62d2f68ab289323f46fcdd0e21e62746d6272e3c20  benchmarks/17_
 e6d5fd6fab7f328095d61a0aeec41068f238ec8a5439446456722ea3d7c76b6b  benchmarks/17_magnetic_ae/reference/SOURCE.toml
 8d8fa64ead2b95e9fe06cd2ce16ed71921d2eda61191d2bee54f6d2db02e4682  benchmarks/17_magnetic_ae/reference/wien2k.json
 a79152e5c822e4c13c6b9f3baa19d19690227182310de99afbdbe1611b584ea6  tests/benchmarks/17_magnetic_ae/case.rs
-# 18_acwf_tune reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-3d3d7c2cbc5903f432090e13fbc31a903a30453ea11f41f20762b1d5054b15a4  benchmarks/18_acwf_tune/case.toml
+# 18_acwf_tune reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+28cac6a01fee2e2abda41a6a8a3c6b8dacfbebcf40e199de93ec631e71b0af02  benchmarks/18_acwf_tune/case.toml
 e54bd73bd696fe5c1af995c195351401160453b59c0c5e68d2cf59fec42556e5  benchmarks/18_acwf_tune/crystals.json
 12d6e929a028a6de6f824ad1269948e9ecc1e87f279f0e4715bfd896fe96db0b  benchmarks/18_acwf_tune/reference/LICENSE-acwf-verification-scripts
 a28e2d266cc5e6d8012163320a8992d68c2669c69f66667e1d453656ba39f0dc  benchmarks/18_acwf_tune/reference/SOURCE.toml
@@ -426,15 +426,15 @@ a28e2d266cc5e6d8012163320a8992d68c2669c69f66667e1d453656ba39f0dc  benchmarks/18_
 d1f9522b77ebfa839394876999e04c3d91597028e6ed87ecf0ae2fda5a8ea6e3  benchmarks/18_acwf_tune/reference/acwf-vasp.json
 9135a496746f5e8dc6b7e59a1c35ce57601ec01f8e52bf3be17a01e3f30b79fd  benchmarks/18_acwf_tune/table.toml
 88a145ca6b1cbe0a0152159c4b6a6e8063969948c1583ef804ef638df0f05531  tests/benchmarks/18_acwf_tune/case.rs
-# 19_family_v0 reviewer=claude-review-no-comments,codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-adbf4c1086f4718a12b9a4fab09574b254d352b1ebf0b138116d6f70075ba4d9  benchmarks/19_family_v0/case.toml
+# 19_family_v0 reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+ef8b0bf368da7a459159b7f233d81aa5367d2399f2d3fc542741acc015b91961  benchmarks/19_family_v0/case.toml
 d06e2cb73f2b264bf06e862ded7b3d6cdc3260fdecd969c38641fabab1cabbaf  benchmarks/19_family_v0/input.toml
 3d56946b1839834ab66f650eb8e5bf5abbd2da16be791b0920f9c673d711fe82  benchmarks/19_family_v0/inputs/v0.toml
 f193ab39eea4d83be369a70900e4a043ef1d23964eb81853c8a803e4875c4b2f  tests/benchmarks/19_family_v0/case.rs
 1b917f41e68f633e9d7a5e45f68e68c565253276541da9029db43aadc3edfad4  datasets/jth-2.0.toml
 0773b693a41082fedbf4f0eb8419f9d49759fd8ba6a86cde403d0e0dc1bde68c  datasets/orbitaR-PBE-v0.toml
-# 20_abinit_r2scan reviewer=codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-90acfddfdb1873fbe7f93f2cd3c066fc3c2181340e43a7c34661f5f53b4c4c9b  benchmarks/20_abinit_r2scan/case.toml
+# 20_abinit_r2scan reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+26bce628b05e9fda4eee74e1d245b0edcfe812012907009b41b68d59d1c2a3ba  benchmarks/20_abinit_r2scan/case.toml
 ec303aae0c8c892f136af173fdc92f092b6cbc8804c402be2cb9b68474175555  benchmarks/20_abinit_r2scan/input.toml
 5b042d8690210980cf6a4c93adfbb93172810c291f496df520a58195848b6d9a  benchmarks/20_abinit_r2scan/inputs/al.toml
 dcb539b784926075b8a1ac2514a6836caeab81e7165bb7f14c8e4df8d1046600  benchmarks/20_abinit_r2scan/inputs/fe.toml
@@ -443,10 +443,10 @@ dcb539b784926075b8a1ac2514a6836caeab81e7165bb7f14c8e4df8d1046600  benchmarks/20_
 790d5f2d509d874ce8f5cc8ced5f9e0d8578198a40c999ee26aa3776dd3010a3  benchmarks/20_abinit_r2scan/inputs/paw-fe.toml
 ab99442dc41bebbd5dd2738351bfe7817f7c236cc7969919178a010a33497096  benchmarks/20_abinit_r2scan/inputs/paw-si.toml
 9a8b85d86420a2b19250aba46fc1e8d10a123f0cdb63a87dde2a8d5c71ee8544  benchmarks/20_abinit_r2scan/inputs/si8.toml
-87c42322beb8e32a10536d8ae08006cd41c361b5529ec39954c783baccc8468d  benchmarks/20_abinit_r2scan/reference/SOURCE.toml
+8bd78308883250f2300b22a6b66d7e9553dd37f158aaa73dac3087aa16ac11bd  benchmarks/20_abinit_r2scan/reference/SOURCE.toml
 fb32ee5be337407196d579142afa29d48b43f8ac07a5f91d557cf9c904191b42  benchmarks/20_abinit_r2scan/reference/al.abi
 34ac912c68620f3f05dd36c21b8c63f921cc3d79c072ed3a2625823cec8e2901  benchmarks/20_abinit_r2scan/reference/al.json
-334428813f2eee906bb9432eb52f4ca2ae0fce743c0011c737ad7b56ba8f2b6a  benchmarks/20_abinit_r2scan/reference/dump.py
+75e6bac6fe1b37258207fd96d1888aa5a544d72aeeb28eed45f586859f71aac0  benchmarks/20_abinit_r2scan/reference/dump.py
 57658fd5425b6cbf39d12d6f8f74d8cf9e1b2de7942cd1aad150df2a410ad820  benchmarks/20_abinit_r2scan/reference/exccore.json
 478a92b577d49d6f5c235b9c63803ccddccf903e11eebcc68b20f00948634972  benchmarks/20_abinit_r2scan/reference/fe.abi
 3e14e86326fbc7c917d13a5c2335e5b081248d0651beb47b7277196d0b0cd984  benchmarks/20_abinit_r2scan/reference/fe.json
@@ -460,12 +460,12 @@ dbde3efe683573c1f031801d611e0402b0f7087a905a26a40f66fbaec4aaa544  benchmarks/20_
 ea00463e68d7c16f161b833711787ead4b03b8d1396a9dce9e098e225e944229  benchmarks/20_abinit_r2scan/reference/paw-fe.json
 4acbd27a2f4b71a1847f1225ef290ee6342ee4da778f58c4364a6b277f06f8da  benchmarks/20_abinit_r2scan/reference/paw-si.abi
 27d4c912f58c8a14329d7d802bd096316fbebac164e7151ac63223ebde4a8b77  benchmarks/20_abinit_r2scan/reference/paw-si.json
-2ead7868a299f81acfa4e012fbc7587bebeb050e08eeac76ec51f344530bd16e  benchmarks/20_abinit_r2scan/reference/reduce.py
+77ac5824a54b7251e686dd2de6cfc50c1f7444292ff91be54811346e98367b6e  benchmarks/20_abinit_r2scan/reference/reduce.py
 14e5a5551be1c3bff702475f2e9391fcb69af2a5c2bdf7d641ea542ad6d7b147  benchmarks/20_abinit_r2scan/reference/si8.abi
 8c1b897da63ed62f6ff787c55968ff04c3086f21d1dcba7e598584057bf54f2c  benchmarks/20_abinit_r2scan/reference/si8.json
 afe9e364fd7e5d5e6d47312c33a248307876ee2350e0e2072bb9b3d48b25a876  tests/benchmarks/20_abinit_r2scan/case.rs
-# 21_symmetry_r2scan reviewer=codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-7110cb5d57e45898a9a248c21dec5843bd261d5ab5fad23dba5baf1719901020  benchmarks/21_symmetry_r2scan/case.toml
+# 21_symmetry_r2scan reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+4db443fcd2152c1804a88be7ccfe3b6c6e972699564d32f26f97d1e936c8732a  benchmarks/21_symmetry_r2scan/case.toml
 889dc9dc1e768bcb906d7d1c4847da1f832f90848f605f4dcbf50e241c27afc6  benchmarks/21_symmetry_r2scan/input.toml
 03dc4d3bfba252560a1e03afff2d286d114ea1e07d15773d50cc93eff09a19ee  benchmarks/21_symmetry_r2scan/inputs/fe-full.toml
 cd8c4047cd7efc0632e78187f6c32dbe46abc455d64806845ec9b9e2e73606b6  benchmarks/21_symmetry_r2scan/inputs/ge-full.toml
@@ -473,8 +473,8 @@ d5ca563aeaa517efd334e1e54564aa59549483541374fee00397d51d8b4c6eff  benchmarks/21_
 b1ce20603204137f2d0e8ef8d689568b84652baf1f5d741daf89de28aaef958d  benchmarks/21_symmetry_r2scan/inputs/si-r2scan-full.toml
 4262be511bba9d48797c461d96bfeccfd1312b92530d5a1170318e0537d74a7c  benchmarks/21_symmetry_r2scan/inputs/si-r2scan.toml
 d656c3d7ed04b46a1d295e76ba1b2337ce35f42d29504da7f91719806b2fb1aa  tests/benchmarks/21_symmetry_r2scan/case.rs
-# 22_r2scan_derivatives reviewer=codex-integration-review reason=release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)
-22f6f2fdc474d99a5b0655acfe6ca465eafaf1a82b3c3ad976604d244500e311  benchmarks/22_r2scan_derivatives/case.toml
+# 22_r2scan_derivatives reviewer=PENDING reason=no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed
+cc39ce048249277509c6de5cedb3b90b9d0e2b88706a0a31931e5a82cfa80542  benchmarks/22_r2scan_derivatives/case.toml
 9146858b7706817273454cf8735aea48ed62e309b79c210d87d73e02c11ef127  benchmarks/22_r2scan_derivatives/input.toml
 609a3b018d123b9d608325f47193cd9b8356fe0ee3ac8c453cbca9509a5bf676  benchmarks/22_r2scan_derivatives/inputs/fe-strain-minus.toml
 e9f862228b179d530632b1ff4e65cd5afbb369357fe47d16fd898b42a42eded1  benchmarks/22_r2scan_derivatives/inputs/fe-strain-plus.toml

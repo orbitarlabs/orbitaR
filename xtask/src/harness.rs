@@ -1111,6 +1111,7 @@ impl Session {
             "failures": failures,
             "metrics": trace.metrics,
             "tolerance": case.tolerance(),
+            "why": case.why(),
             "readouts": readouts(&trace.metrics, case.tolerance()),
             "inputs": trace.inputs,
             "filter": self.filter,

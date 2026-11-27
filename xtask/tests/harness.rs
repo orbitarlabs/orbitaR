@@ -112,6 +112,21 @@ fn an_honest_case_passes_and_leaves_a_record() {
 }
 
 #[test]
+fn a_record_carries_the_why_of_its_case() {
+    let case = format!("{CASE}\n[why]\nerror_max = \"the worst seen is 4e-13\"\n");
+    let (outcome, root) = run_case("harness-why", &case, INPUT, GOOD, honest);
+    assert_eq!(outcome, Outcome::Pass);
+    let record: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        record["why"],
+        serde_json::json!({"error_max": "the worst seen is 4e-13"}),
+        "{record}"
+    );
+}
+
+#[test]
 fn a_measure_that_ignores_the_output_fails() {
     fn fixed(_: &Evidence) -> Result<Metrics, String> {
         Ok(Metrics::from([("error".to_owned(), 0.0)]))

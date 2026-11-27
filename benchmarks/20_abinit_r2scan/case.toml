@@ -4,25 +4,6 @@ status = "active"
 claims = ["correctness"]
 reference = "same-dataset"
 
-# r2SCAN against ABINIT 10.0.3 with Libxc 6.2.2 on the same JTH v2.0 PBE files, each named by its input: Si, fcc Al, a
-# distorted GaAs (upright frame), ferromagnetic bcc Fe (upright frame, symmetry on in both codes), Si8 in the
-# conventional cell, and two Fe sites in a lowered (triclinic) hcp cell at 15 Ha, state A from the start the input
-# gives; a lower state B is converged at 8 Ha only (reference/SOURCE.toml). The reference runs stop at tolvrs 1e-24 with
-# tolwfr on every compared band (reference/SOURCE.toml); both codes run each row with the operations the engine keeps
-# (SOURCE.toml), their spheres' D averaged over them. F and the one-center term take Σ N_s δ_s (reference/exccore.json):
-# ABINIT pairs the core density with the pseudo core τ in E_xc[n_c], the engine with the all-electron one. The bounds
-# are case 6's for PBE: F is stationary up to the derivative gaps both codes share (the floors and Libxc's clamps on the
-# grid and in the spheres, ABINIT's sphere D), so its error is the two codes'
-# numerics; the terms carry each stop's first-order error. The hcp row converges slowly, so it stops at
-# energy_tolerance_ha 1e-10: at the default 1e-9, a rotated rerun moved its Hartree term by 1.7e-10, past the harness's
-# bound (seed 2242456093685363489), and at 1e-10 by 1.2e-11. E_F, eigenvalues, and the magnetization: no derived bound;
-# margin over the records. paw-si and paw-fe probe one sphere at ABINIT's own ρ_ij of its last SCF step
-# (reference/paw-si.abi, paw-fe.abi, SOURCE.toml): its E_xc, all-electron and pseudo, and D^xc of each spin (ABINIT
-# e1xc, etild1xc, dijxc). No derived bound; margin over the records: E 1.5e-12 Ha of −55.6 (Fe), D 4.4e-13 Ha of 14.3
-# (Si). Forces, gaas and hcp (ABINIT 10.0.3 has meta-GGA PAW forces, m_forces.F90): each code's relative forces in the
-# upright frame, ABINIT's last block in its run.abo, kept by reduce.py --abo (SOURCE.toml); records 1.5e-12 (gaas, |f|
-# 6.2e-3) and 1.5e-11 Ha/Bohr (hcp, |f| 1.3e-5); bound 6.8× the larger. The engine removes no drift: its mean against
-# the mean ABINIT removed, printed to 4 digits (resolution 5e-9): record 4.6e-9 (gaas; hcp's are 0 under the inversion).
 [tolerance]
 paw_xc_energy_error_ha_max = 1e-11
 paw_xc_d_error_ha_max = 5e-12
@@ -33,3 +14,28 @@ fermi_level_error_ha_max = 5e-11
 magnetization_error_bohr_magneton_max = 1e-9
 force_error_ha_bohr_max = 1e-10
 force_mean_error_ha_bohr_max = 1e-8
+
+[why]
+inputs = """\
+hcp converges slowly, so it runs at energy_tolerance_ha 1e-10: at 1e-9, a rotated rerun moved its Hartree term by \
+1.7e-10, past the harness's bound (seed 2242456093685363489), and at 1e-10 by 1.2e-11"""
+tolerance = "E_F, eigenvalues, and the magnetization: no derived bound; a margin over the records"
+paw_xc_energy_error_ha_max = """\
+paw-si and paw-fe probe one sphere at ABINIT's own ρ_ij of its last SCF step (ABINIT e1xc, etild1xc): no derived \
+bound; a margin over the records, E 1.5e-12 Ha of −55.6 (Fe)"""
+paw_xc_d_error_ha_max = """\
+D^xc of each spin at the same ρ_ij (ABINIT dijxc): no derived bound; a margin over the records, 4.4e-13 Ha of 14.3 \
+(Si)"""
+free_energy_error_ha_max = """\
+case 6's PBE bound: F is stationary up to the derivative gaps both codes share (the floors and Libxc's clamps on the \
+grid and in the spheres, ABINIT's sphere D), so its error is the two codes' numerics. F and the one-center term take \
+Σ N_s δ_s (reference/exccore.json): ABINIT pairs the core density with the pseudo core τ in E_xc[n_c], the engine \
+with the all-electron one"""
+term_error_ha_max = "case 6's: the terms carry each stop's first-order error"
+force_error_ha_bohr_max = """\
+gaas and hcp: each code's relative forces in the upright frame, ABINIT's last block in its run.abo (ABINIT 10.0.3 has \
+meta-GGA PAW forces, m_forces.F90); records 1.5e-12 (gaas, |f| 6.2e-3) and 1.5e-11 Ha/Bohr (hcp, |f| 1.3e-5); bound \
+6.8× the larger"""
+force_mean_error_ha_bohr_max = """\
+the engine removes no drift: its mean against the mean ABINIT removed, printed to 4 digits (resolution 5e-9); record \
+4.6e-9 (gaas; hcp's are 0 under the inversion)"""

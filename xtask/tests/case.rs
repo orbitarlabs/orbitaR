@@ -197,3 +197,20 @@ fn a_milestone_names_an_intent_bar_on_g_and_needs_rivals() {
         }
     }
 }
+
+#[test]
+fn each_why_names_a_value_of_the_case_and_holds_a_reason() {
+    let with = |why: &str| {
+        format!("{ACTIVE}[tolerance]\nx_max = 1.0\n\n[relax]\nb = \"ions\"\n\n[why]\n{why}")
+    };
+    let named = "x_max = \"r\"\nb = \"r\"\nstatus = \"r\"\ninputs = \"r\"\ntolerance = \"r\"\n";
+    let f = layout_of("case-why", &with(named));
+    assert!(!has(&f, "[why]"), "{f:?}");
+    let stray = layout_of("case-why-stray", &with("y_max = \"r\"\n"));
+    assert!(
+        has(&stray, "[why].y_max names no value of the case"),
+        "{stray:?}"
+    );
+    let empty = layout_of("case-why-empty", &with("x_max = \" \"\n"));
+    assert!(has(&empty, "[why].x_max is empty"), "{empty:?}");
+}

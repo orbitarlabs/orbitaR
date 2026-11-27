@@ -4,16 +4,20 @@ status = "active"
 claims = ["correctness"]
 reference = "oracle"
 
-# Case 7's comparison at r2SCAN for Fe and diamond Ge, whose d channels break the site group on ABINIT's 12 × 13 mesh:
-# the reduced run averages D over the operations (ABINIT symdij), the full one the mesh energy over the operations'
-# images (design note X2, the site group), so the two agree to case 7's bounds. Nightly: a full run evaluates every
-# image of every atom, beyond the pr tier's time. Ge (4.9 Ha at 5.76 Å) gets the grids of case 7's Si at 5.5 Ha, which
-# keep the operations with t = ¼; its inversion maps one atom onto the other. Diamond Si at r2SCAN, case 7's Si input,
-# runs here too: its full run took 244 s at two threads on an arm64 workstation, and CI's 2-CPU runner was 3.4 to 7.8
-# times slower on five case 6 and 7 inputs that it timed, so about 830 s or more there, past the pr tier's 600 s.
 [tolerance]
 term_difference_ha_max = 5e-10
 fermi_level_difference_ha_max = 2e-11
 magnetization_difference_bohr_magneton_max = 1e-10
 eigenvalue_difference_ha_max = 5e-11
 weighted_eigenvalue_difference_ha_max = 2e-10
+
+[why]
+tier = """\
+nightly: a full run evaluates every image of every atom. Diamond Si's full run took 244 s at two threads on an arm64 \
+workstation, and CI's 2-CPU runner was 3.4 to 7.8 times slower on five case 6 and 7 inputs, so about 830 s or more \
+there, past the pr tier's 600 s"""
+inputs = """\
+Fe and diamond Ge, whose d channels break the site group on ABINIT's 12 × 13 mesh: the reduced run averages D over \
+the operations (ABINIT symdij), the full one the mesh energy over the operations' images. Ge (4.9 Ha at 5.76 Å) gets \
+the grids of case 7's Si at 5.5 Ha, which keep the operations with t = ¼; its inversion maps one atom onto the other"""
+tolerance = "case 7's bounds"

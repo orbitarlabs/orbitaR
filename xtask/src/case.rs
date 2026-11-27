@@ -13,6 +13,8 @@ pub(crate) struct Case {
     tolerance: BTreeMap<String, f64>,
     #[serde(default)]
     relax: BTreeMap<String, Relax>,
+    #[serde(default)]
+    why: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -257,6 +259,19 @@ impl Case {
         if m.repeats == Some(0) {
             return Err("repeats must be at least 1".into());
         }
+        for (key, text) in &self.why {
+            let named = WHY_KEYS.contains(&key.as_str())
+                || self.tolerance.contains_key(key)
+                || self.relax.contains_key(key);
+            if !named {
+                return Err(format!(
+                    "[why].{key} names no value of the case: one of {WHY_KEYS:?}, a [tolerance] key, or a [relax] input"
+                ));
+            }
+            if text.trim().is_empty() {
+                return Err(format!("[why].{key} is empty"));
+            }
+        }
         Ok(())
     }
 
@@ -294,6 +309,10 @@ impl Case {
 
     pub(crate) fn relax(&self) -> &BTreeMap<String, Relax> {
         &self.relax
+    }
+
+    pub(crate) fn why(&self) -> &BTreeMap<String, String> {
+        &self.why
     }
 
     pub(crate) fn repeats(&self) -> u32 {
@@ -354,6 +373,19 @@ pub(crate) fn ids(root: &Path) -> Result<Vec<String>, String> {
     }
     Ok(ids.into_iter().map(|(_, id)| id).collect())
 }
+
+const WHY_KEYS: [&str; 10] = [
+    "tier",
+    "status",
+    "claims",
+    "reference",
+    "timeout_s",
+    "repeats",
+    "rivals",
+    "milestone",
+    "inputs",
+    "tolerance",
+];
 
 pub(crate) const RESERVED: [&str; 3] = ["wall_s", "speedup", RSS_EXPONENT];
 

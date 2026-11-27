@@ -1,13 +1,10 @@
-"""One paw probe of case 20 from ABINIT's same-state dump (abinit-paw-dump.patch, reference/SOURCE.toml): the atom's
-rho_ij as pawdenpot read it, e1xc and etild1xc of that call, and dijxc of each spin from the pawdij call after it, each
-matrix in the engine's orbital order (the dataset's channels in file order, m = -l..l in each), which ABINIT's
-indlmn (l, m, n) gives: n counts the channels of one l in file order.
-usage: python3 -I dump.py json <run dir> <atom> <dataset.xml> <element> > <name>.json
-       python3 -I dump.py toml <name>.json > ../inputs/<name>.toml"""
 import json
 import sys
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
+
+USAGE = """usage: python3 -I dump.py json <run dir> <atom> <dataset.xml> <element> > <name>.json
+       python3 -I dump.py toml <name>.json > ../inputs/<name>.toml"""
 
 
 def rows(path):
@@ -18,8 +15,7 @@ def number(text):
     return float(text.replace("D", "E"))
 
 
-def engine_index(dataset):
-    """(l, m, n) -> the engine's orbital index, from the dataset's valence states in file order."""
+def engine_orbital_index(dataset):
     states = ElementTree.parse(dataset).getroot().find("valence_states")
     index, seen = {}, {}
     for state in states:
@@ -31,7 +27,7 @@ def engine_index(dataset):
 
 
 def from_dump(directory, atom, dataset, element):
-    index = engine_index(dataset)
+    index = engine_orbital_index(dataset)
     size = len(index)
     denpot = rows(f"{directory}/PAW_DUMP_DENPOT_{atom}.txt")
     dij = rows(f"{directory}/PAW_DUMP_DIJ_{atom}.txt")
@@ -49,9 +45,8 @@ def from_dump(directory, atom, dataset, element):
 
     rho = matrices([(int(r[1]), int(r[2]), number(r[3])) for r in denpot if r[0] == "rhoij"])
     d = matrices([(int(r[1]), int(r[2]), number(r[3])) for r in dij if r[0] == "dijxc"])
-    # pawdij read the rho_ij that pawdenpot read: one state.
     if matrices([(int(r[1]), int(r[2]), number(r[3])) for r in dij if r[0] == "rhoij"]) != rho:
-        sys.exit("the two files hold different rho_ij")
+        sys.exit("pawdij and pawdenpot read different rho_ij: the dump holds two states, not one")
     return {
         "element": element,
         "rho_ij": rho,
@@ -75,7 +70,9 @@ def toml(reference):
     return "\n".join(lines)
 
 
-if sys.argv[1] == "json":
+if sys.argv[1:2] == ["json"] and len(sys.argv) == 6:
     print(json.dumps(from_dump(sys.argv[2], int(sys.argv[3]), sys.argv[4], sys.argv[5]), indent=1))
-else:
+elif sys.argv[1:2] == ["toml"] and len(sys.argv) == 3:
     print(toml(sys.argv[2]))
+else:
+    sys.exit(USAGE)

@@ -7,8 +7,14 @@ datasets/jth-2.0.toml pins. input.json: case 6's reference/input.json. gaas, al2
 numpy 2.5.4 (python 3.12.16)"""
 locator = "doi:10.1016/j.cpc.2019.107042"
 convention = """\
-cells.py writes <name>.abi and inputs/<name>.toml from one cell. Case 6's reference/run.sh runs each .abi (nstep \
-200; tolvrs 1e-24 lies out of reach, so each run ends at nstep with ABINIT's scprqt warning), and case 6's \
+cells.py (ASE 3.29.0, spglib 2.8.0, NumPy 2.5.4) writes <name>.abi and inputs/<name>.toml from one cell, its \
+lattice constants near the measured ones (α-Al2O3: Kirfel and Eichhorn, Acta Cryst. A46, 271 (1990)); the \
+comparison with ABINIT does not depend on them. orbitaR reads reduced positions; ABINIT reads Cartesian ones in Bohr \
+(xcart), 12 decimals of the same product and no negative zero: no reference file then holds a fraction such as 2/3 \
+that science S1 would match to an engine literal, nor the last bits of a matrix product. Case 14's cells.py builds \
+on these builders and writers, and its --check regenerates both cases. \
+Case 6's reference/run.sh runs each .abi (nstep 200; tolvrs 1e-24 lies out of reach, so each run ends at nstep \
+with ABINIT's scprqt warning), and case 6's \
 reference.py reduces it (GSR terms in Ha; etotal is the free energy F). Each <name>.json is its RESULT line, \
 sha256-checked against that log. Runner-jobs run 41223751005 read the ETOT histories in place: F lies within 1e-11 Ha \
 per atom of its step-200 value from step 20 (gaas), 11 (al2o3), 10 (si32), and 23 (nio) on. NiO's sphere moments: \
