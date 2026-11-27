@@ -45,6 +45,26 @@ pub(crate) fn script(path: &std::path::Path, body: &str) {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
+pub(crate) fn with_layout_policies(root: &Tree, tuned: &str) -> String {
+    let mut table: toml::Table = toml::from_str(tuned).unwrap();
+    let Ok(policies) = xtask::harness::rival_layout_policies(root) else {
+        return tuned.to_owned();
+    };
+    let mut frozen_any = false;
+    for (code, policy) in policies {
+        if let Some(frozen) = table.get_mut(&code).and_then(|f| f.as_table_mut())
+            && frozen.contains_key("layout")
+        {
+            frozen.insert("layout_policy".into(), policy.into());
+            frozen_any = true;
+        }
+    }
+    match frozen_any {
+        true => toml::to_string(&table).unwrap(),
+        false => tuned.to_owned(),
+    }
+}
+
 pub(crate) fn rivals_tree(name: &str, input: &str, tuned: &str, pw: &str, abinit: &str) -> Tree {
     let root = tree(
         name,
@@ -52,7 +72,6 @@ pub(crate) fn rivals_tree(name: &str, input: &str, tuned: &str, pw: &str, abinit
             ("benchmarks/1_a/case.toml", CASE),
             ("benchmarks/1_a/input.toml", input),
             ("benchmarks/RIVALS.toml", RIVALS),
-            ("benchmarks/TUNED.toml", tuned),
             ("target/datasets/JTH-PBE-v2.0/Si/Si.xml", JTH_SI),
             ("rivals/SSSP/Si.UPF", UPF_SI),
             ("target/datasets/JTH-PBE-v2.0/Al/Al.xml", JTH_AL),
@@ -72,6 +91,11 @@ pub(crate) fn rivals_tree(name: &str, input: &str, tuned: &str, pw: &str, abinit
         sha(UPF_SI),
     );
     write(&root, "benchmarks/DATASETS.toml", &pins);
+    write(
+        &root,
+        "benchmarks/TUNED.toml",
+        &with_layout_policies(&root, tuned),
+    );
     script(&root.join("rivals/qe/bin/pw.x"), pw);
     script(&root.join("rivals/abinit/bin/abinit"), abinit);
     let mpiexec = "while [ \"$1\" != -n ]; do shift; done\nshift 2\nexec \"$@\"";
@@ -184,6 +208,47 @@ fn the_rival_inputs_carry_the_case_cell_mesh_smearing_bands_and_stop_with_the_io
     assert_eq!(abi, want_abinit);
     assert_eq!(qe_env.trim(), "8 1 y -in pw.in");
     assert_eq!(abi_env.trim(), "8 1 y run.abi");
+}
+
+#[test]
+fn a_claim_refuses_a_frozen_layout_that_another_candidate_set_or_thread_policy_chose() {
+    let legacy = TUNED.replace(
+        "[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 1, threads = 8 }",
+        "[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 8, threads = 1, input = [\"paral_kgb 1\", \"autoparal 1\", \"istwfk *1\"] }",
+    );
+    assert_ne!(legacy, TUNED);
+    let root = rivals_tree("rival-legacy-layout", INPUT, TUNED, PW, ABINIT);
+    write(&root, "benchmarks/TUNED.toml", &legacy);
+    let (outcome, _) = claim(&root, true);
+    let named = "layouts were searched under another candidate set or thread policy";
+    assert!(
+        matches!(&outcome, Outcome::Fail(f) if f.contains(named) && f.contains("none frozen); run `cargo xtask rivals layout` on the node")),
+        "{outcome:?}"
+    );
+    let abinit_alone = legacy.replacen(
+        "[qe.layout]",
+        "[qe]\nlayout_policy = \"<qe>\"\n\n[qe.layout]",
+        1,
+    );
+    let qe = xtask::harness::rival_layout_policies(&root).unwrap()["qe"].clone();
+    write(
+        &root,
+        "benchmarks/TUNED.toml",
+        &abinit_alone.replace("<qe>", &qe),
+    );
+    let (outcome, _) = claim(&root, true);
+    assert!(
+        matches!(&outcome, Outcome::Fail(f) if f.contains("the abinit layouts were searched under another candidate set") && f.contains("none frozen")),
+        "{outcome:?}"
+    );
+    let stale =
+        with_layout_policies(&root, TUNED).replace("layout_policy = \"", "layout_policy = \"0");
+    write(&root, "benchmarks/TUNED.toml", &stale);
+    let (outcome, _) = claim(&root, true);
+    assert!(
+        matches!(&outcome, Outcome::Fail(f) if f.contains("searched under another candidate set or thread policy")),
+        "{outcome:?}"
+    );
 }
 
 #[test]

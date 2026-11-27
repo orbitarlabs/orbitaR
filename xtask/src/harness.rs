@@ -756,6 +756,17 @@ fn compressed(table: &toml::Table, volume_scale: f64) -> Result<toml::Table, Str
     Ok(table)
 }
 
+pub fn rival_layout_policies(root: &Path) -> Result<BTreeMap<String, String>, String> {
+    let settings = rival::settings(root)?;
+    (rival::Rival::all().iter())
+        .map(|&code| {
+            let kpoints = rival::layout_kpoints(root, &settings, code)?;
+            let policy = rival::layout_policy(code, &settings.threads, &kpoints);
+            Ok((code.adapter().name().to_owned(), policy))
+        })
+        .collect()
+}
+
 fn borrows(id: &str, b: &Block, rivals: &rival::Rivals) -> bool {
     let abinit = rival::Rival::Abinit;
     let (path, base) = (
