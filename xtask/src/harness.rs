@@ -2418,19 +2418,21 @@ pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String>
     }
     let mut wanted = BTreeSet::new();
     let mut skipped = Vec::new();
-    for (k, p) in sweep.iter().map(|p| p.get()).enumerate() {
+    for name in &manifest {
+        for &r in case.rivals() {
+            if let Some(why) = settings.skips(r, &paths.keyed(name)) {
+                skipped.push(json!({
+                    "code": r.adapter().name(), "input": name, "reason": why,
+                }));
+            }
+        }
+    }
+    for p in sweep.iter().map(|p| p.get()) {
         for name in &manifest {
             wanted.insert((speed::Code::Orbitar, name.as_str(), p));
             for &r in case.rivals() {
-                match settings.skips(r, &paths.keyed(name)) {
-                    Some(why) if k == 0 => skipped.push(json!({
-                        "code": r.adapter().name(), "input": name, "reason": why,
-                    })),
-                    Some(_) => {}
-                    None if settings.times(p) => {
-                        wanted.insert((speed::Code::Rival(r), name.as_str(), p));
-                    }
-                    None => {}
+                if settings.times(p) && settings.skips(r, &paths.keyed(name)).is_none() {
+                    wanted.insert((speed::Code::Rival(r), name.as_str(), p));
                 }
             }
         }

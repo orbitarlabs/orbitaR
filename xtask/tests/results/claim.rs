@@ -535,3 +535,140 @@ fn science_s11_derives_each_claim_row_again_from_its_pinned_record() {
         );
     }
 }
+
+#[test]
+fn a_cell_that_both_rivals_skip_is_kept_with_orbitars_atom_count() {
+    let mut both = skipping();
+    both[2].runs[2] = None;
+    let root = claim_cases("claim-both-skip", &both, Claims::Speed);
+    let rivals = read(&root, "benchmarks/RIVALS.toml");
+    let abinit = rivals.replacen(
+        "density_ratio = 2.0\n",
+        "density_ratio = 2.0\nskip_cells = [{ cell = \"benchmarks/5_e/inputs/c.toml\", reason = \"no dataset converges it\" }]\n",
+        1,
+    );
+    assert_ne!(abinit, rivals);
+    write(&root, "benchmarks/RIVALS.toml", &abinit);
+    let head = commit(&root, "head");
+    assert!(collected(&root, &claim_record(&root, &head, &both)).is_empty());
+    let results = read(&root, "benchmarks/RESULTS.toml");
+    for code in ["qe", "abinit"] {
+        assert!(
+            results.contains(&format!(
+                "[[case.claim.skip]]\ncode = \"{code}\"\ninput = \"c\"\natoms = 32\n"
+            )),
+            "{results}"
+        );
+    }
+}
+
+fn without_pss_at_b() -> Vec<Cell> {
+    let mut zero = cells();
+    zero[1].runs = [
+        Some((0.2, 400_000_000)),
+        Some((0.4, 0)),
+        Some((0.3, 900_000_000)),
+    ];
+    zero[1].long = false;
+    zero
+}
+
+#[test]
+fn a_series_point_whose_runs_hold_no_positive_pss_is_unmeasured() {
+    let zero = without_pss_at_b();
+    let root = claim_cases("claim-zero-pss", &zero, Claims::Memory);
+    let head = commit(&root, "head");
+    let made = xtask::harness::claim_summaries(&root, &measured_record(&head, &zero)).unwrap();
+    let qe = (made.series.as_array().unwrap().iter())
+        .find(|s| s["code"] == "qe")
+        .unwrap();
+    let b = (qe["points"].as_array().unwrap().iter())
+        .find(|p| p["input"] == "b")
+        .unwrap();
+    assert_eq!(b["status"], "pss unmeasured: no Pss poll landed", "{qe}");
+    assert_eq!(b["pss_polled_runs"], json!([0, 5]), "{qe}");
+}
+
+#[test]
+fn the_claim_proof_names_each_code_whose_blocks_at_an_input_hold_no_positive_pss() {
+    let zero = without_pss_at_b();
+    let root = claim_cases("claim-proof-pss", &zero, Claims::Memory);
+    let head = commit(&root, "head");
+    let found = collected(&root, &claim_record(&root, &head, &zero));
+    assert!(
+        has(
+            &found,
+            "no qe block at b holds a timed run with a positive Pss"
+        ),
+        "{found:?}"
+    );
+    assert!(!has(&found, "no orbitar block at b"), "{found:?}");
+}
+
+#[test]
+fn a_refused_orbitar_block_pairs_with_no_rival_block() {
+    let root = claim_cases("claim-refused-pair", &cells(), Claims::Speed);
+    let head = commit(&root, "head");
+    let mut record = measured_record(&head, &cells());
+    let d = speed_block(&mut record, "orbitar", "d");
+    for key in [
+        "t_delta_s",
+        "wall_s",
+        "peak_rss_bytes",
+        "peak_pss_bytes",
+        "steps",
+    ] {
+        d[key] = json!([]);
+    }
+    d["refused"] = json!("d at 8 threads: refused before it runs");
+    let block = d.as_object_mut().unwrap();
+    for key in [
+        "median_t_delta_s",
+        "range_t_delta_s",
+        "cv_t_delta",
+        "median_peak_rss_bytes",
+        "median_peak_pss_bytes",
+    ] {
+        block.remove(key);
+    }
+    let made = xtask::harness::claim_summaries(&root, &record).unwrap();
+    for v in made.versus.as_array().unwrap() {
+        let inputs: Vec<&str> = (v["pairs"].as_array().unwrap().iter())
+            .map(|p| p["input"].as_str().unwrap())
+            .collect();
+        assert!(!inputs.contains(&"d") && inputs.len() == 4, "{v}");
+    }
+}
+
+#[test]
+fn the_claim_proof_names_a_held_out_variant_whose_base_is_no_input_of_the_record() {
+    let root = claim_cases("claim-held-base", &cells(), Claims::Speed);
+    let head = commit(&root, "head");
+    let mut record = claim_record(&root, &head, &cells());
+    record["held_out"][0]["base"] = json!("zzz");
+    let found = collected(&root, &record);
+    assert!(
+        has(
+            &found,
+            "record's held-out held-out-b varies zzz, which is no input of the record"
+        ),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_claim_whose_rivals_are_timed_at_no_thread_count_calls_for_no_rival_block() {
+    let root = claim_cases("claim-untimed-rivals", &cells(), Claims::Speed);
+    let rivals = read(&root, "benchmarks/RIVALS.toml");
+    let untimed = rivals.replacen("threads = [8]", "threads = []", 1);
+    assert_ne!(untimed, rivals);
+    write(&root, "benchmarks/RIVALS.toml", &untimed);
+    let head = commit(&root, "head");
+    let mut record = measured_record(&head, &cells());
+    record["speed"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|b| b["code"] == "orbitar");
+    let made = xtask::harness::claim_summaries(&root, &record);
+    assert!(made.is_ok(), "{:?}", made.err());
+}

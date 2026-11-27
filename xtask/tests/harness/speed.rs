@@ -688,6 +688,53 @@ fn an_orbitar_size_on_fewer_k_points_still_holds_two_solves_in_flight_in_its_est
     );
 }
 
+fn refused_by_estimate(name: &str, small: &str, big: &str, guard: f64) -> bool {
+    let files = [("input.toml", small), ("inputs/b.toml", big)];
+    let body = "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' ')\n\
+                m=$((a == 1 ? 40000000 : 1000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2";
+    let root = tree(
+        name,
+        &[
+            ("benchmarks/1_a/case.toml", &memory_claim()),
+            ("target/datasets/JTH-PBE-v2.0/Si/Si.xml", "si"),
+        ],
+    );
+    for (path, input) in files {
+        write(&root, &format!("benchmarks/1_a/{path}"), input);
+    }
+    write(
+        &root,
+        "datasets/jth-2.0.toml",
+        &super::jth("file:///nowhere", &[("pbe", "Si", "si", None)]),
+    );
+    let bin = fake(&root, body);
+    let outcome = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_memory_guard(guard)
+        .evaluate("1_a", both);
+    matches!(&outcome, Outcome::Planned(why) if why.contains("b at 8 threads: refused before it runs"))
+}
+
+#[test]
+fn a_single_k_point_size_holds_one_solve_in_flight_so_a_size_on_two_k_points_doubles_its_estimate()
+{
+    let (small, big) = (chain(1), meshed(2, "[1, 1, 2]"));
+    assert!(refused_by_estimate("speed-one-solve", &small, &big, 200e6));
+}
+
+#[test]
+fn a_spin_polarized_size_holds_a_solve_in_flight_per_spin() {
+    let spin = |atoms: usize| {
+        let moments = vec!["1.0"; atoms].join(", ");
+        format!("{}\n[spin]\nmoments = [{moments}]\n", chain(atoms))
+    };
+    assert!(refused_by_estimate(
+        "speed-spin-solves",
+        &spin(1),
+        &spin(2),
+        120e6
+    ));
+}
+
 #[test]
 fn a_measured_peak_past_the_guard_stops_every_later_launch_of_its_block() {
     let log = std::env::temp_dir().join(format!("xtask-speed-over-{}.log", std::process::id()));
@@ -741,6 +788,7 @@ fn the_least_squares_slope_weighs_every_point_and_needs_two_sizes() {
     assert!((log_log_slope(&power) - 1.7).abs() < 1e-12);
     assert!((log_log_slope(&[(0.0, 0.0), (1.0, 2.0), (3.0, 3.0)]) - 39.0 / 42.0).abs() < 1e-12);
     assert!(log_log_slope(&[(1.0, 2.0), (1.0, 3.0)]).is_nan());
+    assert!(log_log_slope(&[(0.0, 0.0), (1e-200, 1.0)]).is_nan());
     assert!(log_log_slope(&[]).is_nan());
 }
 

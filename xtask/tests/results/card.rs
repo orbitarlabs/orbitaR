@@ -1,6 +1,10 @@
-use super::claim::{Cell, Claims, RECORD, cells, claim_cases, claim_record, collected, skipping};
+use super::claim::{
+    Cell, Claims, RECORD, cells, claim_cases, claim_record, collected, measured_record, skipping,
+    summed,
+};
 use super::{WHAT, cases, commit, read, s11};
 use crate::{has, lever, write};
+use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
 
 const CARDS: [&str; 8] = [
@@ -269,6 +273,10 @@ const CHECKS: [(&str, &str, &str); 6] = [
 
 fn check_record(id: &str, commit: &str, metrics: &str, outcome: &str) -> String {
     let (_, tolerance, _) = CHECKS.iter().find(|c| c.0 == id).unwrap();
+    bounded_record(id, tolerance, commit, metrics, outcome)
+}
+
+fn bounded_record(id: &str, tolerance: &str, commit: &str, metrics: &str, outcome: &str) -> String {
     let tolerance: Vec<String> = (tolerance.lines())
         .map(|l| l.split_once(" = ").unwrap())
         .map(|(k, v)| format!("\"{k}\":{v}"))
@@ -280,12 +288,14 @@ fn check_record(id: &str, commit: &str, metrics: &str, outcome: &str) -> String 
     )
 }
 
-#[test]
-fn the_verification_card_shows_each_active_check_against_its_bound_and_only_when_every_one_passes()
-{
-    let root = cases("verification");
+fn verified(name: &str) -> (crate::Tree, String) {
+    verified_with(name, &CHECKS)
+}
+
+fn verified_with(name: &str, checks: &[(&str, &str, &str)]) -> (crate::Tree, String) {
+    let root = cases(name);
     let mut what = WHAT.to_owned();
-    for (id, tolerance, _) in CHECKS {
+    for &(id, tolerance, _) in checks {
         write(
             &root,
             &format!("benchmarks/{id}/case.toml"),
@@ -311,15 +321,22 @@ fn the_verification_card_shows_each_active_check_against_its_bound_and_only_when
     }
     write(&root, "benchmarks/results-what.toml", &what);
     let head = commit(&root, "checks");
-    for (id, _, metrics) in CHECKS {
+    for &(id, tolerance, metrics) in checks {
         write(
             &root,
             &format!("target/benchmarks/push/{id}.json"),
-            &check_record(id, &head, metrics, "pass"),
+            &bounded_record(id, tolerance, &head, metrics, "pass"),
         );
     }
     assert_eq!(lever(&["results", "collect"], &root), Vec::<String>::new());
     assert!(lever(&["results", "render"], &root).is_empty());
+    (root, head)
+}
+
+#[test]
+fn the_verification_card_shows_each_active_check_against_its_bound_and_only_when_every_one_passes()
+{
+    let (root, head) = verified("verification");
     let cards = cards_of(&root);
     assert!(
         cards[..6].iter().all(String::is_empty),
@@ -369,5 +386,184 @@ fn the_verification_card_shows_each_active_check_against_its_bound_and_only_when
         "card-verification-light.svg exists, but no row"
     ));
     assert!(lever(&["results", "render"], &root).is_empty());
+    assert!(cards_of(&root).iter().all(String::is_empty));
+}
+
+fn pinned(cards: &[String], head: &str) -> Vec<String> {
+    (cards.iter())
+        .map(|card| card.replace(&head[..7], "0000000"))
+        .map(|card| crate::harness::hex(&Sha256::digest(card)))
+        .collect()
+}
+
+const DRAWN_SHA256: [&str; 8] = [
+    "speed-light 24387cf4b67e3dc9d5aaef397b94c627ccf96a240de5a26c3a8beff00a31d843",
+    "speed-dark 16bb0347ba563cb2c938ed1384f2ae591e0c7a33bea9ad776b1318e4e39eb5e6",
+    "memory-light 63e19113d7870a2ab51a21472ab1d81fe6a85dd1ffd882ec47f15d664ca013d1",
+    "memory-dark 426b6cd096190f2d7a27c24384fefe093cd1fe89a13474ed3f564f41de80e094",
+    "scaling-light 85c48539494d4afc78ce7ba3d0eb62596c9c8c4598b494796974e7b355c3ae18",
+    "scaling-dark e4a3cb02a444d4ef136d37efc89b99c7dcdb5b2bf50063a8ea528d0f08beb5bc",
+    "verification-light 283d059b087a2148ce206386f504b1ba65b91f910547e628e0f025d5bd52cf52",
+    "verification-dark c46ec9335858ad93affe6490c436097b5b93d19f97b6d3fd86fb32b9e170c84f",
+];
+
+const DRAWN: [&str; 8] = [
+    "speed-light",
+    "speed-dark",
+    "memory-light",
+    "memory-dark",
+    "scaling-light",
+    "scaling-dark",
+    "verification-light",
+    "verification-dark",
+];
+
+#[test]
+fn each_card_of_a_fixed_record_keeps_its_drawn_bytes() {
+    let root = claim_cases("cards-pinned", &cells(), Claims::Memory);
+    let head = commit(&root, "head");
+    assert!(collected(&root, &claim_record(&root, &head, &cells())).is_empty());
+    assert!(lever(&["results", "render"], &root).is_empty());
+    let mut found = pinned(&cards_of(&root)[..6], &head);
+    let (checks, head) = verified("cards-pinned-checks");
+    found.extend(pinned(&cards_of(&checks)[6..], &head));
+    let named: Vec<String> = (DRAWN.iter().zip(&found))
+        .map(|(card, sha)| format!("{card} {sha}"))
+        .collect();
+    assert_eq!(named, DRAWN_SHA256);
+}
+
+fn steady(at_b: [(f64, u64); 3]) -> Vec<Cell> {
+    let mut steady = cells();
+    for (cell, scale) in steady.iter_mut().zip([0.5, 1.0, 2.0, 4.0, 8.0]) {
+        cell.runs = at_b.map(|(t, pss)| Some((t * scale, (pss as f64 * scale) as u64)));
+    }
+    steady
+}
+
+#[test]
+fn each_bar_names_its_time_and_its_peak_in_the_unit_of_their_range() {
+    for (name, at_b, shown) in [
+        (
+            "cards-units-low",
+            [
+                (9.5, 1_000_000_000),
+                (600.0, 2_000_000_000),
+                (36_000.0, 1_500_000_000),
+            ],
+            [
+                ">9.50 s</text>",
+                ">10.0 min</text>",
+                ">10.0 h</text>",
+                ">1.00 GB</text>",
+                ">2.00 GB</text>",
+                ">1.50 GB</text>",
+            ],
+        ),
+        (
+            "cards-units-high",
+            [
+                (10.0, 250_000_000),
+                (700.0, 999_000_000),
+                (40_000.0, 500_000_000),
+            ],
+            [
+                ">10.0 s</text>",
+                ">11.7 min</text>",
+                ">11.1 h</text>",
+                ">250 MB</text>",
+                ">999 MB</text>",
+                ">500 MB</text>",
+            ],
+        ),
+    ] {
+        let cards = rendered(name, &steady(at_b), Claims::Memory);
+        holds(&cards[0], &[">one representative cell: b</text>"]);
+        holds(&cards[0], &shown[..3]);
+        holds(&cards[2], &shown[3..]);
+    }
+}
+
+#[test]
+fn a_size_series_flat_at_one_power_of_ten_spans_a_decade_and_words_a_ratio_of_one_as_a_quotient() {
+    let mut flat = cells();
+    for cell in &mut flat {
+        cell.runs = [Some((10.0, 400_000_000)); 3];
+    }
+    let cards = rendered("cards-flat", &flat, Claims::Memory);
+    holds(
+        &cards[4],
+        &[
+            ">1.00×</text>",
+            ">QE time ÷ orbitaR time at 128 atoms</text>",
+            ">10 s</text>",
+            ">100 s</text>",
+        ],
+    );
+    assert!(!cards[4].contains("NaN"), "{}", cards[4]);
+}
+
+#[test]
+fn a_size_series_of_two_sizes_draws_its_scaling_card() {
+    let mut two = cells();
+    for cell in &mut two[2..] {
+        cell.atoms = 8;
+    }
+    let cards = rendered("cards-two-sizes", &two, Claims::Memory);
+    holds(
+        &cards[4],
+        &[
+            ">SCALABILITY</text>",
+            ">least squares over 2–8 atoms</text>",
+        ],
+    );
+}
+
+#[test]
+fn a_rival_that_lost_every_run_of_the_representative_cell_shows_a_lost_run_bar() {
+    let root = claim_cases("cards-lost", &cells(), Claims::Speed);
+    let head = commit(&root, "head");
+    let mut record = measured_record(&head, &cells());
+    for b in (record["speed"].as_array_mut().unwrap().iter_mut()).filter(|b| b["code"] == "qe") {
+        for key in [
+            "t_delta_s",
+            "wall_s",
+            "peak_rss_bytes",
+            "peak_pss_bytes",
+            "steps",
+        ] {
+            b[key] = serde_json::json!([]);
+        }
+        b["losses"] = serde_json::json!(vec!["qe: lost"; 5]);
+        let block = b.as_object_mut().unwrap();
+        for key in [
+            "median_t_delta_s",
+            "range_t_delta_s",
+            "cv_t_delta",
+            "median_peak_rss_bytes",
+            "median_peak_pss_bytes",
+        ] {
+            block.remove(key);
+        }
+    }
+    let found = collected(&root, &summed(&root, record));
+    assert_eq!(found, Vec::<String>::new());
+    assert!(lever(&["results", "render"], &root).is_empty());
+    let speed = &cards_of(&root)[0];
+    holds(
+        speed,
+        &[
+            ">lost run</text>",
+            "width=\"540.0\" height=\"38.0\" rx=\"6.0\" fill=\"#2f7f78\"",
+        ],
+    );
+    assert!(!speed.contains("inf"), "{speed}");
+}
+
+#[test]
+fn the_identical_tile_needs_each_quantity_bound_at_zero_or_no_verification_card_shows() {
+    let mut checks = CHECKS;
+    checks[1].1 = "term_difference_ha_max = 1e-12\nfermi_level_difference_ha_max = 0.0";
+    let (root, _) = verified_with("verification-loose", &checks);
     assert!(cards_of(&root).iter().all(String::is_empty));
 }
