@@ -612,7 +612,7 @@ pub fn install(root: &Path, commit: &str) -> Result<(Install, PathBuf), Findings
     let python = venv.join("bin/python");
     run(
         Command::new("uv")
-            .args(["venv", "--quiet", "--python", "3.12"])
+            .args(["venv", "--quiet", "--clear", "--python", "3.12"])
             .arg(&venv),
         "uv venv",
     )
@@ -620,7 +620,7 @@ pub fn install(root: &Path, commit: &str) -> Result<(Install, PathBuf), Findings
     let uv_install = |args: &[&str]| {
         let mut command = Command::new("uv");
         command
-            .args(["pip", "install", "--quiet", "--python"])
+            .args(["pip", "install", "--quiet", "--no-cache", "--python"])
             .arg(&python)
             .args(args)
             .current_dir(root);

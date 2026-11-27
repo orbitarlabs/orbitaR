@@ -972,6 +972,33 @@ fn installable(name: &str, data: bool) -> crate::Tree {
     installable_with(name, data, "")
 }
 
+const ORBITAR_WHEEL: &str = "target/wheel/wheel/orbitar-0.1.0-py3-none-any.whl";
+
+fn orbitar_wheel(root: &Path, commit: &str, requires: &str) {
+    let tag = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n";
+    let ase = "from importlib.metadata import entry_points\nfrom pathlib import Path\nFAMILY = 'jth-2.0'\n\
+               def installed(family):\n    for point in entry_points(group='orbitar.datasets', name=family):\n        \
+               return Path(point.load().__file__).parent\n";
+    let orbitar: Vec<(&str, String)> = vec![
+        ("orbitar/__init__.py", String::new()),
+        ("orbitar/ase.py", ase.into()),
+        ("orbitar/datasets.py", String::new()),
+        (
+            "orbitar-0.1.0.data/scripts/orbitar",
+            format!("#!/bin/sh\necho 'orbitar 0.1.0 (commit {commit})'\n"),
+        ),
+        (
+            "orbitar-0.1.0.dist-info/METADATA",
+            format!(
+                "Metadata-Version: 2.1\nName: orbitar\nVersion: 0.1.0\nRequires-Dist: orbitar-jth==2.0.0\n{requires}"
+            ),
+        ),
+        ("orbitar-0.1.0.dist-info/WHEEL", tag.into()),
+        ("orbitar-0.1.0.dist-info/RECORD", String::new()),
+    ];
+    wheel(root, ORBITAR_WHEEL, &orbitar);
+}
+
 fn installable_with(name: &str, data: bool, requires: &str) -> crate::Tree {
     let root = tree(
         &format!("install-{name}"),
@@ -989,32 +1016,8 @@ fn installable_with(name: &str, data: bool, requires: &str) -> crate::Tree {
             ("target/wheel/jth-wheel/.keep", ""),
         ],
     );
+    orbitar_wheel(&root, "abc", requires);
     let tag = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n";
-    let ase = "from importlib.metadata import entry_points\nfrom pathlib import Path\nFAMILY = 'jth-2.0'\n\
-               def installed(family):\n    for point in entry_points(group='orbitar.datasets', name=family):\n        \
-               return Path(point.load().__file__).parent\n";
-    let orbitar: Vec<(&str, String)> = vec![
-        ("orbitar/__init__.py", String::new()),
-        ("orbitar/ase.py", ase.into()),
-        ("orbitar/datasets.py", String::new()),
-        (
-            "orbitar-0.1.0.data/scripts/orbitar",
-            "#!/bin/sh\necho 'orbitar 0.1.0 (commit abc)'\n".into(),
-        ),
-        (
-            "orbitar-0.1.0.dist-info/METADATA",
-            format!(
-                "Metadata-Version: 2.1\nName: orbitar\nVersion: 0.1.0\nRequires-Dist: orbitar-jth==2.0.0\n{requires}"
-            ),
-        ),
-        ("orbitar-0.1.0.dist-info/WHEEL", tag.into()),
-        ("orbitar-0.1.0.dist-info/RECORD", String::new()),
-    ];
-    wheel(
-        &root,
-        "target/wheel/wheel/orbitar-0.1.0-py3-none-any.whl",
-        &orbitar,
-    );
     if data {
         let jth: Vec<(&str, String)> = vec![
             ("orbitar_jth/__init__.py", String::new()),
@@ -1134,6 +1137,19 @@ fn pip_install_orbitar_fails_when_the_lock_lacks_a_dependency() {
     };
     assert!(has(&found, "pip install orbitar exited with"), "{found:?}");
     assert!(has(&found, "dep"), "{found:?}");
+}
+
+#[test]
+fn pip_install_orbitar_installs_a_wheel_rebuilt_at_the_same_path_and_time() {
+    let root = installable("rebuilt", true);
+    xtask::install(&root, "abc").unwrap();
+    let path = root.join(ORBITAR_WHEEL);
+    let built = std::fs::metadata(&path).unwrap().modified().unwrap();
+    orbitar_wheel(&root, "def", "");
+    let file = std::fs::File::options().write(true).open(&path).unwrap();
+    file.set_modified(built).unwrap();
+    let (install, _) = xtask::install(&root, "def").unwrap();
+    assert_eq!(install.version_printed, "orbitar 0.1.0 (commit def)");
 }
 
 #[test]
