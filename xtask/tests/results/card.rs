@@ -1,4 +1,4 @@
-use super::claim::{Cell, RECORD, cells, claim_cases, claim_record, collected};
+use super::claim::{Cell, Claims, RECORD, cells, claim_cases, claim_record, collected, skipping};
 use super::{WHAT, cases, commit, read, s11};
 use crate::{has, lever, write};
 use std::{fs, path::Path};
@@ -24,8 +24,8 @@ fn holds(card: &str, words: &[&str]) {
     }
 }
 
-fn rendered(name: &str, cells: &[Cell]) -> Vec<String> {
-    let root = claim_cases(name, cells);
+fn rendered(name: &str, cells: &[Cell], claims: Claims) -> Vec<String> {
+    let root = claim_cases(name, cells, claims);
     let head = commit(&root, "head");
     let found = collected(&root, &claim_record(&root, &head, cells));
     assert_eq!(found, Vec::<String>::new());
@@ -35,7 +35,7 @@ fn rendered(name: &str, cells: &[Cell]) -> Vec<String> {
 
 #[test]
 fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_numbers() {
-    let root = claim_cases("cards", &cells());
+    let root = claim_cases("cards", &cells(), Claims::Memory);
     let head = commit(&root, "head");
     assert!(collected(&root, &claim_record(&root, &head, &cells())).is_empty());
     assert!(lever(&["results", "render"], &root).is_empty());
@@ -64,21 +64,19 @@ fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_num
         speed,
         &[
             ">SPEED</text>",
-            ">≥ 4.10×</text>",
+            ">≥ 4.08×</text>",
             ">faster than QE</text>",
             ">≥ 3.00×</text>",
             ">faster than ABINIT</text>",
             ">95% CI lower bound</text>",
-            ">geometric mean over 4 of 5 cells</text>",
             ">geometric mean over 5 of 5 cells</text>",
-            ">one representative cell: b</text>",
+            ">one representative cell: c</text>",
             ">of the cells that every rival ran, the one of least summed |log ratio − log G| over the rivals; ties go to the first by name</text>",
-            ">8.00 s</text>",
-            ">32.0 s</text>",
-            ">24.0 s</text>",
+            ">64.0 s</text>",
+            ">256.3 s</text>",
+            ">192.2 s</text>",
             ">QE 7.5</text>",
             ">ABINIT 10.0.3</text>",
-            ">not timed: QE c (32 atoms), skipped: no dataset converges it</text>",
         ],
     );
     holds(
@@ -87,7 +85,7 @@ fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_num
             ">MEMORY</text>",
             ">2.00×</text>",
             ">less peak memory than QE</text>",
-            ">geometric mean over 3 of 5 cells</text>",
+            ">geometric mean over 4 of 5 cells</text>",
             ">2.09×</text>",
             ">geometric mean over 4 of 5 cells</text>",
             ">one representative cell: b</text>",
@@ -108,17 +106,16 @@ fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_num
             ">3.00×</text>",
             ">faster than ABINIT at 128 atoms</text>",
             ">median T(δ) of d</text>",
-            ">N<tspan dy=\"-22\" font-size=\"30\">1.85</tspan></text>",
+            ">N<tspan dy=\"-22\" font-size=\"30\">1.84</tspan></text>",
             ">least squares over 2–128 atoms</text>",
-            ">QE α 2.15 over 2–128 atoms</text>",
-            ">ABINIT α 1.85 over 2–128 atoms</text>",
+            ">QE α 2.14 over 2–128 atoms</text>",
+            ">ABINIT α 1.84 over 2–128 atoms</text>",
             ">0.1 s</text>",
             ">10000 s</text>",
-            ">not timed: QE c (32 atoms), skipped: no dataset converges it</text>",
         ],
     );
     assert_eq!(scaling.matches("<polyline").count(), 3, "{scaling}");
-    assert_eq!(scaling.matches("<circle").count(), 11, "{scaling}");
+    assert_eq!(scaling.matches("<circle").count(), 12, "{scaling}");
     for card in [speed, memory, scaling] {
         holds(
             card,
@@ -157,28 +154,27 @@ fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_num
 }
 
 #[test]
-fn a_rival_without_a_point_at_the_largest_size_has_no_ratio_there_and_the_card_says_why() {
-    let mut skipped = cells();
-    skipped[3].runs[1] = None;
-    let cards = rendered("cards-withheld", &skipped);
+fn a_configured_skip_is_named_on_the_speed_card_and_leaves_the_mean_over_fewer_cells() {
+    let cards = rendered("cards-skips", &skipping(), Claims::Speed);
     holds(
-        &cards[4],
+        &cards[0],
         &[
-            ">none</text>",
-            ">no QE ratio at 128 atoms</text>",
-            ">d skipped: no dataset converges it</text>",
-            ">faster than ABINIT at 128 atoms</text>",
-            ">not timed: QE d (128 atoms), skipped: no dataset converges it</text>",
+            ">geometric mean over 4 of 5 cells</text>",
+            ">not timed: QE c (32 atoms), skipped: no dataset converges it</text>",
         ],
     );
-    assert!(!cards[4].contains("faster than QE at"), "{}", cards[4]);
+    assert!(
+        cards[4].is_empty(),
+        "a speed claim has no series: {}",
+        cards[4]
+    );
 }
 
 #[test]
 fn a_ratio_that_shows_no_advantage_is_worded_as_a_plain_quotient() {
     let mut slower = cells();
     slower[3].runs[1] = Some((256.0, 12_800_000_000));
-    let cards = rendered("cards-neutral", &slower);
+    let cards = rendered("cards-neutral", &slower, Claims::Memory);
     holds(
         &cards[4],
         &[
@@ -196,7 +192,7 @@ fn a_bound_just_below_a_hundredth_is_cut_and_never_rounded_up() {
         let (t, pss) = cell.runs[0].unwrap();
         cell.runs[2] = Some((t * 1.229_999_999_9, pss * 2));
     }
-    let cards = rendered("cards-cut", &close);
+    let cards = rendered("cards-cut", &close, Claims::Speed);
     holds(
         &cards[0],
         &[">≥ 1.22×</text>", ">faster than ABINIT</text>"],
@@ -206,7 +202,7 @@ fn a_bound_just_below_a_hundredth_is_cut_and_never_rounded_up() {
 
 #[test]
 fn a_failing_claim_record_makes_no_card_and_render_removes_a_stray_one() {
-    let root = claim_cases("no-card", &cells());
+    let root = claim_cases("no-card", &cells(), Claims::Memory);
     let head = commit(&root, "head");
     let mut failing = claim_record(&root, &head, &cells());
     failing["outcome"] = "fail".into();

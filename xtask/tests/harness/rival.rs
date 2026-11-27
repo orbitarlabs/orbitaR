@@ -45,6 +45,26 @@ pub(crate) fn script(path: &std::path::Path, body: &str) {
     std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
 }
 
+pub(crate) fn with_layout_policies(root: &Tree, tuned: &str) -> String {
+    let mut table: toml::Table = toml::from_str(tuned).unwrap();
+    let Ok(policies) = xtask::harness::rival_layout_policies(root) else {
+        return tuned.to_owned();
+    };
+    let mut frozen_any = false;
+    for (code, policy) in policies {
+        if let Some(frozen) = table.get_mut(&code).and_then(|f| f.as_table_mut())
+            && frozen.contains_key("layout")
+        {
+            frozen.insert("layout_policy".into(), policy.into());
+            frozen_any = true;
+        }
+    }
+    match frozen_any {
+        true => toml::to_string(&table).unwrap(),
+        false => tuned.to_owned(),
+    }
+}
+
 pub(crate) fn rivals_tree(name: &str, input: &str, tuned: &str, pw: &str, abinit: &str) -> Tree {
     let root = tree(
         name,
@@ -52,7 +72,6 @@ pub(crate) fn rivals_tree(name: &str, input: &str, tuned: &str, pw: &str, abinit
             ("benchmarks/1_a/case.toml", CASE),
             ("benchmarks/1_a/input.toml", input),
             ("benchmarks/RIVALS.toml", RIVALS),
-            ("benchmarks/TUNED.toml", tuned),
             ("target/datasets/JTH-PBE-v2.0/Si/Si.xml", JTH_SI),
             ("rivals/SSSP/Si.UPF", UPF_SI),
             ("target/datasets/JTH-PBE-v2.0/Al/Al.xml", JTH_AL),
@@ -72,6 +91,11 @@ pub(crate) fn rivals_tree(name: &str, input: &str, tuned: &str, pw: &str, abinit
         sha(UPF_SI),
     );
     write(&root, "benchmarks/DATASETS.toml", &pins);
+    write(
+        &root,
+        "benchmarks/TUNED.toml",
+        &with_layout_policies(&root, tuned),
+    );
     script(&root.join("rivals/qe/bin/pw.x"), pw);
     script(&root.join("rivals/abinit/bin/abinit"), abinit);
     let mpiexec = "while [ \"$1\" != -n ]; do shift; done\nshift 2\nexec \"$@\"";
@@ -154,7 +178,7 @@ fn first_inputs_in(name: &str, input: &str, setup: impl Fn(&Tree)) -> [String; 4
     std::fs::create_dir_all(&log).unwrap();
     let keep = |file: &str| {
         format!(
-            "[ -e '{0}/{file}' ] || {{ cp {file} '{0}/{file}'; echo \"$OMP_NUM_THREADS $GFORTRAN_UNBUFFERED_PRECONNECTED $*\" > '{0}/{file}.env'; }}",
+            "[ -e '{0}/{file}' ] || {{ cp {file} '{0}/{file}'; echo \"$OMP_NUM_THREADS $OPENBLAS_NUM_THREADS $GFORTRAN_UNBUFFERED_PRECONNECTED $*\" > '{0}/{file}.env'; }}",
             log.display()
         )
     };
@@ -182,8 +206,106 @@ fn the_rival_inputs_carry_the_case_cell_mesh_smearing_bands_and_stop_with_the_io
         pp_dirpath \"./\"\npseudos \"JTH-PBE-v2.0/Si/Si.xml\"\necut 10.0\npawecutdg 20.0\nngkpt 2 2 2\nnshiftk 1\nshiftk 0.5 0.5 0.5\nkptopt 3\nnsym 1\n\
         occopt 3\ntsmear 0.01\nnband 8\ntoldfe 3.674932217565499e-9\nnstep 500\noptstress 0\nchkprim 0\nchksymbreak 0\nprtwf 0\nprtden 0\nprteig 0\nprtgsr 0\nprtebands 0\n";
     assert_eq!(abi, want_abinit);
-    assert_eq!(qe_env.trim(), "8 y -in pw.in");
-    assert_eq!(abi_env.trim(), "8 y run.abi");
+    assert_eq!(qe_env.trim(), "8 1 y -in pw.in");
+    assert_eq!(abi_env.trim(), "8 1 y run.abi");
+}
+
+#[test]
+fn a_claim_refuses_a_frozen_layout_that_another_candidate_set_or_thread_policy_chose() {
+    let legacy = TUNED.replace(
+        "[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 1, threads = 8 }",
+        "[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 8, threads = 1, input = [\"paral_kgb 1\", \"autoparal 1\", \"istwfk *1\"] }",
+    );
+    assert_ne!(legacy, TUNED);
+    let root = rivals_tree("rival-legacy-layout", INPUT, TUNED, PW, ABINIT);
+    write(&root, "benchmarks/TUNED.toml", &legacy);
+    let (outcome, _) = claim(&root, true);
+    let named = "layouts were searched under another candidate set or thread policy";
+    assert!(
+        matches!(&outcome, Outcome::Fail(f) if f.contains(named) && f.contains("none frozen); run `cargo xtask rivals layout` on the node")),
+        "{outcome:?}"
+    );
+    let abinit_alone = legacy.replacen(
+        "[qe.layout]",
+        "[qe]\nlayout_policy = \"<qe>\"\n\n[qe.layout]",
+        1,
+    );
+    let qe = xtask::harness::rival_layout_policies(&root).unwrap()["qe"].clone();
+    write(
+        &root,
+        "benchmarks/TUNED.toml",
+        &abinit_alone.replace("<qe>", &qe),
+    );
+    let (outcome, _) = claim(&root, true);
+    assert!(
+        matches!(&outcome, Outcome::Fail(f) if f.contains("the abinit layouts were searched under another candidate set") && f.contains("none frozen")),
+        "{outcome:?}"
+    );
+    let stale =
+        with_layout_policies(&root, TUNED).replace("layout_policy = \"", "layout_policy = \"0");
+    write(&root, "benchmarks/TUNED.toml", &stale);
+    let (outcome, _) = claim(&root, true);
+    assert!(
+        matches!(&outcome, Outcome::Fail(f) if f.contains("searched under another candidate set or thread policy")),
+        "{outcome:?}"
+    );
+}
+
+#[test]
+fn each_declared_rival_links_the_pthreads_openblas_and_no_other_blas() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../benchmarks/NODE.toml");
+    let node: toml::Table = toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    for code in ["qe", "abinit"] {
+        let packages = node[code].as_table().unwrap();
+        let pin = |name: &str| {
+            packages
+                .get(name)
+                .and_then(|p| p.as_str())
+                .unwrap_or_default()
+        };
+        assert!(
+            pin("libopenblas").contains(" pthreads_"),
+            "{code}: {packages:?}"
+        );
+        for (name, pin) in packages {
+            let pin = pin.as_str().unwrap_or_default();
+            let blas = ["blas", "mkl", "blis", "lapack"];
+            if blas.iter().any(|b| name.contains(b) || pin.contains(b)) {
+                assert!(
+                    name.contains("openblas") || pin.contains("_openblas"),
+                    "{code}.{name} = {pin}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn each_rival_block_names_the_thread_environment_that_its_runs_had() {
+    let log =
+        std::env::temp_dir().join(format!("xtask-rival-thread-env-log-{}", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let keep = format!(
+        "echo \"$OMP_NUM_THREADS $OPENBLAS_NUM_THREADS\" >> '{}'",
+        log.display()
+    );
+    let (pw, abinit) = (format!("{keep}\n{PW}"), format!("{keep}\n{ABINIT}"));
+    let root = rivals_tree("rival-thread-env", INPUT, TUNED, &pw, &abinit);
+    let (outcome, record) = claim(&root, true);
+    let seen = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert!(passed(&outcome), "{outcome:?}: {record}");
+    let lines: std::collections::BTreeSet<&str> = seen.lines().collect();
+    assert_eq!(lines, ["8 1"].into(), "{seen}");
+    for code in ["qe", "abinit"] {
+        let timed = blocks(&record, code);
+        assert_eq!(timed.len(), 1, "{record}");
+        assert_eq!(
+            timed[0]["rival"]["thread_env"],
+            json!({ "OMP_NUM_THREADS": "8", "OPENBLAS_NUM_THREADS": "1" }),
+            "{record}"
+        );
+    }
 }
 
 #[test]
@@ -1514,5 +1636,215 @@ fn a_rival_block_noisy_over_its_first_runs_that_lost_the_rest_keeps_its_cv_and_i
     assert!(
         !matches!(&outcome, Outcome::Fail(why) if why.contains("the judge refuses")),
         "{outcome:?}"
+    );
+}
+
+#[test]
+fn the_series_holds_each_codes_declared_sizes_alone_with_a_status_for_each_and_keeps_a_failed_runs_peak()
+ {
+    let pw = format!("dd if=/dev/zero of=/dev/null bs=30000000 count=1 2>/dev/null\n{PW}\nexit 7");
+    let root = rivals_tree("rival-series", INPUT, TUNED, &pw, ABINIT);
+    let case = CASE
+        .replace("\"active\"", "\"planned\"")
+        .replace("\"correctness\"", "\"correctness\", \"memory\"");
+    write(&root, "benchmarks/1_a/case.toml", &case);
+    let two = INPUT
+        .replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]")
+        .replace(
+            "[[0.0, 0.0, 0.25]]",
+            "[[0.0, 0.0, 0.25], [0.25, 0.25, 0.5]]",
+        );
+    write(&root, "benchmarks/1_a/inputs/b.toml", &two);
+    write(
+        &root,
+        "benchmarks/RIVALS.toml",
+        &RIVALS.replace(
+            "density_ratio = 8.0\n",
+            "density_ratio = 8.0\nskip_cells = [{ cell = \"benchmarks/1_a/inputs/b.toml\", reason = \"no dataset\" }]\n",
+        ),
+    );
+    let held = std::env::temp_dir().join(format!("xtask-series-variants-{}", std::process::id()));
+    write(
+        &held,
+        "1_a/b.toml",
+        &two.replace("cutoff_ha = 1.0", "cutoff_ha = 1.5"),
+    );
+    let bin = fake(&root, "step -2");
+    let session = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_held_out(&held);
+    let _ = session.evaluate("1_a", both);
+    let _ = std::fs::remove_dir_all(&held);
+    let record: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    let series = record["series"].as_array().unwrap();
+    let codes: Vec<&str> = series.iter().map(|s| s["code"].as_str().unwrap()).collect();
+    assert_eq!(codes, ["orbitar", "qe", "abinit"], "{record}");
+    for entry in series {
+        let inputs: Vec<&str> = (entry["points"].as_array().unwrap().iter())
+            .map(|p| p["input"].as_str().unwrap())
+            .collect();
+        assert_eq!(inputs, ["input", "b"], "{record}");
+    }
+    let qe = &series[1];
+    assert_eq!(qe["coverage"], "partial", "{record}");
+    assert!(
+        qe["points"][0]["status"]
+            .as_str()
+            .unwrap()
+            .starts_with("lost"),
+        "{record}"
+    );
+    assert_eq!(qe["points"][1]["status"], "skipped: no dataset", "{record}");
+    assert!(qe["t_delta_exponent"].is_string(), "{record}");
+    let failures = record["failures"].to_string();
+    assert!(
+        failures.contains("series: a full-series claim needs every code at every declared size")
+            && failures.contains("qe b: skipped: no dataset"),
+        "{record}"
+    );
+    let lost = (record["speed"].as_array().unwrap().iter())
+        .find(|b| b["code"] == "qe" && b["input"] == "input")
+        .unwrap();
+    let kept = numbers_of(&lost["failed_peak_bytes"]);
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{lost}"
+    );
+}
+
+fn numbers_of(value: &Value) -> Vec<u64> {
+    (value.as_array().into_iter().flatten())
+        .filter_map(Value::as_u64)
+        .collect()
+}
+
+fn memory_rivals(name: &str, input: &str, tuned: &str, pw: &str, abinit: &str) -> Tree {
+    let root = rivals_tree(name, input, tuned, pw, abinit);
+    let case = CASE
+        .replace("\"active\"", "\"planned\"")
+        .replace("\"correctness\"", "\"correctness\", \"memory\"");
+    write(&root, "benchmarks/1_a/case.toml", &case);
+    root
+}
+
+fn guarded(root: &Tree, body: &str, guard: f64) -> Value {
+    let bin = fake(root, body);
+    let _ = Session::new(root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_memory_guard(guard)
+        .evaluate("1_a", both);
+    serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap()).unwrap()
+}
+
+#[test]
+fn a_rival_run_that_misses_t_delta_is_a_loss_that_keeps_its_peak() {
+    let count =
+        std::env::temp_dir().join(format!("xtask-rival-drift-{}.count", std::process::id()));
+    let _ = std::fs::remove_file(&count);
+    let pw = format!(
+        "n=$(cat '{0}' 2>/dev/null || echo 0); echo $((n + 1)) > '{0}'\n\
+         dd if=/dev/zero of=/dev/null bs=30000000 count=1 2>/dev/null\n\
+         [ \"$n\" -ge 2 ] && e=-3.0\n{PW}",
+        count.display()
+    );
+    let root = memory_rivals("rival-drift", INPUT, TUNED, &pw, ABINIT);
+    let record = guarded(&root, "step -2", 14e9);
+    let _ = std::fs::remove_file(&count);
+    let qe = blocks(&record, "qe");
+    assert!(!qe[0]["losses"].as_array().unwrap().is_empty(), "{record}");
+    let kept = numbers_of(&qe[0]["failed_peak_bytes"]);
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{}",
+        qe[0]
+    );
+}
+
+fn own_cutoff_runs(name: &str, heavy: &str) -> (Value, usize) {
+    let log = std::env::temp_dir().join(format!("xtask-{name}-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let root = memory_rivals(name, INPUT, TUNED, PW, ABINIT);
+    let body = format!(
+        "grep -qx 'cutoff_ha = 1.0' input.toml && echo own >> '{}'\n\
+         if {heavy}; then dd if=/dev/zero of=/dev/null bs=100000000 count=1 2>/dev/null; fi\nstep -2",
+        log.display()
+    );
+    let record = guarded(&root, &body, 50e6);
+    let own = std::fs::read_to_string(&log)
+        .unwrap_or_default()
+        .lines()
+        .count();
+    let _ = std::fs::remove_file(&log);
+    (record, own)
+}
+
+#[test]
+fn a_measured_peak_past_the_guard_at_v2_or_correctness_stops_the_later_orbitar_launches() {
+    let (record, own) = own_cutoff_runs("rival-v2-over", "! grep -q '5.0' input.toml");
+    let ours = blocks(&record, "orbitar");
+    assert!(
+        ours[0]["refused"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("refused after its V₂ run"),
+        "{record}"
+    );
+    assert_eq!(own, 0, "{record}");
+    let (record, own) = own_cutoff_runs("rival-own-over", "grep -qx 'cutoff_ha = 1.0' input.toml");
+    let ours = blocks(&record, "orbitar");
+    assert!(
+        ours[0]["refused"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("refused after its correctness run"),
+        "{record}"
+    );
+    assert_eq!(own, 1, "{record}");
+    assert!(
+        record["failures"]
+            .to_string()
+            .contains("refused after its correctness run"),
+        "{record}"
+    );
+}
+
+#[test]
+fn a_fitted_abinit_layout_keeps_its_smaller_sizes_history_and_records_its_fitted_lines() {
+    let input = INPUT.replace("\n[bands]\ncount = 8\n", "");
+    let tuned = TUNED.replace(
+        "[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 1, threads = 8 }",
+        "[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 8, threads = 1, input = [\"paral_kgb 1\", \"np_spkpt 1\", \"npband 8\", \"npfft 1\"] }",
+    );
+    let abinit = format!(
+        "grep -qx 'nband 8' run.abi && dd if=/dev/zero of=/dev/null bs=40000000 count=1 2>/dev/null\n{ABINIT}"
+    );
+    let root = memory_rivals("rival-fitted", &input, &tuned, PW, &abinit);
+    let four = input
+        .replace(
+            "species = [\"Si\"]",
+            "species = [\"Si\", \"Si\", \"Si\", \"Si\"]",
+        )
+        .replace(
+            "[[0.0, 0.0, 0.25]]",
+            "[[0.0, 0.0, 0.25], [0.25, 0.25, 0.5], [0.5, 0.5, 0.75], [0.75, 0.75, 0.0]]",
+        );
+    write(&root, "benchmarks/1_a/inputs/b.toml", &four);
+    let record = guarded(&root, "step -2", 300e6);
+    let abinit = blocks(&record, "abinit");
+    let of = |input: &str| abinit.iter().find(|b| b["input"] == input).unwrap();
+    assert_eq!(
+        of("input")["rival"]["fitted"],
+        json!(["nband 8"]),
+        "{record}"
+    );
+    assert_eq!(of("b")["rival"]["fitted"], json!(["nband 16"]), "{record}");
+    assert!(
+        of("b")["refused"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("abinit: b at 8 threads: refused before it runs"),
+        "{record}"
     );
 }

@@ -2,8 +2,6 @@
 # Each code meets one accuracy target against itself at its converged cutoff (CONTRIBUTING.md, rival cases: one
 # target, not equal settings).
 # `cargo xtask rivals` reads this file and writes TUNED.toml.
-# The cells are case 11's and case 14's tuning cells, never a cell that a claim times. The cutoff is per element,
-# so the calibration needs one cell per element: fe2o3_10 brings Fe, sto5 Sr and Ti.
 # A cell without its own row borrows one (Rivals::calibrated in harness/rival.rs).
 # The layout must suit every timed cell, so the search runs all seven.
 calibration_cells = [
@@ -11,6 +9,7 @@ calibration_cells = [
   "benchmarks/11_speed_scaling/inputs/gaas.toml",
   "benchmarks/11_speed_scaling/inputs/nio.toml",
   "benchmarks/11_speed_scaling/inputs/al2o3.toml",
+  "benchmarks/12_memory_scaling/input.toml",
   "benchmarks/14_set_w/tuning/fe2o3_10.toml",
   "benchmarks/14_set_w/tuning/sto5.toml",
 ]

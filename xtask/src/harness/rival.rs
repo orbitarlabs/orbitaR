@@ -20,6 +20,7 @@ const CLOCK_SLACK_S: f64 = 0.15;
 const CLOCK_SHARE: f64 = 0.02;
 const STEP_SLACK_S: f64 = 0.05;
 const STEP_SHARE: f64 = 0.5;
+const BLAS_POOLS: [(&str, &str); 1] = [("openblas", "OPENBLAS_NUM_THREADS")];
 
 #[derive(Deserialize)]
 pub(crate) struct Settings {
@@ -69,12 +70,45 @@ pub(crate) struct Skip {
     pub(crate) reason: String,
 }
 
+pub(crate) fn thread_env(layout: &Layout) -> BTreeMap<&'static str, String> {
+    (BLAS_POOLS
+        .map(|(_, pool)| (pool, "1".to_owned()))
+        .into_iter())
+    .chain([("OMP_NUM_THREADS", layout.threads.to_string())])
+    .collect()
+}
+
+pub(crate) fn layout_policy(code: Rival, sweep: &[usize], kpoints: &[usize]) -> String {
+    let candidates: Vec<(usize, Vec<Layout>)> = (sweep.iter())
+        .map(|&p| (p, code.adapter().candidates(p, kpoints)))
+        .collect();
+    let policy = format!("{BLAS_POOLS:?} {candidates:?}");
+    crate::lock::hex(&sha2::Sha256::digest(policy))
+}
+
+pub(crate) fn layout_kpoints(
+    root: &Path,
+    settings: &Settings,
+    code: Rival,
+) -> Result<Vec<usize>, String> {
+    (settings.layout_cells.iter())
+        .filter(|path| settings.skips(code, path).is_none())
+        .map(|path| {
+            let text = fs::read_to_string(root.join(path)).map_err(|e| format!("{path}: {e}"))?;
+            let table: toml::Table = toml::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
+            Ok(Cell::parse(&table)?.mesh_points())
+        })
+        .collect()
+}
+
 pub(crate) fn input_path(id: &str, name: &str) -> String {
     match name {
         "input" => format!("benchmarks/{id}/input.toml"),
         _ => format!("benchmarks/{id}/inputs/{name}.toml"),
     }
 }
+
+pub(crate) const HELD_OUT: &str = "held-out-";
 
 pub(crate) fn settings(root: &Path) -> Result<Settings, String> {
     let text = fs::read_to_string(root.join(SETTINGS)).map_err(|e| format!("{SETTINGS}: {e}"))?;
@@ -167,6 +201,8 @@ pub(crate) struct Frozen {
     pub(crate) searched: BTreeMap<String, Vec<String>>,
     #[serde(default, skip_serializing_if = "Mixing::unsearched")]
     pub(crate) mixing: Mixing,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) layout_policy: Option<String>,
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -216,6 +252,7 @@ static UNTUNED: Frozen = Frozen {
         reason: String::new(),
         searched: Vec::new(),
     },
+    layout_policy: None,
 };
 
 impl Mixing {
@@ -258,6 +295,7 @@ pub(crate) struct Job {
     pub(crate) cell: Cell,
     pub(crate) cutoff_ha: f64,
     pub(crate) layout: Layout,
+    pub(crate) frozen: Layout,
     pub(crate) mixing: Vec<String>,
     pub(crate) mpiexec: Vec<String>,
     pub(crate) claim: Option<ClaimPart>,
@@ -567,6 +605,10 @@ impl Cell {
         }
     }
 
+    pub(crate) fn gamma_only(&self) -> bool {
+        self.mesh == [1, 1, 1] && self.shifted == [false; 3]
+    }
+
     pub(crate) fn mesh_points(&self) -> usize {
         self.mesh.iter().product::<i64>() as usize
     }
@@ -844,6 +886,17 @@ impl Rivals {
         jth: &[(String, Vec<u8>)],
     ) -> Result<Job, String> {
         let layout = self.layout(code, threads)?;
+        let kpoints = layout_kpoints(&self.root, &self.settings, code)?;
+        let policy = layout_policy(code, &self.settings.threads, &kpoints);
+        let frozen = self.tuned.of(code).layout_policy.as_deref();
+        if frozen != Some(policy.as_str()) {
+            return Err(format!(
+                "{TUNED}: the {} layouts were searched under another candidate set or thread policy ({} here, {} frozen); run `cargo xtask rivals layout` on the node",
+                code.adapter().name(),
+                policy,
+                frozen.unwrap_or("none")
+            ));
+        }
         if layout.ranks * layout.threads != threads {
             return Err(format!(
                 "{TUNED}: the {} layout at {threads} threads runs {} ranks × {} threads",
@@ -872,6 +925,7 @@ impl Rivals {
         layout: Layout,
         jth: &[(String, Vec<u8>)],
     ) -> Result<Job, String> {
+        let frozen = layout.clone();
         let layout = code.adapter().fitted(layout, cell, jth)?;
         let mpiexec = match layout.ranks > 1 {
             true => self.settings.setup(code).mpiexec.clone(),
@@ -882,6 +936,7 @@ impl Rivals {
             cell: cell.clone(),
             cutoff_ha,
             layout,
+            frozen,
             mixing: self.tuned.of(code).mixing.input.clone(),
             mpiexec,
             claim: None,
@@ -950,8 +1005,8 @@ impl Rivals {
         command.args(&layout.args).args(adapter.input_file().1);
         command
             .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
-            .env("OMP_NUM_THREADS", layout.threads.to_string())
-            .env("GFORTRAN_UNBUFFERED_PRECONNECTED", "y");
+            .env("GFORTRAN_UNBUFFERED_PRECONNECTED", "y")
+            .envs(thread_env(layout));
         command
     }
 }

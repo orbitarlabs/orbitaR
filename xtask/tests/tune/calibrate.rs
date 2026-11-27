@@ -215,7 +215,8 @@ fn a_cell_that_its_elements_cannot_give_its_own_cutoff_back_fails_the_calibratio
     );
     assert_eq!(
         tuned,
-        toml::from_str::<toml::Table>(TUNED).unwrap(),
+        toml::from_str::<toml::Table>(&crate::harness::rival::with_layout_policies(&root, TUNED))
+            .unwrap(),
         "TUNED.toml stays as it was"
     );
 }
@@ -650,7 +651,11 @@ fn calibrate_with_cell_keeps_no_rows_of_another_ladder_or_of_a_cell_never_calibr
         let (findings, _) = calibrate_abinit(&root, &[only]);
         assert_eq!(findings, [finding], "{only}");
         let after = std::fs::read_to_string(root.join("benchmarks/TUNED.toml")).unwrap();
-        assert_eq!(after, TUNED, "{only}");
+        assert_eq!(
+            after,
+            crate::harness::rival::with_layout_policies(&root, TUNED),
+            "{only}"
+        );
     }
 }
 

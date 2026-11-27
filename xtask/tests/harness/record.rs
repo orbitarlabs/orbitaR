@@ -6,7 +6,7 @@ const ACTIVE: &str = "[case]\ntier = \"push\"\nstatus = \"active\"\nclaims = [\"
 const GOOD: &str = "{\"schema\": 4, \"case\": \"1_a\", \"outcome\": \"pass\", \"inputs\": [\"input\"], \"runs_s\": [0.1], \"rotation_s\": [0.1], \"rotation_max\": 0.0, \"rotation_used\": 0.0, \"rotation_field\": null, \"spent_s\": 0.2, \"started_unix_ms\": 1, \"seed_fixed\": false, \"peak_rss_bytes\": [1]}";
 
 fn findings(root: &Path) -> Vec<String> {
-    verify(root, Tier::Push, &root.join("records"), UNIX_EPOCH)
+    verify(root, Tier::Push, &root.join("records"), UNIX_EPOCH, None)
 }
 
 #[test]
@@ -138,7 +138,7 @@ fn a_record_must_come_from_this_run_with_a_random_seed() {
     let root = tree("record-fresh", &[("benchmarks/1_a/case.toml", ACTIVE)]);
     write(&root, "records/1_a.json", GOOD);
     let later = UNIX_EPOCH + std::time::Duration::from_millis(2);
-    let f = verify(&root, Tier::Push, &root.join("records"), later);
+    let f = verify(&root, Tier::Push, &root.join("records"), later, None);
     assert!(has(&f, "1_a left a stale record"), "{f:?}");
     write(
         &root,
@@ -233,15 +233,24 @@ fn block_of(code: &str, t: &[f64], losses: usize) -> String {
          \"peak_rss_bytes\": {:?}, \"peak_pss_bytes\": {:?}, \"losses\": {:?}, \"median_t_delta_s\": 0.1, \
          \"range_t_delta_s\": [0.1, 0.2], \"cv_t_delta\": 0.0, \"noisy\": false, \
          \"median_peak_rss_bytes\": 1.0, \"median_peak_pss_bytes\": 1.0, \"rival\": null, \"step_cap\": 200, \
-         \"steps\": {:?}, \"e_ref_steps\": [20, 24]}}",
+         \"steps\": {:?}, \"e_ref_steps\": [20, 24], \"load\": [{}], \"during\": [{}]}}",
         1e-4 / 27.211_386_245_988,
         vec![0.1; n],
         vec![1; n],
         vec![1; n],
         vec!["loss"; losses],
         vec![12; n],
+        vec![QUIET_NODE; 1 + n + losses].join(", "),
+        (vec![ALONE; 1 + n].into_iter())
+            .chain(vec!["\"lost\""; losses])
+            .collect::<Vec<_>>()
+            .join(", "),
     )
 }
+
+const ALONE: &str = "{\"quiet\": {\"wall_s\": 0.2, \"busy_cpu_s\": 1.6, \"child_cpu_s\": 1.5, \"harness_cpu_s\": 0.05, \"others_cpu_s\": 0.05, \"share\": 0.03125}}";
+
+const QUIET_NODE: &str = "{\"quiet\": {\"load_avg\": [8.0, 8.0, 8.0], \"others_runnable\": 0, \"psi_some_avg10\": 20.0, \"psi_some_share\": 0.0}}";
 
 fn claim_record(blocks: &[Vec<f64>], edit: impl Fn(String) -> String) -> String {
     let runs: usize = blocks.iter().map(Vec::len).sum();
@@ -286,7 +295,7 @@ fn claim_findings_of(name: &str, claims: &str, record: &str) -> Vec<String> {
             ("records/1_a.json", record),
         ],
     );
-    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH)
+    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH, None)
 }
 
 const QUIET: [f64; 5] = [0.1; 5];
@@ -470,7 +479,7 @@ fn rival_findings_with(name: &str, claim: &str, speed: &[String], rivals: &str) 
             ("records/1_a.json", &record),
         ],
     );
-    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH)
+    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH, None)
 }
 
 #[test]
@@ -594,6 +603,67 @@ fn a_passing_claim_record_holds_delta_for_its_own_atom_count() {
 }
 
 #[test]
+fn a_passing_claim_record_shows_a_quiet_node_before_the_warm_up_and_each_run_of_each_block() {
+    let quiet = QUIET.to_vec();
+    let blocks = [quiet.clone(), quiet.clone(), quiet.clone(), quiet];
+    let loaded = "{\"loaded\": {\"sample\": {\"load_avg\": [9.0, 9.0, 9.0], \"others_runnable\": 8, \"psi_some_avg10\": 17.5, \"psi_some_share\": 0.2}, \"why\": \"busy\"}}";
+    let first = format!("\"load\": [{QUIET_NODE}, ");
+    for (n, (from, to, refused)) in [
+        ("", "", false),
+        (first.as_str(), "\"load\": [", true),
+        (first.as_str(), &format!("\"load\": [{loaded}, "), true),
+        (
+            first.as_str(),
+            "\"load\": [{\"unread\": \"/proc/loadavg: missing\"}, ",
+            true,
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let record = claim_record(&blocks, |b| b.replacen(from, to, 1));
+        let f = claim_findings(&format!("record-load-{n}"), &record);
+        assert!(!has(&f, "with no other load through them"), "{n}: {f:?}");
+        assert_eq!(
+            has(
+                &f,
+                "1_a record shows a quiet node before 5 runs of orbitar at 8 threads, not before its warm-up and each of its 5 runs"
+            ),
+            refused,
+            "{n}: {f:?}"
+        );
+    }
+}
+
+#[test]
+fn a_passing_claim_record_shows_no_other_load_through_the_warm_up_and_each_judged_run() {
+    let quiet = QUIET.to_vec();
+    let blocks = [quiet.clone(), quiet.clone(), quiet.clone(), quiet];
+    let shared = "{\"loaded\": {\"contention\": {\"wall_s\": 0.2, \"busy_cpu_s\": 3.0, \"child_cpu_s\": 1.5, \"harness_cpu_s\": 0.05, \"others_cpu_s\": 1.45, \"share\": 0.9}, \"why\": \"busy\"}}";
+    let first = format!("\"during\": [{ALONE}, ");
+    for (n, (to, refused)) in [
+        (first.clone(), false),
+        (format!("\"during\": [{shared}, "), true),
+        ("\"during\": [\"lost\", ".to_owned(), true),
+        ("\"during\": [".to_owned(), true),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let record = claim_record(&blocks, |b| b.replacen(&first, &to, 1));
+        let f = claim_findings(&format!("record-during-{n}"), &record);
+        assert_eq!(
+            has(
+                &f,
+                "1_a record shows 5 runs of orbitar at 8 threads with no other load through them, not its 6 warm-up and judged runs"
+            ),
+            refused,
+            "{n}: {f:?}"
+        );
+    }
+}
+
+#[test]
 fn a_noisy_block_refuses_a_wall_time_claim_but_not_a_memory_claim() {
     let noisy: Vec<f64> = (0..10).map(|i| [0.1, 0.2][i % 2]).collect();
     let quiet = QUIET.to_vec();
@@ -696,7 +766,7 @@ fn shards_that_cover_every_input_once_prove_the_case() {
     let root = sharded("shards-cover", ACTIVE, &[FIRST, SECOND]);
     assert_eq!(shards(&root), Vec::<String>::new());
     assert_eq!(
-        verify(&root, Tier::Node, &root.join("records"), UNIX_EPOCH),
+        verify(&root, Tier::Node, &root.join("records"), UNIX_EPOCH, None),
         Vec::<String>::new()
     );
 }
@@ -1254,10 +1324,10 @@ fn readout_prints_r_g_each_pair_and_each_blocks_medians_from_a_record() {
         pair("b", "t_ratio 1.0625 pss_ratio 0.625 in_r true", "T(δ) [4.25,4.0] s, Pss [250.0,400.0] bytes", 2),
         "block orbitar input p=8: timed runs 4 losses 0; medians of the runs alone: T(δ) 2.375 s, wall 4.5 s, peak Pss \
          325 bytes; noisy false E_ref -7.5 accuracy {\"d_ha_per_atom\":0.5}; SCF steps [12, 11, 12, 13], E_ref's \
-         Some([20, 24]), cap Some(200)\n"
+         Some([20, 24]), cap Some(200); a quiet node before 0 of 0 runs, the warm-up first: []; no other load through 0 of them: []\n"
             .into(),
         "block abinit input p=8: timed runs 0 losses 5; medians of the runs alone: T(δ) none s, wall none s, peak Pss \
-         none bytes; noisy true E_ref none accuracy none; SCF steps [], E_ref's None, cap None\n"
+         none bytes; noisy true E_ref none accuracy none; SCF steps [], E_ref's None, cap None; a quiet node before 0 of 0 runs, the warm-up first: []; no other load through 0 of them: []\n"
             .into(),
         "rival losses, each counted as +inf in R and G: crash\n".into(),
         "read each rival block's E_ref (none: its reference run was lost, \"E_ref lost\" in the tier log) before its \
@@ -1379,7 +1449,7 @@ fn a_shard_of_a_candidate_dataset_table_never_proves_the_case() {
         whole.evaluate("1_a", crate::harness::minus_one),
         Outcome::Shard
     );
-    let found = verify(&root, Tier::Node, &records, UNIX_EPOCH);
+    let found = verify(&root, Tier::Node, &records, UNIX_EPOCH, None);
     assert!(
         has(&found, "not the case's own; it proves nothing"),
         "{found:?}"
@@ -1391,4 +1461,86 @@ fn a_shard_of_a_candidate_dataset_table_never_proves_the_case() {
         ),
         "{found:?}"
     );
+}
+
+fn series_findings(name: &str, series: &str) -> Vec<String> {
+    let claim = ACTIVE.replace("\"push\"", "\"claim\"").replace(
+        "[\"correctness\"]",
+        "[\"speed\", \"memory\", \"correctness\"]\nrivals = [\"qe\"]",
+    );
+    let skips = crate::harness::rival::RIVALS.replace(
+        "density_ratio = 8.0\n",
+        "density_ratio = 8.0\nskip_cells = [{ cell = \"benchmarks/1_a/input.toml\", reason = \"no dataset\" }]\n",
+    );
+    let speed = block(&QUIET);
+    let record = GOOD
+        .replace(
+            "\"runs_s\": [0.1]",
+            &format!("\"runs_s\": {:?}", vec![0.1; 5]),
+        )
+        .replace(
+            "\"peak_rss_bytes\": [1]",
+            &format!("\"peak_rss_bytes\": {:?}", vec![1; 5]),
+        )
+        .replace(
+            "\"spent_s\": 0.2",
+            &format!("\"spent_s\": 1.0, \"speed\": [{speed}], \"series\": {series}"),
+        );
+    let root = tree(
+        name,
+        &[
+            ("benchmarks/1_a/case.toml", &claim),
+            ("benchmarks/RIVALS.toml", &skips),
+            ("records/1_a.json", &record),
+        ],
+    );
+    verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH, None)
+}
+
+fn point(input: &str, status: &str, pss: f64) -> String {
+    format!(
+        "{{\"input\": \"{input}\", \"atoms\": 1, \"status\": \"{status}\", \"median_t_delta_s\": 0.1, \"median_peak_pss_bytes\": {pss}}}"
+    )
+}
+
+#[test]
+fn a_memory_claim_record_needs_every_code_at_every_declared_size_though_a_rival_skips_one() {
+    let ours = format!(
+        "{{\"code\": \"orbitar\", \"points\": [{}]}}",
+        point("input", "measured", 1e6)
+    );
+    let skipped = format!(
+        "[{ours}, {{\"code\": \"qe\", \"points\": [{}]}}]",
+        point("input", "skipped: no dataset", 0.0)
+    );
+    let f = series_findings("record-series-skip", &skipped);
+    assert!(
+        has(
+            &f,
+            "passes a memory claim, but its series lacks qe at input (skipped: no dataset)"
+        ),
+        "{f:?}"
+    );
+    let absent = format!("[{ours}]");
+    let f = series_findings("record-series-absent", &absent);
+    assert!(
+        has(&f, "its series lacks qe at input (no series point)"),
+        "{f:?}"
+    );
+    let unpolled = format!(
+        "[{{\"code\": \"orbitar\", \"points\": [{}]}}, {{\"code\": \"qe\", \"points\": [{}]}}]",
+        point("input", "measured", 0.0),
+        point("input", "measured", 1e6)
+    );
+    let f = series_findings("record-series-unpolled", &unpolled);
+    assert!(
+        has(&f, "its series lacks orbitar at input (measured)"),
+        "{f:?}"
+    );
+    let full = format!(
+        "[{ours}, {{\"code\": \"qe\", \"points\": [{}]}}]",
+        point("input", "measured", 1e6)
+    );
+    let f = series_findings("record-series-full", &full);
+    assert!(!has(&f, "passes a memory claim"), "{f:?}");
 }

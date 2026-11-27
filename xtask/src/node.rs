@@ -211,20 +211,28 @@ pub(crate) fn check(
     }
 }
 
+fn cpulist(key: &str, value: Option<&toml::Value>) -> Result<BTreeSet<u32>, String> {
+    (value.and_then(toml::Value::as_str))
+        .and_then(cpus)
+        .ok_or_else(|| format!("claim: NODE.toml host.{key} holds no cpulist: {value:?}"))
+}
+
+fn host<'a>(declared: &'a toml::Table, key: &str) -> Option<&'a toml::Value> {
+    declared.get("host").and_then(|h| h.get(key))
+}
+
+pub(crate) fn allowed_cpus(declared: &toml::Table) -> Result<usize, String> {
+    cpulist("cpus_allowed", host(declared, "cpus_allowed")).map(|allowed| allowed.len())
+}
+
 pub(crate) fn fits(declared: &toml::Table, threads: usize) -> Result<(), String> {
-    let host = |key: &str| declared.get("host").and_then(|h| h.get(key));
-    let list = |key: &str, value: Option<&toml::Value>| {
-        (value.and_then(toml::Value::as_str))
-            .and_then(cpus)
-            .ok_or_else(|| format!("claim: NODE.toml host.{key} holds no cpulist: {value:?}"))
-    };
-    let allowed = list("cpus_allowed", host("cpus_allowed"))?;
+    let allowed = cpulist("cpus_allowed", host(declared, "cpus_allowed"))?;
     let mut cores = 0;
-    for core in (host("core_cpus").and_then(toml::Value::as_array))
+    for core in (host(declared, "core_cpus").and_then(toml::Value::as_array))
         .into_iter()
         .flatten()
     {
-        cores += usize::from(!list("core_cpus", Some(core))?.is_disjoint(&allowed));
+        cores += usize::from(!cpulist("core_cpus", Some(core))?.is_disjoint(&allowed));
     }
     let logical = allowed.len();
     if cores.min(logical) >= threads {

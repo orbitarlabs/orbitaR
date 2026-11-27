@@ -576,31 +576,19 @@ fn scaling(rows: &[Row]) -> Option<Scaling<'_>> {
             continue;
         };
         let time = |series: &Series| at(series, input).and_then(|p| p.t_delta_s);
-        match (time(s), time(ours)) {
-            (Some(theirs), Some(mine)) => {
-                let ratio = theirs / mine;
-                heroes.push(Hero {
-                    big: format!("{}×", cut(ratio)),
-                    power: String::new(),
-                    line: match ratio > 1.0 {
-                        true => format!("faster than {name} at {largest} atoms"),
-                        false => format!("{name} time ÷ orbitaR time at {largest} atoms"),
-                    },
-                    note: format!("median T(δ) of {}", stem(input)),
-                });
-            }
-            _ => {
-                let why = (at(s, input).filter(|p| p.t_delta_s.is_none()))
-                    .or(at(ours, input))
-                    .map_or("no point", |p| p.status.as_str());
-                heroes.push(Hero {
-                    big: "none".into(),
-                    power: String::new(),
-                    line: format!("no {name} ratio at {largest} atoms"),
-                    note: format!("{} {why}", stem(input)),
-                });
-            }
-        }
+        let (Some(theirs), Some(mine)) = (time(s), time(ours)) else {
+            continue;
+        };
+        let ratio = theirs / mine;
+        heroes.push(Hero {
+            big: format!("{}×", cut(ratio)),
+            power: String::new(),
+            line: match ratio > 1.0 {
+                true => format!("faster than {name} at {largest} atoms"),
+                false => format!("{name} time ÷ orbitaR time at {largest} atoms"),
+            },
+            note: format!("median T(δ) of {}", stem(input)),
+        });
     }
     heroes.push(Hero {
         big: "N".into(),
@@ -616,7 +604,7 @@ fn scaling(rows: &[Row]) -> Option<Scaling<'_>> {
 
 fn exponent(alpha: f64) -> String {
     match alpha.is_finite() {
-        true => format!("{alpha:.2}"),
+        true => cut(alpha),
         false => "none".into(),
     }
 }

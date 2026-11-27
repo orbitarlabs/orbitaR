@@ -65,7 +65,9 @@ pub(super) fn search(rivals: &mut Rivals, code: Rival, cells: &Cells) -> Result<
             "every layout failed at {p} threads; the first: {e}"
         ));
     }
+    let policy = rival::layout_policy(code, &rivals.settings.threads, &kpoints);
     let frozen = rivals.tuned.of_mut(code);
+    frozen.layout_policy = Some(policy);
     frozen.layout = best.into_iter().collect();
     frozen.searched = tried.into_iter().collect();
     Ok(())

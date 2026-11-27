@@ -197,3 +197,20 @@ fn a_milestone_names_an_intent_bar_on_g_and_needs_rivals() {
         }
     }
 }
+
+#[test]
+fn the_size_series_case_may_turn_active_once_a_claim_run_passes() {
+    let series = include_str!("../../benchmarks/12_memory_scaling/case.toml");
+    let active = series.replace("status = \"planned\"", "status = \"active\"");
+    assert_ne!(active, series);
+    let found = layout_of("case-series", &active);
+    let scaffold = |f: &String| {
+        f.contains("tests/benchmarks/1_a/case.rs") || f.contains("tests/benchmarks.rs lacks")
+    };
+    assert!(found.iter().all(scaffold), "{found:?}");
+    let without = active.replace("rivals = [\"qe\", \"abinit\"]\n", "");
+    assert!(has(
+        &layout_of("case-series-alone", &without),
+        "an active memory claim needs rivals"
+    ));
+}
