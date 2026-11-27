@@ -142,10 +142,14 @@ fn a_wheel_member_with_a_paw_xml_root_after_a_prolog_longer_than_the_image_windo
 
 #[test]
 fn a_wheel_lists_its_members_by_path_components_with_dist_info_after_the_rest_and_record_last() {
-    let record = ("orbitar-0.1.0.dist-info/RECORD", String::new());
-    let good = checked("record-last", NAME, |m| m.push(record.clone()));
-    assert_eq!(good, Vec::<String>::new());
+    let shaped = |m: &mut Vec<(&str, String)>| {
+        let info = at(m, "orbitar-0.1.0.dist-info/METADATA");
+        m.insert(info, ("orbitar_extra/x.py", String::new()));
+        m.push(("orbitar-0.1.0.dist-info/RECORD", String::new()));
+    };
+    assert_eq!(checked("record-last", NAME, shaped), Vec::<String>::new());
     let swaps = [
+        ("orbitar-0.1.0.dist-info/METADATA", "orbitar_extra/x.py"),
         ("orbitar/families/jth-2.0.toml", "orbitar/datasets.py"),
         (
             "orbitar-0.1.0.data/scripts/orbitar",
@@ -162,7 +166,7 @@ fn a_wheel_lists_its_members_by_path_components_with_dist_info_after_the_rest_an
     ];
     for (early, late) in swaps {
         let found = checked("order", NAME, |m| {
-            m.push(record.clone());
+            shaped(m);
             let (a, b) = (at(m, early), at(m, late));
             m.swap(a, b);
         });
