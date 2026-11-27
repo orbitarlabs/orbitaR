@@ -257,51 +257,136 @@ fn files(root: &Path) -> Findings {
     findings
 }
 
-fn commits(root: &Path) -> Findings {
-    if git(root, &["rev-parse", "--verify", "--quiet", "origin/main"]).is_err() {
-        return Vec::new();
+pub(crate) const BASE: &str = "origin/main";
+
+pub(crate) const HEAD: &str = "HEAD";
+const CLAUDE_NAMES: [&str; 3] = ["Claude", "Claude Code", "claude[bot]"];
+
+struct Who<'a> {
+    name: &'a str,
+    address: &'a str,
+}
+
+fn who(value: &str) -> Option<Who<'_>> {
+    let open = value.find(['<', '>'])?;
+    let name = value[..open].strip_suffix(' ')?;
+    let rest = value[open..].strip_prefix('<')?;
+    let close = rest.find(['<', '>'])?;
+    let (address, rest) = rest.split_at(close);
+    let (seconds, zone) = rest.strip_prefix("> ")?.split_once(' ')?;
+    let date = seconds.parse::<i64>().is_ok()
+        && seconds.bytes().all(|b| b.is_ascii_digit())
+        && (seconds == "0" || !seconds.starts_with('0'));
+    let zone = zone.len() == 5
+        && zone.starts_with(['+', '-'])
+        && zone[1..].bytes().all(|b| b.is_ascii_digit());
+    (date && zone).then_some(Who {
+        name: name.trim(),
+        address,
+    })
+}
+
+fn one<'a>(role: &str, values: &[&'a str]) -> Result<Who<'a>, String> {
+    match values {
+        [value] => who(value).ok_or_else(|| {
+            format!(
+                "its {role} line is no `name <address> seconds zone`, as git fsck --strict reads it"
+            )
+        }),
+        _ => Err(format!("it holds {} {role} lines, not one", values.len())),
     }
-    let format = "--format=%h%x1f%P%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f%B%x1e";
-    let log = match git(root, &["log", format, "origin/main..HEAD"]) {
-        Ok(log) => log,
-        Err(e) => return vec![format!("publish: git log origin/main..HEAD: {e}")],
-    };
+}
+
+fn identities(headers: &str) -> Result<[(&'static str, Who<'_>); 2], String> {
+    let (mut authors, mut committers) = (Vec::new(), Vec::new());
+    for line in headers.split('\n') {
+        if let Some(value) = line.strip_prefix("author ") {
+            authors.push(value);
+        } else if let Some(value) = line.strip_prefix("committer ") {
+            committers.push(value);
+        }
+    }
+    Ok([
+        ("author", one("author", &authors)?),
+        ("committer", one("committer", &committers)?),
+    ])
+}
+
+fn borrowed(who: &Who<'_>) -> bool {
+    (release::NOREPLY.iter()).any(|(name, address)| {
+        let (same_name, same_address) = (
+            who.name.eq_ignore_ascii_case(name),
+            who.address.eq_ignore_ascii_case(address),
+        );
+        same_name != same_address
+    })
+}
+
+fn commit(short: &str, object: &str, headers: &str, message: &str) -> Findings {
+    let what = format!("publish: commit {short}");
     let mut findings = Vec::new();
-    for record in log.split('\x1e').map(|r| r.trim_start_matches('\n')) {
-        let fields: Vec<&str> = record.splitn(7, '\x1f').collect();
-        let &[sha, parents, an, ae, cn, ce, message] = fields.as_slice() else {
-            continue;
-        };
-        if [an, ae, cn, ce, message]
-            .iter()
-            .any(|text| claude_identity(text))
-        {
-            findings.push(format!(
-                "publish: commit {sha}: it holds the Claude identity; commit as the maintainer"
-            ));
-        }
-        if (cn, ce) == release::GITHUB && parents.split_whitespace().count() > 1 {
-            continue;
-        }
-        let ((maintainer, by), (github, merges)) = (release::MAINTAINER, release::GITHUB);
-        for (role, who) in [("author", (an, ae)), ("committer", (cn, ce))] {
-            if !release::NOREPLY.contains(&who) {
-                findings.push(format!(
-                    "publish: commit {sha}: its {role} is neither {maintainer} <{by}> nor {github} <{merges}>; \
-                     commit as {maintainer} <{by}>"
-                ));
+    if claude_identity(object) {
+        findings.push(format!(
+            "{what}: it holds the Claude address; commit under your own name or as the maintainer"
+        ));
+    }
+    match identities(headers) {
+        Ok(people) => {
+            let ((maintainer, by), (github, merges)) = (release::MAINTAINER, release::GITHUB);
+            for (role, who) in people {
+                if CLAUDE_NAMES
+                    .iter()
+                    .any(|n| who.name.eq_ignore_ascii_case(n))
+                {
+                    findings.push(format!(
+                        "{what}: its {role} is named Claude; commit under your own name or as the maintainer"
+                    ));
+                }
+                if borrowed(&who) {
+                    findings.push(format!(
+                        "{what}: its {role} takes the name or the address of {maintainer} <{by}> or {github} \
+                         <{merges}>, not both; commit under your own name and address"
+                    ));
+                }
             }
         }
-        let what = format!("publish: commit {sha}");
-        findings.extend(release::named(&what, message));
-        findings.extend(release::homes(&what, message, "reword the commit"));
+        Err(e) => findings.push(format!("{what}: {e}")),
     }
+    findings.extend(release::named(&what, message));
+    findings.extend(release::homes(&what, message, "reword the commit"));
     findings
 }
 
-pub(crate) fn check(root: &Path) -> Findings {
+fn commits(root: &Path, base: &str, head: &str) -> Findings {
+    for rev in [base, head] {
+        let commit = format!("{rev}^{{commit}}");
+        if git(root, &["rev-parse", "--verify", "--quiet", &commit]).is_err() {
+            return vec![format!(
+                "publish: `{rev}` names no commit, so no commit of the branch was read; \
+                 fetch it (`git fetch origin main`) or name the range with `--base <rev> --head <rev>`"
+            )];
+        }
+    }
+    let range = format!("{base}..{head}");
+    match crate::commits(root, &range) {
+        Ok(all) => (all.iter())
+            .flat_map(|c| {
+                let (headers, message) = c.headers_and_message();
+                commit(&c.short, c.object(), headers, message)
+            })
+            .collect(),
+        Err(e) => vec![format!("publish: git log {range}: {e}")],
+    }
+}
+
+pub(crate) fn check(root: &Path, base: &str, head: &str) -> Findings {
+    let mut findings = tree(root);
+    findings.extend(commits(root, base, head));
+    findings
+}
+
+pub(crate) fn tree(root: &Path) -> Findings {
     let mut findings = files(root);
-    findings.extend(commits(root));
     for file in walk::files(root, WORKFLOWS) {
         let text = walk::read(root, &file);
         let lines: Vec<&str> = text.lines().map(uncommented).collect();

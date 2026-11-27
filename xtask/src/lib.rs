@@ -84,7 +84,8 @@ impl Env {
 enum Cli {
     /// Print the commands, the layout, the layer order, and the tier policy
     Help,
-    /// The CHECK cargo steps, then the levers layout, layers, manifest, docs, science, native, version, publish
+    /// The CHECK cargo steps, then the levers layout, layers, manifest, docs, science, native, version, and the
+    /// file rules of publish; `cargo xtask publish --base <rev> --head <rev>` reads the commits of a range
     Check,
     /// Prove It Works: build the release engine, run the push cases, check their records
     Smoke,
@@ -133,9 +134,17 @@ enum Cli {
         #[arg(long)]
         base: Option<String>,
     },
-    /// No workflow, container file, or packaging lever publishes; no workflow asks for more than contents: read;
-    /// no file or commit of the branch names a person, an account, a private link, or a home directory
-    Publish,
+    /// publish [--base <rev>] [--head <rev>]: no workflow, container file, or packaging lever publishes; no workflow
+    /// asks for more than contents: read; no file names a person, an account, a private link, or a home directory;
+    /// each commit of <base>..<head> (origin/main..HEAD) has well-formed identity lines (git fsck --strict), neither
+    /// the Claude name nor address, no half of the maintainer or GitHub identity, and a message, merges too, that
+    /// names no one and no home directory
+    Publish {
+        #[arg(long, default_value = publish::BASE)]
+        base: String,
+        #[arg(long, default_value = publish::HEAD)]
+        head: String,
+    },
     /// pr-text [--body <file>] --base <rev> [--head <rev>]: the pull request text and each commit message of
     /// <base>..<head> (head: HEAD) hold no tool's generated-by line and no co-author trailer
     PrText {
@@ -306,7 +315,7 @@ const LEVERS: [Lever; 8] = [
     |root| science::check(root, None),
     native::check,
     version::check,
-    publish::check,
+    publish::tree,
 ];
 
 pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
@@ -351,7 +360,7 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
         Cli::Science { base } => science::check(root, base.as_deref()),
         Cli::Native => native::check(root),
         Cli::Version => version::check(root),
-        Cli::Publish => publish::check(root),
+        Cli::Publish { base, head } => publish::check(root, &base, &head),
         Cli::PrText { body, base, head } => pr_text::check(root, body.as_deref(), &base, &head),
         Cli::Same {
             base,
@@ -541,6 +550,36 @@ pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String, String> {
     } else {
         Err(text(&out.stderr))
     }
+}
+
+pub(crate) struct Commit {
+    pub(crate) short: String,
+    raw: String,
+}
+
+impl Commit {
+    pub(crate) fn object(&self) -> &str {
+        &self.raw
+    }
+
+    pub(crate) fn headers_and_message(&self) -> (&str, &str) {
+        self.raw.split_once("\n\n").unwrap_or((&self.raw, ""))
+    }
+}
+
+pub(crate) fn commits(root: &Path, range: &str) -> Result<Vec<Commit>, String> {
+    let ids = git(root, &["log", "--format=%H %h", range])?;
+    (ids.lines())
+        .map(|line| {
+            let (id, short) =
+                (line.split_once(' ')).ok_or_else(|| format!("git log printed `{line}`"))?;
+            let raw = git(root, &["cat-file", "commit", id])?;
+            Ok(Commit {
+                short: short.to_owned(),
+                raw,
+            })
+        })
+        .collect()
 }
 
 pub(crate) fn cargo(env: &Env, root: &Path, args: &[&str], vars: &[(&str, OsString)]) -> Findings {

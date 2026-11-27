@@ -4,6 +4,7 @@ use crate::{
     walk,
 };
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
+use pulldown_cmark::{BrokenLink, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -13,7 +14,7 @@ use std::{
 
 const PROSE: [(&str, usize); 5] = [
     ("AGENTS.md", 22),
-    ("CONTRIBUTING.md", 57),
+    ("CONTRIBUTING.md", 59),
     ("container/README.md", 73),
     ("README.md", 126),
     ("SECURITY.md", 4),
@@ -224,6 +225,57 @@ fn plain(path: &str) -> bool {
     !path.is_empty() && (Path::new(path).components()).all(|c| matches!(c, Component::Normal(_)))
 }
 
+fn in_tree(root: &Path, path: &str) -> bool {
+    let normal: Vec<&str> = (Path::new(path).components())
+        .filter_map(|c| c.as_os_str().to_str())
+        .collect();
+    !scheme(path) && plain(path) && resolves_inside(root, path) && public(root, &normal.join("/"))
+}
+
+fn scheme(path: &str) -> bool {
+    path.split_once(':').is_some_and(|(name, _)| {
+        name.starts_with(|c: char| c.is_ascii_alphabetic())
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "+.-".contains(c))
+    })
+}
+
+fn public(root: &Path, path: &str) -> bool {
+    let literal = ["--literal-pathspecs", "-c", "core.quotePath=false"];
+    let Ok(tracked) = git(
+        root,
+        &[&literal[..], &["ls-files", "-z", "--", path]].concat(),
+    ) else {
+        return false;
+    };
+    let dir = format!("{}/", path.trim_end_matches('/'));
+    let files: Vec<&str> = (tracked.split('\0'))
+        .filter(|f| *f == path || f.starts_with(&dir))
+        .collect();
+    let within = |file: &str| -> Vec<String> {
+        let dirs = (file.match_indices('/')).map(|(at, _)| file[..=at].to_owned());
+        dirs.chain([file.to_owned()]).collect()
+    };
+    let asked: BTreeSet<String> = files.iter().flat_map(|f| within(f)).collect();
+    let asked: Vec<&str> = asked.iter().map(String::as_str).collect();
+    let ask = [
+        &literal[..],
+        &["check-attr", "-z", "export-ignore", "--"],
+        &asked,
+    ]
+    .concat();
+    let Ok(out) = git(root, &ask) else {
+        return false;
+    };
+    let fields: Vec<&str> = out.split('\0').collect();
+    let ignored: BTreeSet<&str> = (fields.chunks(3))
+        .filter(|f| matches!(f, [_, "export-ignore", "set"]))
+        .map(|f| f[0])
+        .collect();
+    (files.iter()).any(|f| within(f).iter().all(|p| !ignored.contains(p.as_str())))
+}
+
 fn resolves_inside(root: &Path, path: &str) -> bool {
     match (root.canonicalize(), root.join(path).canonicalize()) {
         (Ok(base), Ok(real)) => real.starts_with(base),
@@ -311,8 +363,7 @@ fn html(root: &Path, line: &str) -> bool {
                 && !rest
                     .split('/')
                     .any(|part| part.is_empty() || part.starts_with('.'))
-        }) && plain(path)
-            && resolves_inside(root, path)
+        }) && in_tree(root, path)
             && root.join(path).is_file()
     };
     let quoted = |rest: &str, key: &str| -> Option<(String, String)> {
@@ -322,7 +373,8 @@ fn html(root: &Path, line: &str) -> bool {
     };
     match line {
         "<p align=\"center\">" | "</p>" | "<picture>" | "</picture>" | "</a>" => true,
-        "<a href=\"benchmarks/README.md\">" | "<details>" | "</details>" => true,
+        "<details>" | "</details>" => true,
+        "<a href=\"benchmarks/README.md\">" => in_tree(root, "benchmarks/README.md"),
         _ if line.starts_with("<summary>") => line
             .strip_prefix("<summary>")
             .and_then(|rest| rest.strip_suffix("</summary>"))
@@ -370,6 +422,7 @@ fn readme(root: &Path) -> Findings {
         .filter(|path| path.ends_with(".rs"))
         .map(|path| walk::read(root, &path))
         .collect();
+    let parsed = parse_readme(root, &text);
     let mut findings = Vec::new();
     let lines: Vec<&str> = text.lines().collect();
     let mut heading = String::new();
@@ -389,22 +442,10 @@ fn readme(root: &Path) -> Findings {
                         "{at}: HTML comes from the allowlist only: a picture under assets/, <details>, <summary>"
                     ));
                 }
-            } else if inline_html(line) {
+            } else if inline_html(line) || parsed.html.contains(&(n + 1)) {
                 findings.push(format!(
                     "{at}: put HTML on its own line, from the allowlist"
                 ));
-            }
-            if reference_link(line) {
-                findings.push(format!(
-                    "{at}: write each link inline as [text](path); a reference link escapes the tree check"
-                ));
-            }
-            for target in links(line) {
-                if !(plain(&target) && resolves_inside(root, &target)) {
-                    findings.push(format!(
-                        "{at}: the link `{target}` names no file of the tree"
-                    ));
-                }
             }
             continue;
         }
@@ -433,6 +474,7 @@ fn readme(root: &Path) -> Findings {
         }
         rows.by_ref().take(body.len() + 1).for_each(drop);
     }
+    findings.extend(parsed.links);
     findings
 }
 
@@ -440,54 +482,129 @@ fn outside_code(line: &str) -> impl Iterator<Item = &str> {
     line.split('`').step_by(2)
 }
 
-fn inline_html(line: &str) -> bool {
-    outside_code(line).any(|part| {
-        let chars: Vec<char> = part.chars().collect();
-        chars
-            .windows(2)
-            .any(|w| w[0] == '<' && (w[1].is_ascii_alphabetic() || matches!(w[1], '/' | '!')))
-    })
+fn markup(text: &str) -> bool {
+    let chars: Vec<char> = text.chars().collect();
+    chars
+        .windows(2)
+        .any(|w| w[0] == '<' && (w[1].is_ascii_alphabetic() || matches!(w[1], '/' | '!')))
 }
 
-fn links(line: &str) -> Vec<String> {
-    outside_code(line)
-        .flat_map(|part| part.split("](").skip(1))
-        .filter_map(|rest| {
-            rest.split_once(')')
-                .map(|(target, _)| target.trim().to_owned())
+fn inline_html(line: &str) -> bool {
+    outside_code(line).any(markup)
+}
+
+const REFERENCE: &str =
+    "write each link inline as [text](path); a reference link escapes the tree check";
+
+struct Parsed {
+    links: Findings,
+    html: BTreeSet<usize>,
+}
+
+fn mails(text: &str) -> Vec<&str> {
+    let local = |c: char| c.is_ascii_alphanumeric() || "._%+-".contains(c);
+    let host = |c: char| c.is_ascii_alphanumeric() || ".-".contains(c);
+    (text.match_indices('@'))
+        .filter_map(|(at, _)| {
+            let start = (text[..at].char_indices().rev())
+                .find(|&(_, c)| !local(c))
+                .map_or(0, |(i, c)| i + c.len_utf8());
+            let after = &text[at + 1..];
+            let domain = after[..after.find(|c| !host(c)).unwrap_or(after.len())]
+                .trim_end_matches(['.', '-']);
+            let (_, tld) = domain.rsplit_once('.')?;
+            (start < at && tld.len() >= 2 && tld.bytes().all(|b| b.is_ascii_alphabetic()))
+                .then(|| &text[start..at + 1 + domain.len()])
         })
         .collect()
 }
 
-fn reference_link(line: &str) -> bool {
-    let definition = without_containers(line)
-        .strip_prefix('[')
-        .and_then(|rest| rest.split_once("]:"));
-    definition.is_some_and(|(label, _)| !label.is_empty() && !label.contains(']'))
-        || outside_code(line).any(|part| part.contains("]["))
+fn addresses(prose: &str) -> Vec<&str> {
+    let edge = |c: char| "\"'()[]<>.,;:!?*_~".contains(c);
+    let web = (prose.split_whitespace())
+        .map(|word| word.trim_matches(edge))
+        .filter(|word| word.contains("://") || word.to_ascii_lowercase().contains("www."));
+    web.chain(mails(prose)).collect()
 }
 
-fn without_containers(line: &str) -> &str {
-    let mut rest = line.trim_start();
-    loop {
-        let digits = rest.len() - rest.trim_start_matches(|c: char| c.is_ascii_digit()).len();
-        let marker = if let Some(after) = rest.strip_prefix('>') {
-            after
-        } else if let Some(after) = rest
-            .strip_prefix(['-', '*', '+'])
-            .filter(|after| after.starts_with([' ', '\t']))
+fn visible(raw: &str) -> String {
+    let mut inside = false;
+    (raw.chars())
+        .filter(|&c| {
+            let shown = !inside && c != '<';
+            inside = (inside || c == '<') && c != '>';
+            shown
+        })
+        .collect()
+}
+
+fn parse_readme(root: &Path, text: &str) -> Parsed {
+    let line = |at: usize| text[..at].matches('\n').count() + 1;
+    let gone = |target: &str| format!("the link `{target}` names no file of the tree");
+    let unresolved = |_: BrokenLink<'_>| Some((CowStr::from(""), CowStr::from("")));
+    let parser = Parser::new_with_broken_link_callback(text, Options::empty(), Some(unresolved));
+    let mut found: BTreeSet<(usize, String)> = (parser.reference_definitions().iter())
+        .map(|(_, definition)| (line(definition.span.start), REFERENCE.to_owned()))
+        .collect();
+    let mut html = BTreeSet::new();
+    let mut code = 0;
+    let mut prose: Option<(usize, String)> = None;
+    for (event, span) in parser.into_offset_iter() {
+        if let Event::Text(words) = &event
+            && code == 0
         {
-            after
-        } else if let Some(after) = (digits > 0)
-            .then(|| rest[digits..].strip_prefix(['.', ')']))
-            .flatten()
-            .filter(|after| after.starts_with([' ', '\t']))
-        {
-            after
-        } else {
-            return rest;
-        };
-        rest = marker.trim_start();
+            prose
+                .get_or_insert_with(|| (line(span.start), String::new()))
+                .1 += words;
+            continue;
+        }
+        if let Some((at, run)) = prose.take() {
+            found.extend(addresses(&run).into_iter().map(|a| (at, gone(a))));
+        }
+        match event {
+            Event::Html(raw) | Event::InlineHtml(raw) => {
+                let at = line(span.start);
+                if markup(&raw) {
+                    html.insert(at);
+                }
+                let shown = visible(&raw);
+                found.extend(addresses(&shown).into_iter().map(|a| (at, gone(a))));
+            }
+            Event::Start(Tag::CodeBlock(_)) => code += 1,
+            Event::End(TagEnd::CodeBlock) => code -= 1,
+            Event::Start(
+                Tag::Link {
+                    link_type,
+                    dest_url,
+                    ..
+                }
+                | Tag::Image {
+                    link_type,
+                    dest_url,
+                    ..
+                },
+            ) => match link_type {
+                LinkType::ShortcutUnknown => {}
+                LinkType::Inline | LinkType::Autolink | LinkType::Email => {
+                    if !in_tree(root, &dest_url) {
+                        found.insert((line(span.start), gone(&dest_url)));
+                    }
+                }
+                _ => {
+                    found.insert((line(span.start), REFERENCE.to_owned()));
+                }
+            },
+            _ => {}
+        }
+    }
+    if let Some((at, run)) = prose {
+        found.extend(addresses(&run).into_iter().map(|a| (at, gone(a))));
+    }
+    Parsed {
+        links: (found.into_iter())
+            .map(|(n, what)| format!("docs: README.md:{n}: {what}"))
+            .collect(),
+        html,
     }
 }
 

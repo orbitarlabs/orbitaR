@@ -44,6 +44,8 @@ you write
 - The pull request records each reviewer who agrees. A LOCK change names its reviewer and its reason.
 - The commands and CI judge every other change.
 - No pull request text or commit message holds a generated-by line or a co-author trailer: `cargo xtask pr-text`.
+- Anyone may author a commit, but not as Claude, nor with half of the orbitar-admin or GitHub identity.
+- No commit message, merges included, names a person, an account, or a home directory: `cargo xtask publish`.
 
 ## Cases against a rival code
 
