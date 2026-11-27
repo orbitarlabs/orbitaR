@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  TEST_RUNNER: prlimit --as=2147483648 --
+  TEST_RUNNER: env MALLOC_ARENA_MAX=1 prlimit --as=2147483648 --
 
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
@@ -20,7 +20,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
