@@ -1,4 +1,4 @@
-# harness reviewer=integration-1 of #6 codex-review3-6, #7 captain-final-call after codex-review3-7, #8 captain after codex-review2-8, #10/#11 codex-review2-1011, #12 captain-final-call after codex-review2-12; conflicts resolved by the integration reason=integration-1 lands PRs 6, 7, 8, 10, 11 and 12 on main 4f7c98d, whose harness change PR 9 (codex-review-pr9) stays; each PR's harness change as its review passed it; conflicts: release.rs keeps PR 12's install plan of Invocation steps and runs PR 8's install in it (sealed of UV_ and PIP_ variables, offline, no cache, no uv config, the hash-pinned wheelhouse with the local wheels, orbitar alone), in_venv takes venv_run's sealed offline flags; the release tests take PR 11's member order (the engine at index 4) for PR 12's tests; docs.rs CONTRIBUTING.md budget 59 for the 5 lines of PR 6 and the 2 of PR 7
+# harness reviewer=integration-1 of #6 codex-review3-6, #7 captain-final-call after codex-review3-7, #8 captain after codex-review2-8 (test-only addition), #10/#11 codex-review2-1011, #12 captain-final-call after codex-review2-12; conflicts resolved by the integration; maturin Mac hashes for 1.11.5 by the integration reason=integration-1 lands PRs 6, 7, 8, 10, 11 and 12 on main 4f7c98d, whose harness change PR 9 (codex-review-pr9) stays; each PR's harness change as its review passed it; conflicts: release.rs keeps PR 12's install plan of Invocation steps and runs PR 8's install in it (sealed of UV_ and PIP_ variables, offline, no cache, no uv config, the hash-pinned wheelhouse with the local wheels, orbitar alone), in_venv takes venv_run's sealed offline flags; the release tests take PR 11's member order (the engine at index 4) for PR 12's tests; docs.rs CONTRIBUTING.md budget 59 for the 5 lines of PR 6 and the 2 of PR 7; the macOS maturin wheel hashes in release/mac.rs are 1.11.5's (PyPI), and a test holds their version to the pyproject.toml and Dockerfile pin
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -19,7 +19,7 @@ f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harn
 ec4c980211c7243e37508ee3af8f242b298661ef4684a599f4ba93559a607b76  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
-0a30b869d28e7d9b4ee3412dde80cd0b7b171865f3c82e6f63f8665664d738e2  xtask/src/lib.rs
+714bff22787c3193af736807c79bed94c782abc960b26934dc2cc482a8075d20  xtask/src/lib.rs
 d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
@@ -28,7 +28,7 @@ f530929261fe8c539fedeb0c983726a7d98d6abaaf1df032b9e22ddd8576649b  xtask/src/node
 a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_text.rs
 61555ff273ebe6fccb87cd8e2b6e1c0bff47246b4be9782e8cfbafea8e89a750  xtask/src/publish.rs
 9ae32a6167bbfc7b985e63fa43c65d45ecee51a25434a8410ebf9929e6c4093d  xtask/src/release.rs
-5a720a5af8aa0fe6180045f50ce8f65f67e550d562f2a07fe2978c0b02c90201  xtask/src/release/mac.rs
+69753ec74301a7e1248c342a8ff4c99df60229e7228674269fb0bb51bac47739  xtask/src/release/mac.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
 70747986eb676692dccad69e5b12b3417d6b7e19e9adb7fdcb8a2b7e0240cdff  xtask/src/results.rs
 0ae1508724aecc0270cdee93ee50d335329a255e76d1c9cd4a7f0cb2394346ae  xtask/src/same.rs
@@ -68,7 +68,7 @@ c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/no
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
 3c2ea0d64e25ff4fb8e11f6a6c444629424470bd13776d1c0e08dc9ad257277e  xtask/tests/publish.rs
 8b7427ba6f297cb2fa085a161a4657762243d5b3df7ce54cc521d0a0c28d1fc5  xtask/tests/release.rs
-a200fc136e8a6f076f86c9ab771d1f90a05d56f885f08165e82f03321183c644  xtask/tests/release/mac.rs
+498f547694fa6d58e456bc4c4ad8488ae6d5877e14ce6fb84fc0cf37826894be  xtask/tests/release/mac.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 2fa5406c310212330ec85de4db654fd788127734cfa88b654f4ebae7dd28e3ae  xtask/tests/results.rs
 830a1dd7ff8024b5dd4bb93394a481f1aa5d3ac06293f108cab5f6484219db48  xtask/tests/same.rs

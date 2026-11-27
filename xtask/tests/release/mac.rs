@@ -856,19 +856,33 @@ fn the_tools_plan_takes_the_exact_interpreter_maturin_by_hash_and_cargo_about_lo
 
 #[test]
 fn the_maturin_requirement_pins_pyproject_maturin_by_both_mac_hashes() {
-    let root = tree(
-        "maturin-requirement",
-        &[(
-            "pyproject.toml",
-            "[build-system]\nrequires = [\"maturin==1.9.6\"]\n",
-        )],
-    );
-    let line = xtask::maturin_requirement(&root).unwrap();
+    let pinned = |name: &str, version: &str| {
+        let pyproject = format!("[build-system]\nrequires = [\"maturin=={version}\"]\n");
+        xtask::maturin_requirement(&tree(name, &[("pyproject.toml", pyproject.as_str())]))
+    };
     assert_eq!(
-        line,
-        "maturin==1.9.6 --hash=sha256:5263dda3f71feef2e4122baf5c4620e4b3710dbb7f2121f85a337182de214369 \
-         --hash=sha256:fe78262c2800c92f67d1ce3c0f6463f958a692cc67bfb572e5dbf5b4b696a8ba\n"
+        pinned("maturin-requirement", "1.11.5").unwrap(),
+        "maturin==1.11.5 --hash=sha256:2a596eab137cb3e169b97e89a739515abfa7a8755e2e5f0fc91432ef446f74f4 \
+         --hash=sha256:1c27a2eb47821edf26c75d100b3150b52dca2c1a5f074d7514af06f7a7acb9d5\n"
     );
+    assert_eq!(
+        pinned("maturin-requirement-other", "1.9.6"),
+        Err(
+            "pyproject.toml pins maturin==1.9.6, but release/mac.rs holds the macOS wheel hashes of maturin==1.11.5"
+                .to_owned()
+        )
+    );
+}
+
+#[test]
+fn the_mac_maturin_hashes_belong_to_the_maturin_that_pyproject_and_the_dockerfile_pin() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    assert_eq!(xtask::maturin_pin(&root).unwrap(), xtask::MATURIN);
+    let dockerfile = std::fs::read_to_string(root.join("container/Dockerfile")).unwrap();
+    let pins: Vec<&str> = (dockerfile.split(|c: char| c == '"' || c.is_whitespace()))
+        .filter(|w| w.starts_with("maturin=="))
+        .collect();
+    assert_eq!(pins, [xtask::MATURIN]);
 }
 
 #[test]
