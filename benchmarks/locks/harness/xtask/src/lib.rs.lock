@@ -1,3 +1,3 @@
-sha256 = "0588f75a4a67efab4412dca9d8d3d5cc11cff3ddebfbc7304d27a757db6900ab"
+sha256 = "6dd4f1f2b3cf9a30718c0a51ca0e5bc502694eee9063c1e3e8390fe986c3f2e3"
 reviewer = "PENDING"
-reason = "ci: round 1 fixes: named shards on the unit target, cache save keys, the rival clock rule, same's verdict and the shim hold pinned by fixed inputs"
+reason = "merge of main: lib.rs holds #19's and this branch's changes"
