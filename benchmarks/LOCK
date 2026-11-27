@@ -1,4 +1,4 @@
-# harness reviewer=captain reason=merge of main cf0ae67 (#19, the Mac wheel equals CI byte for byte) into #23 (metadata: project links, citation URLs, a Colab quickstart; captain after codex-review3-23); only LOCK differs from the automatic merge
+# harness reviewer=PENDING reason=PR #32 CI mutants shard 3: a publish test pins that an empty inner path segment in a project URL loses the repository exemption and one trailing slash keeps it (kills the guard-true mutant of normalized); no code, bound, or reference changed
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -67,7 +67,7 @@ fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/ha
 c42a2e5450ddcbdc637f26637bcd8a869c26f3a206edf8fe0d5d1e802a8b3087  xtask/tests/native.rs
 c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/node.rs
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
-fe57141061444a45651ca103b466b9519114680063bb5be04f92107b211df1b6  xtask/tests/publish.rs
+bb340356538dc5b6f2833b7bec6b25c05944c4d8689a8927d33d1585535d244e  xtask/tests/publish.rs
 6ab081f062c153d9af141a69305a91b2069f3f435d0604983f8c6d1fcb7d88e5  xtask/tests/release.rs
 fc2f0e2d82c9a12dcd8947f645e4eafd8eaea82d55fe6a80853c3e15383976ca  xtask/tests/release/archive.rs
 445712a3248ffe26d7f8ae34898d83a8f60657603ef9b4b1df3e6942619b88ed  xtask/tests/release/mac.rs

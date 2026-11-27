@@ -400,6 +400,30 @@ fn a_file_with_the_maintainer_noreply_a_source_the_project_repository_plain_urls
     assert_eq!(found, Vec::<String>::new());
 }
 
+#[test]
+fn a_project_url_with_an_empty_inner_path_segment_names_an_account_but_one_trailing_slash_passes() {
+    for word in [
+        format!("https://github.com/{}//orbitaR", "orbitarlabs"),
+        format!("https://github.com/{}//orbitaR/issues", "orbitarlabs"),
+        format!("https://github.com/{}/orbitaR//", "orbitarlabs"),
+    ] {
+        let found = published(
+            "empty-segment",
+            &[("docs/notes.md", &format!("see {word}\n"))],
+        );
+        assert!(
+            has(
+                &found,
+                &format!("publish: docs/notes.md: `{word}` names a person, an account")
+            ),
+            "{word}: {found:?}"
+        );
+    }
+    let trailing = "see https://github.com/orbitarlabs/orbitaR/ and https://github.com/orbitarlabs/orbitaR/issues/\n";
+    let found = published("trailing-slash", &[("docs/notes.md", trailing)]);
+    assert_eq!(found, Vec::<String>::new());
+}
+
 type Who<'a> = (&'a str, &'a str);
 const MAINTAINER: Who = (
     "orbitar-admin",
