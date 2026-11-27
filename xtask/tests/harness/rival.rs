@@ -169,7 +169,7 @@ fn each_rival_is_timed_beside_orbitar_at_the_claims_8_threads_against_its_own_re
 }
 
 #[test]
-fn a_rival_in_a_memory_scope_runs_its_own_programs_before_any_beside_the_scope_tool() {
+fn a_rival_in_a_memory_scope_runs_the_probed_tool_and_finds_its_programs_on_its_own_path() {
     let root = rivals_tree("rival-scope", INPUT, TUNED, PW, ABINIT);
     let bin = fake(&root, "step -2");
     let tools = root.join("tools");
@@ -181,8 +181,11 @@ fn a_rival_in_a_memory_scope_runs_its_own_programs_before_any_beside_the_scope_t
             log.display()
         ),
     );
-    for decoy in ["pw.x", "abinit"] {
-        script(&tools.join(decoy), "exit 9");
+    for code in ["qe", "abinit"] {
+        script(
+            &root.join(format!("rivals/{code}/bin/systemd-run")),
+            "exit 9",
+        );
     }
     let vars = super::speed::contained_vars(&root, &bin, &tools, false);
     let session = Session::from_vars(&root, vars)

@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=rival-reuse: a claim or pilot run with ORBITAR_RIVAL_RECORDS reuses each rival block whose key (rival input sha256, held-out identity, frozen layout and policy, cutoff, mixing, thread env, mpiexec, dataset sha256s, stop floor, density ratio, volume scale, conda build, schema, pilot, repeats, timeout) matches an earlier record exactly, on a host and source that match NODE.toml; one drift check re-times the smallest reused cell and refuses all reuse past max(10% of its stored median, its stored range); record.rs and the results lever accept a reused block only beside its source record (ORBITAR_RIVAL_RECORDS, benchmarks/REUSED.jsonl) and compare it from its samples
+# harness reviewer=PENDING reason=rival-reuse on integration-2 f701609 (its one-tool scope directory as int2-fix hashed it, captain to review): a claim or pilot run with ORBITAR_RIVAL_RECORDS reuses each rival block whose key (rival input sha256, held-out identity, frozen layout and policy, cutoff, mixing, thread env, mpiexec, dataset sha256s, stop floor, density ratio, volume scale, conda build, schema, pilot, repeats, timeout) matches an earlier record exactly, on a host and source that match NODE.toml; one drift check re-times the smallest reused cell and refuses all reuse past max(10% of its stored median, its stored range); record.rs and the results lever accept a reused block only beside its source record (ORBITAR_RIVAL_RECORDS, benchmarks/REUSED.jsonl) and compare it from its samples
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -9,7 +9,7 @@ e3becfebc6a03be1f6d0b8029f114692ffa8d92f69150d99d8e74155f4bdb9aa  xtask/src/docs
 63987a7937d4ce651fb4b2a3ec211f708b1cf33e3a94508dbbd0e852588a0ebc  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 e8cb26daf243b219bb2b0f013a88632212c8a04eb867a085ff067fc7fb5f8086  xtask/src/harness/datasets.rs
-051a44d35ece203deae42673dc418e58ab966252e2703f89235d40b44b9b2d79  xtask/src/harness/engine.rs
+5214916d7f92d82a0423f7a9191cd13a7e2623040eb2e76ae7747968c88b1f52  xtask/src/harness/engine.rs
 e4ff8dac6c5883566f42a2fd836c4f53f8c5e99d6ccf30a19ed3e95957f3757c  xtask/src/harness/eos.rs
 ab5678c69b56aff8db61dab1b665ffd5c35a633e7bd7b8b2808d9b8b6d06962d  xtask/src/harness/load.rs
 8bdc2135b8d98882bfd2b88abe26da01f2ce97a312ca654f496ff9d3af1e3bfd  xtask/src/harness/record.rs
@@ -59,7 +59,7 @@ ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/ha
 33e423fadaddec5942da05e993c61ad2686839a3e40395d7a80673fe2f895269  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
 9cd9c5ece8381d6c8c250cd9bdae000bb6d32eb0a3b8b4292d621b318661e04d  xtask/tests/harness/reuse.rs
-9662542006dc8c1581440195e25761b80190be4fc12abae6a2be5cc8c3a686a3  xtask/tests/harness/rival.rs
+f1185cc01e165ad8c348c161e30a4dea063df738a0002b5b666606ad2e1c4db8  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
 00f59f70bde782e6d4f2e07834780b0ffec923c4c0e5c1d624cacd0b9d809d6b  xtask/tests/harness/speed.rs
