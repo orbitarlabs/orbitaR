@@ -1,10 +1,10 @@
-# harness reviewer=PENDING reason=lever limits of 0.0.1 and review round 1: README links from a Markdown parse (pulldown-cmark joins Cargo.lock), parser HTML through the allowlist, bare web addresses refused, link targets in the public git tree; publish reads each commit object, checks identity lines as git fsck --strict, refuses the Claude name or address and half of a reserved identity, holds the message rules for merges too, and takes --base and --head; CI reads the exact pull request and push ranges
+# harness reviewer=PENDING reason=lever limits of 0.0.1 and review rounds 1 and 2: README links from a Markdown parse (pulldown-cmark joins Cargo.lock), raw HTML lines with a tag through the allowlist, no web or mail address outside code, link targets as literal tracked paths outside export-ignore; publish reads each commit object, splits headers on LF and checks identity lines as git fsck --strict, refuses the Claude name or address and half of a reserved identity, holds the message rules for merges too, and takes --base and --head; check runs the file rules; CI reads the exact pull request and push ranges
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
 b801d44f73e3e9107711b16fb32be4c5964d9bc68cd0e41528e73321d08a7f32  xtask/src/bench.rs
 50d1d3bdf959e66e72f303a4d7c0fe26de41db3d0c135b4bfa0637532b499c79  xtask/src/case.rs
-88000d3549cc5708dd8b848400a0471f8f97207f0b50e2fe7ec5680ca724f83e  xtask/src/docs.rs
+7eabce1153984817e429e74aac4637234e9fe587eabb2311db1e09f4db6ce3df  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
 2aae1310124515b7441b7de9c939241777f6d7d15b0e86f085972e7aab073a24  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
@@ -19,15 +19,15 @@ f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harn
 ec4c980211c7243e37508ee3af8f242b298661ef4684a599f4ba93559a607b76  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
-bf4aef9966491615e7f40f200765c9bd0bf24d59777ead0d836a8a254a512d0c  xtask/src/lib.rs
+22a17ac1cb69a31da51b47bc4774d5ea9a0c73ef7884fdb80c4ca6c7e9c4366d  xtask/src/lib.rs
 d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
 7b9668521afebc2a339451a67f56046865cf41b19322ead20b100f1ba493da20  xtask/src/native.rs
 f530929261fe8c539fedeb0c983726a7d98d6abaaf1df032b9e22ddd8576649b  xtask/src/node.rs
 a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_text.rs
-35d12b9c5bd843810c7775a70398a4c075caea173e89eaf2f53c60a8d29b79f8  xtask/src/publish.rs
-33e54a474af27a538eb73d661f54aeb896bada153ced8589b694bd70b0993112  xtask/src/release.rs
+73c02c26ead0e39706c57af85ad7bbcefd06e904d5372d346945c2174fd6645c  xtask/src/publish.rs
+0f478997f8a1de01b28f5997e7fa7d184f78de1310c49f8acaab28a7ad60444b  xtask/src/release.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
 70747986eb676692dccad69e5b12b3417d6b7e19e9adb7fdcb8a2b7e0240cdff  xtask/src/results.rs
 0ae1508724aecc0270cdee93ee50d335329a255e76d1c9cd4a7f0cb2394346ae  xtask/src/same.rs
@@ -43,7 +43,7 @@ b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk
 6ab6b9fbdacafa2d2973bdc4f0a7ef366da2d5b9af21a5516a80e379e3219b26  xtask/tests/atompaw.rs
 90316a2227e058f9413f28877d49657bdc0418990a0659cb552888827797b2fd  xtask/tests/bench.rs
 00163bddb786576cbd43ab7063a877d6d561a4f1e138ca713c48e13664477547  xtask/tests/case.rs
-14b719405b7653225019ed7e5e29de6db3bc46af054fec8b0d907149d361cf96  xtask/tests/docs.rs
+85f301055e15afc552507aabcf03eacf4e81821a467d2cf02d6d85635ec1ed30  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
 2304e09104522f6d6cb88eecfdf1df5356859a4f4c397319faf3a0b937251a24  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
@@ -65,7 +65,7 @@ fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/ha
 c42a2e5450ddcbdc637f26637bcd8a869c26f3a206edf8fe0d5d1e802a8b3087  xtask/tests/native.rs
 c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/node.rs
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
-6115435173f66d53ec7cbd7432630da7ee714b986aa0e57f0831e34ace0d5074  xtask/tests/publish.rs
+3c2ea0d64e25ff4fb8e11f6a6c444629424470bd13776d1c0e08dc9ad257277e  xtask/tests/publish.rs
 5308466787fda8b1e5ea3740bd8c647f00180189be8dc21333b5906fcaa26cfa  xtask/tests/release.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 2fa5406c310212330ec85de4db654fd788127734cfa88b654f4ebae7dd28e3ae  xtask/tests/results.rs
