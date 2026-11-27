@@ -4,9 +4,7 @@ mod claim;
 use crate::{
     Findings,
     case::{self, Bound, Case, Status, Tier},
-    git,
-    harness::reuse::{self, Sources},
-    walk,
+    git, walk,
 };
 use claim::Claim;
 use serde::Deserialize;
@@ -23,7 +21,6 @@ pub(crate) const RESULTS: &str = "benchmarks/RESULTS.toml";
 pub(crate) const WHAT: &str = "benchmarks/results-what.toml";
 pub(crate) const PAGE: &str = "benchmarks/README.md";
 pub(crate) const RECORDS: &str = "benchmarks/RECORDS.jsonl";
-pub(crate) const REUSED: &str = "benchmarks/REUSED.jsonl";
 const HISTORY: [u64; 1] = [4];
 pub(crate) const LIGHT: &str = "assets/benchmarks/results-light.svg";
 pub(crate) const DARK: &str = "assets/benchmarks/results-dark.svg";
@@ -144,15 +141,9 @@ pub(crate) fn ratio(bound: Bound, limit: f64, measured: f64) -> f64 {
     }
 }
 
-pub(crate) fn collect(
-    root: &Path,
-    tiers: &[String],
-    records: Option<&Path>,
-    rival_records: Option<&Path>,
-) -> Findings {
+pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> Findings {
     let base = records.map_or_else(|| root.join("target/benchmarks"), Path::to_path_buf);
     let mut findings = Vec::new();
-    let sources = Sources::new(pinned_sources(root), rival_records);
     let mut chosen = Vec::new();
     for name in tiers {
         match Tier::parse(name) {
@@ -202,7 +193,7 @@ pub(crate) fn collect(
                 }
             };
             let line = text.strip_suffix('\n').unwrap_or(&text);
-            match row(root, tier, line, &cases, &whats, &sources) {
+            match row(root, tier, line, &cases, &whats) {
                 Ok(Some(row)) => {
                     evidence.insert(row.id.clone(), line.to_owned());
                     rows.insert(row.id.clone(), row);
@@ -257,30 +248,10 @@ pub(crate) fn collect(
             )),
         }
     }
-    let mut reused = BTreeMap::new();
-    for line in lines.lines() {
-        let record: Value = serde_json::from_str(line).unwrap_or_default();
-        for sha in reuse::named(&record) {
-            match sources.get(&sha) {
-                Ok(text) => {
-                    reused.insert(sha, text.to_owned());
-                }
-                Err(e) => findings.push(format!("results: {}: {e}", record["case"])),
-            }
-        }
-    }
     if !findings.is_empty() {
         return findings;
     }
-    let reused: String = reused.values().map(|line| format!("{line}\n")).collect();
-    let pinned = match reused.is_empty() {
-        true if fs::symlink_metadata(root.join(REUSED)).is_ok() => {
-            fs::remove_file(root.join(REUSED))
-        }
-        true => Ok(()),
-        false => fs::write(root.join(REUSED), reused),
-    };
-    if let Err(e) = (pinned.and_then(|()| fs::write(root.join(RECORDS), lines)))
+    if let Err(e) = (fs::write(root.join(RECORDS), lines))
         .and_then(|()| fs::write(root.join(RESULTS), write(&kept)))
     {
         return vec![format!("results: {RESULTS}: {e}")];
@@ -318,7 +289,6 @@ fn row(
     line: &str,
     cases: &BTreeMap<u32, (String, Case)>,
     whats: &BTreeMap<u32, What>,
-    sources: &Sources,
 ) -> Result<Option<Row>, String> {
     if line.contains('\n') {
         return Err("a record is one line of JSON, as the harness writes it".into());
@@ -338,6 +308,9 @@ fn row(
         return Err(format!(
             "{id} is a pilot record; a pilot prices a run and proves nothing"
         ));
+    }
+    if let Some(why) = crate::harness::reuse::refused_in(id, &record) {
+        return Err(why);
     }
     if record["pilot"] != Value::Bool(false) {
         return Err(format!(
@@ -426,7 +399,7 @@ fn row(
     headline(&mut metrics, &whats[&number].metric).map_err(|e| format!("{id}: {e}"))?;
     let claim = match (tier, outcome) {
         (Tier::Claim, Outcome::Pass) => {
-            Some(claim::read(root, id, case, &record, sources).map_err(|e| format!("{id}: {e}"))?)
+            Some(claim::read(root, id, case, &record).map_err(|e| format!("{id}: {e}"))?)
         }
         _ => None,
     };
@@ -468,9 +441,6 @@ fn derived(root: &Path, rows: &[Row]) -> Findings {
         Ok(lines) => lines,
         Err(e) => return vec![s11(e)],
     };
-    let pinned = pinned_sources(root);
-    let shas: Vec<String> = pinned.keys().cloned().collect();
-    let sources = Sources::new(pinned, None);
     let mut findings = Vec::new();
     let active: Vec<&str> = cases.values().map(|(id, _)| id.as_str()).collect();
     let listed: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
@@ -494,7 +464,7 @@ fn derived(root: &Path, rows: &[Row]) -> Findings {
             )));
             continue;
         }
-        let made = row(root, run, line, &cases, &whats, &sources);
+        let made = row(root, run, line, &cases, &whats);
         match (made, cases.get(&kept.number), whats.get(&kept.number)) {
             (Ok(Some(mut made)), Some((_, case)), Some(what)) => {
                 complete(&mut made, what, case);
@@ -511,14 +481,6 @@ fn derived(root: &Path, rows: &[Row]) -> Findings {
             ))),
             _ => findings.push(s11(format!("{}: no active case of its record", kept.id))),
         }
-    }
-    let named: Vec<String> = (lines.values())
-        .flat_map(|line| reuse::named(&serde_json::from_str(line).unwrap_or_default()))
-        .collect();
-    for sha in shas.iter().filter(|sha| !named.contains(sha)) {
-        findings.push(s11(format!(
-            "{REUSED} holds record {sha}, whose rival blocks no record in {RECORDS} reuses"
-        )));
     }
     for id in lines.keys() {
         if !rows
@@ -540,13 +502,6 @@ fn sha256(text: &str) -> String {
             let _ = write!(out, "{b:02x}");
             out
         })
-}
-
-fn pinned_sources(root: &Path) -> BTreeMap<String, String> {
-    match fs::symlink_metadata(root.join(REUSED)) {
-        Ok(_) => reuse::lines(&walk::read(root, REUSED)),
-        Err(_) => BTreeMap::new(),
-    }
 }
 
 fn pinned(root: &Path) -> Result<BTreeMap<String, String>, String> {
@@ -858,12 +813,12 @@ pub(crate) fn check(root: &Path) -> Findings {
     };
     let exists = |p: &str| fs::symlink_metadata(root.join(p)).is_ok();
     let Some(rows) = rows else {
-        return ([PAGE, LIGHT, DARK, RECORDS, REUSED]
-            .into_iter()
-            .chain(card::CARDS))
-        .filter(|p| exists(p))
-        .map(|p| format!("science: S11 {p} exists without {RESULTS}; render it from the records"))
-        .collect();
+        return ([PAGE, LIGHT, DARK, RECORDS].into_iter().chain(card::CARDS))
+            .filter(|p| exists(p))
+            .map(|p| {
+                format!("science: S11 {p} exists without {RESULTS}; render it from the records")
+            })
+            .collect();
     };
     let mut findings = derived(root, &rows);
     for (path, want) in rendered(&rows) {

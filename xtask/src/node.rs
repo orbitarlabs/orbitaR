@@ -115,24 +115,54 @@ pub(crate) fn identity(root: &Path) -> serde_json::Value {
         "host": host,
         "machine_id_sha256": machine,
         "memory_total_gib_rounded": total_gib,
-        "cgroup_memory_max": cgroup("memory.max"),
-        "cgroup_cpu_max": cgroup("cpu.max"),
+        "cgroup_limits": cgroup_limits(),
     })
 }
 
-fn cgroup(file: &str) -> Vec<String> {
-    let group = (fs::read_to_string("/proc/self/cgroup")
+const CGROUP_LIMITS: [&str; 7] = [
+    "memory.max",
+    "memory.high",
+    "memory.swap.max",
+    "cpu.max",
+    "cpu.weight",
+    "cpuset.cpus.effective",
+    "pids.max",
+];
+
+fn cgroup_limits() -> serde_json::Value {
+    let own = (fs::read_to_string("/proc/self/cgroup")
         .unwrap_or_default()
         .lines())
     .find_map(|l| l.strip_prefix("0::").map(str::to_owned))
     .unwrap_or_default();
-    (Path::new(&group).ancestors())
-        .filter_map(|dir| {
-            let at = Path::new("/sys/fs/cgroup").join(dir.strip_prefix("/").unwrap_or(dir));
-            fs::read_to_string(at.join(file)).ok()
-        })
-        .map(|v| v.trim().to_owned())
-        .collect()
+    let uid = (fs::read_to_string("/proc/self/status")
+        .unwrap_or_default()
+        .lines())
+    .find_map(|l| {
+        l.strip_prefix("Uid:")?
+            .split_whitespace()
+            .next()
+            .map(str::to_owned)
+    })
+    .unwrap_or_default();
+    let user = format!("/user.slice/user-{uid}.slice/user@{uid}.service");
+    let chain = |group: &str| -> serde_json::Value {
+        (CGROUP_LIMITS.iter())
+            .map(|file| {
+                let values: Vec<String> = (Path::new(group).ancestors())
+                    .filter_map(|dir| {
+                        let at =
+                            Path::new("/sys/fs/cgroup").join(dir.strip_prefix("/").unwrap_or(dir));
+                        fs::read_to_string(at.join(file)).ok()
+                    })
+                    .map(|v| v.trim().to_owned())
+                    .collect();
+                ((*file).to_owned(), serde_json::json!(values))
+            })
+            .collect::<serde_json::Map<_, _>>()
+            .into()
+    };
+    serde_json::json!({ "harness": chain(&own), "user_service": chain(&user) })
 }
 
 fn memory_bytes() -> toml::Value {

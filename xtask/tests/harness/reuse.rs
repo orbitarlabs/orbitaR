@@ -1,6 +1,6 @@
 use super::{
     rival::{ABINIT, INPUT, PW, TUNED, rivals_tree, script},
-    speed::{both, fake, passed},
+    speed::{both, fake},
 };
 use crate::{Tree, git, has, write};
 use serde_json::{Value, json};
@@ -29,6 +29,17 @@ fn reusable(name: &str) -> (Tree, PathBuf) {
             &format!("t=$(cat '{}')\n{body}", paced.display()),
         );
         pace(&root, code, 0.5);
+        let lib = root.join(format!("rivals/{code}/lib/libfake.so"));
+        write(&root, &format!("rivals/{code}/lib/libfake.so"), "build 1");
+        let seen = root.join(format!("pace/ldd-env-{code}"));
+        script(
+            &root.join(format!("rivals/{code}/bin/ldd")),
+            &format!(
+                "env > '{}'\nprintf '\\tlibfake.so => {} (0x0000)\\n'",
+                seen.display(),
+                lib.display()
+            ),
+        );
     }
     let env = Env {
         rivals: Some(root.join("rivals")),
@@ -51,7 +62,8 @@ fn reusable(name: &str) -> (Tree, PathBuf) {
 fn claim(root: &Tree, earlier: Option<&Path>) -> (Outcome, Value) {
     let bin = fake(root, "step -2");
     let mut session = Session::new(root, &bin, Tier::Claim, &root.join("records"))
-        .with_rivals(&root.join("rivals"));
+        .with_rivals(&root.join("rivals"))
+        .with_pilot();
     if let Some(dir) = earlier {
         session = session.with_rival_records(dir);
     }
@@ -119,8 +131,7 @@ fn why_of<'a>(record: &'a Value, code: &str) -> Vec<&'a str> {
 #[test]
 fn a_rival_block_whose_key_matches_an_earlier_record_is_reused_with_its_source_and_a_drift_check() {
     let (root, earlier) = reusable("reuse-match");
-    let (outcome, first) = claim(&root, None);
-    assert!(passed(&outcome), "{outcome:?}: {first}");
+    let (_, first) = claim(&root, None);
     assert!(first["rival_reuse"].is_null(), "{first}");
     for b in rivals(&first) {
         for field in [
@@ -136,11 +147,10 @@ fn a_rival_block_whose_key_matches_an_earlier_record_is_reused_with_its_source_a
         assert!(b["reused"].is_null(), "{b}");
     }
     let (source, text) = kept(&root, &earlier, "1_a.json");
-    let (outcome, second) = claim(&root, Some(&earlier));
-    assert!(passed(&outcome), "{outcome:?}: {second}");
+    let (_, second) = claim(&root, Some(&earlier));
     let reuse = &second["rival_reuse"];
     assert_eq!(reuse["reused"], 2, "{reuse}");
-    assert_eq!(reuse["mode"], "claim", "{reuse}");
+    assert_eq!(reuse["mode"], "pilot", "{reuse}");
     assert!(reuse.get("records").is_none(), "{reuse}");
     let drift = reuse["drift"].as_array().unwrap();
     let codes: Vec<&Value> = drift.iter().map(|d| &d["code"]).collect();
@@ -166,6 +176,34 @@ fn a_rival_block_whose_key_matches_an_earlier_record_is_reused_with_its_source_a
     }
     let ours = |r: &Value| r["speed"].as_array().unwrap()[2]["t_delta_s"].clone();
     assert_ne!(ours(&first), ours(&second));
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_xtask"))
+        .args([
+            "readout",
+            "1_a",
+            "--dir",
+            &root.join("records").to_string_lossy(),
+        ])
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&output.stdout);
+    for code in ["qe", "abinit"] {
+        let line = (text.lines())
+            .find(|l| l.starts_with(&format!("block {code} input p=8:")))
+            .unwrap_or_default();
+        assert!(
+            line.ends_with(&format!(
+                "reused from record {} at {}, started {} ms",
+                sha256(&text_of(&earlier)),
+                first["commit"].as_str().unwrap(),
+                first["started_unix_ms"]
+            )),
+            "{code}: {text}"
+        );
+    }
+}
+
+fn text_of(earlier: &Path) -> String {
+    std::fs::read_to_string(earlier.join("1_a.json")).unwrap()
 }
 
 fn altered(value: &Value) -> Value {
@@ -210,8 +248,7 @@ fn a_difference_in_any_one_key_field_runs_the_rival_again() {
         }
         std::fs::write(earlier.join(format!("{field}.json")), copy.to_string()).unwrap();
     }
-    let (outcome, second) = claim(&root, Some(&earlier));
-    assert!(passed(&outcome), "{outcome:?}: {second}");
+    let (_, second) = claim(&root, Some(&earlier));
     let reuse = &second["rival_reuse"];
     assert_eq!(reuse["reused"], 0, "{reuse}");
     assert_eq!(reuse["drift"], json!([]), "{reuse}");
@@ -334,7 +371,7 @@ fn a_dirty_later_pilot_or_foreign_record_is_no_source() {
     let edits: [(&str, &str, Value); 6] = [
         ("schema", "its schema is 3", json!(3)),
         ("dirty", "its dirty is true", json!(true)),
-        ("pilot", "its pilot is true", json!(true)),
+        ("pilot", "its pilot is false", json!(false)),
         ("commit", "it names no full commit hash", json!("abc")),
         (
             "started_unix_ms",
@@ -395,32 +432,118 @@ fn a_host_that_is_not_the_declared_node_reuses_nothing() {
 }
 
 #[test]
-fn the_verifier_reads_sources_only_for_a_reused_block_and_names_a_missing_one() {
-    let (root, earlier) = reusable("reuse-missing");
+fn a_replaced_library_that_the_rivals_own_loader_resolves_runs_that_rival_again() {
+    let (root, earlier) = reusable("reuse-library");
     claim(&root, None);
-    let (_, text) = kept(&root, &earlier, "1_a.json");
-    let verify = |dir: &Path| {
-        xtask::harness::verify(
-            &root,
-            Tier::Claim,
-            &root.join("records"),
-            std::time::UNIX_EPOCH,
-            Some("1_a"),
-            Some(dir),
-        )
-    };
-    let nowhere = root.join("nowhere");
-    let fresh = verify(&nowhere);
-    assert!(!has(&fresh, "ORBITAR_RIVAL_RECORDS"), "{fresh:?}");
-    claim(&root, Some(&earlier));
-    let empty = root.join("empty");
-    std::fs::create_dir_all(&empty).unwrap();
-    let missing = format!("its source record {} is not available", sha256(&text));
-    for dir in [&empty, &nowhere] {
-        let found = verify(dir);
-        assert!(has(&found, &missing), "{found:?}");
+    kept(&root, &earlier, "1_a.json");
+    write(&root, "rivals/abinit/lib/libfake.so", "build 2");
+    let (_, second) = claim(&root, Some(&earlier));
+    assert!(of(&second, "abinit")["reused"].is_null(), "{second}");
+    assert!(!of(&second, "qe")["reused"].is_null(), "{second}");
+    let why = why_of(&second, "abinit");
+    assert!(
+        why.iter()
+            .any(|w| w.ends_with("its key differs in runtime")),
+        "{why:?}"
+    );
+    let seen = std::fs::read_to_string(root.join("pace/ldd-env-abinit")).unwrap();
+    assert!(seen.contains("OMP_NUM_THREADS=8"), "{seen}");
+    assert!(seen.contains("OPENBLAS_NUM_THREADS=1"), "{seen}");
+    for inherited in ["CARGO_MANIFEST_DIR=", "HOME=", "LD_LIBRARY_PATH="] {
+        assert!(!seen.contains(inherited), "{inherited}: {seen}");
     }
-    assert!(!has(&verify(&earlier), "is not available"));
+}
+
+#[test]
+fn a_rival_whose_libraries_cannot_be_listed_is_never_reused() {
+    let (root, earlier) = reusable("reuse-unlisted");
+    claim(&root, None);
+    kept(&root, &earlier, "1_a.json");
+    std::fs::remove_file(root.join("rivals/qe/bin/ldd")).unwrap();
+    let ldd_elsewhere = ["/usr/bin/ldd", "/bin/ldd"]
+        .iter()
+        .any(|p| Path::new(p).exists());
+    let (_, second) = claim(&root, Some(&earlier));
+    let why = why_of(&second, "qe");
+    match ldd_elsewhere {
+        true => assert!(why.iter().any(|w| w.contains("runtime")), "{why:?}"),
+        false => assert!(
+            why.iter()
+                .any(|w| w.contains("its libraries cannot be fingerprinted")),
+            "{why:?}"
+        ),
+    }
+    assert!(of(&second, "qe")["reused"].is_null(), "{second}");
+}
+
+#[test]
+fn a_held_out_variant_beyond_the_generators_is_keyed_to_the_bytes_of_its_paired_input() {
+    let (root, earlier) = reusable("reuse-held-out");
+    let held = Tree(std::env::temp_dir().join(format!("xtask-reuse-held-{}", std::process::id())));
+    let _ = std::fs::remove_dir_all(&*held);
+    let beyond = INPUT.replace("[[0.0, 0.0, 0.25]]", "[[0.1, 0.1, 0.35]]");
+    write(&held, "1_a/input.toml", &beyond);
+    let pilot = |root: &Tree, earlier: Option<&Path>| {
+        let bin = fake(root, "step -2");
+        let mut session = Session::new(root, &bin, Tier::Claim, &root.join("records"))
+            .with_rivals(&root.join("rivals"))
+            .with_pilot()
+            .with_held_out(&held);
+        if let Some(dir) = earlier {
+            session = session.with_rival_records(dir);
+        }
+        session.evaluate("1_a", both);
+        let text = std::fs::read_to_string(root.join("records/1_a.json")).unwrap();
+        serde_json::from_str::<Value>(&text).unwrap()
+    };
+    let first = pilot(&root, None);
+    let variant = (first["speed"].as_array().unwrap().iter())
+        .find(|b| b["code"] == "qe" && b["input"] == "held-out-input")
+        .unwrap();
+    let identity = &variant["reuse_key"]["identity"];
+    assert_eq!(identity["paired"], "input", "{identity}");
+    assert!(identity["base"].is_null(), "{identity}");
+    assert!(identity["paired_sha256"].is_string(), "{identity}");
+    kept(&root, &earlier, "1_a.json");
+    write(
+        &root,
+        "benchmarks/1_a/input.toml",
+        &INPUT.replace("[[0.0, 0.0, 0.25]]", "[[0.0, 0.0, 0.26]]"),
+    );
+    let second = pilot(&root, Some(&earlier));
+    let rerun = (second["rival_reuse"]["rerun"].as_array().unwrap().iter())
+        .find(|r| r["code"] == "qe" && r["input"] == "held-out-input")
+        .unwrap();
+    let why = rerun["why"].to_string();
+    assert!(why.contains("its key differs in identity\""), "{why}");
+}
+
+#[test]
+fn a_claim_refuses_rival_records_and_times_every_rival_fresh() {
+    let (root, earlier) = reusable("reuse-claim");
+    claim(&root, None);
+    kept(&root, &earlier, "1_a.json");
+    let refused = Session::from_vars(&root, |key: &str| match key {
+        "ORBITAR_BIN" => Some("/bin/true".into()),
+        "ORBITAR_TIER" => Some("claim".into()),
+        "ORBITAR_RIVAL_RECORDS" => Some("/elsewhere".into()),
+        _ => None,
+    })
+    .err()
+    .unwrap();
+    let rule = "ORBITAR_RIVAL_RECORDS reuses rival blocks in a pilot alone";
+    assert!(refused.starts_with(rule), "{refused}");
+    let bin = fake(&root, "step -2");
+    let outcome = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_rival_records(&earlier)
+        .evaluate("1_a", both);
+    assert!(
+        matches!(&outcome, Outcome::Fail(why) if why.contains(rule)),
+        "{outcome:?}"
+    );
+    let text = std::fs::read_to_string(root.join("records/1_a.json")).unwrap();
+    assert!(!text.contains("\"reused\""), "{text}");
 }
 
 #[test]
@@ -435,7 +558,7 @@ fn rival_records_reuse_only_in_the_claim_tier() {
     .err()
     .unwrap();
     assert!(
-        refused.starts_with("ORBITAR_RIVAL_RECORDS reuses rival blocks in the claim tier alone"),
+        refused.starts_with("ORBITAR_RIVAL_RECORDS reuses rival blocks in a pilot alone"),
         "{refused}"
     );
 }

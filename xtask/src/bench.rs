@@ -87,14 +87,7 @@ pub(crate) fn tier(root: &Path, name: &str, case: Option<&str>, env: &Env) -> Fi
             tier.name()
         ));
     }
-    findings.extend(harness::verify(
-        root,
-        tier,
-        &records,
-        since,
-        case,
-        env.rival_records.as_deref(),
-    ));
+    findings.extend(harness::verify(root, tier, &records, since, case));
     findings
 }
 

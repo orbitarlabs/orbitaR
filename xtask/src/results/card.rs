@@ -3,10 +3,7 @@ use super::{
     claim::{Claim, ORBITAR, Pair, Point, Series, Versus},
     escaped, log10, px,
 };
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Write as _,
-};
+use std::{collections::BTreeSet, fmt::Write as _};
 
 pub(super) const CARDS: [&str; 8] = [
     "assets/benchmarks/card-speed-light.svg",
@@ -300,31 +297,10 @@ fn caption(row: &Row, claim: &Claim) -> Vec<String> {
             builds.push(format!("{} {version} ({build})", named(&v.rival)));
         }
     }
-    let mut lines = vec![
+    vec![
         format!("{cores}one node, same accuracy target · {node}"),
         builds.join(" · "),
-    ];
-    lines.extend(reused(claim));
-    lines
-}
-
-fn reused(claim: &Claim) -> Vec<String> {
-    let mut by: BTreeMap<(&str, &str, &str), usize> = BTreeMap::new();
-    for r in &claim.reused {
-        *by.entry((r.code.as_str(), r.record_sha256.as_str(), r.commit.as_str()))
-            .or_default() += 1;
-    }
-    (by.into_iter())
-        .map(|((code, sha, commit), n)| {
-            format!(
-                "reused: {n} {} cell(s) from the record {} of commit {}, pinned in {}",
-                named(code),
-                &sha[..sha.len().min(12)],
-                &commit[..commit.len().min(7)],
-                super::REUSED
-            )
-        })
-        .collect()
+    ]
 }
 
 fn omitted(claim: &Claim, memory: bool) -> Vec<String> {

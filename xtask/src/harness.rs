@@ -1201,6 +1201,11 @@ impl Session {
         self
     }
 
+    pub fn with_pilot(mut self) -> Session {
+        self.pilot = true;
+        self
+    }
+
     pub fn with_rival_records(mut self, dir: &Path) -> Session {
         self.rival_records = Some(dir.to_owned());
         self
@@ -1242,12 +1247,7 @@ impl Session {
             session.pilot = true;
         }
         if let Some(dir) = var(reuse::VAR) {
-            if tier != Tier::Claim {
-                return Err(format!(
-                    "{} reuses rival blocks in the claim tier alone (a claim or a pilot), not in {name}",
-                    reuse::VAR
-                ));
-            }
+            reuse::allowed(tier, session.pilot)?;
             session.rival_records = Some(PathBuf::from(dir));
         }
         if let Some(filter) = text("ORBITAR_CASE_FILTER") {
@@ -1396,6 +1396,11 @@ impl Session {
                 }
             }
         };
+        if let Some(why) =
+            (self.rival_records.as_ref()).and_then(|_| reuse::allowed(self.tier, self.pilot).err())
+        {
+            return vec![trace.failed("rival reuse", engine::Failure::Harness(why))];
+        }
         let HeldOut {
             inputs,
             held,
@@ -1584,6 +1589,8 @@ impl Session {
                 };
                 let held_out = |b: &Block, rivals: &rival::Rivals| {
                     let base = paths.held.get(b.input).cloned().flatten();
+                    let paired = (paths.held.contains_key(b.input))
+                        .then(|| b.input.strip_prefix(rival::HELD_OUT).unwrap_or(b.input));
                     let code = b.rival.as_ref().map(|j| j.code);
                     let calibration = (code.zip(rival::Cell::parse(&b.table).ok())).map(
                         |(code, cell)| match paths.calibration(rivals, code, b.input, &cell) {
@@ -1593,14 +1600,15 @@ impl Session {
                     );
                     json!({
                         "input": b.input, "input_sha256": digest(b.input), "variant": paths.variant(b.input),
-                        "base": base, "base_sha256": base.as_deref().and_then(digest), "calibration": calibration,
+                        "paired": paired, "paired_sha256": paired.and_then(digest), "base": base,
+                        "base_sha256": base.as_deref().and_then(digest), "calibration": calibration,
                     })
                 };
-                let keys: Vec<Option<reuse::Key>> = (blocks.iter())
+                let keys: Vec<Option<Result<reuse::Key, String>>> = (blocks.iter())
                     .map(|b| {
                         let rivals = rivals.as_ref().filter(|_| b.rival.is_some())?;
                         let identity = held_out(b, rivals);
-                        reuse::key(rivals, b, identity, stressed(b), &plan).ok()
+                        Some(reuse::key(rivals, b, identity, stressed(b), &plan))
                     })
                     .collect();
                 let commit = git(&self.root, &["rev-parse", "HEAD"]);
@@ -1707,7 +1715,7 @@ impl Session {
                                 t.record.e_v2_ha = compressed.get(&at).and_then(|e| e.clone().ok());
                                 t.record.p_ref_gpa =
                                     pressures.borrow().get(&at).and_then(|p| p.clone().ok());
-                                t.record.reuse_key.clone_from(&keys[i]);
+                                t.record.reuse_key = keys[i].clone().and_then(Result::ok);
                             }
                         }
                         failures.extend(accuracies(

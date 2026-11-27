@@ -59,9 +59,7 @@ pub fn verify(
     dir: &Path,
     since: SystemTime,
     case: Option<&str>,
-    rival_records: Option<&Path>,
 ) -> Findings {
-    let sources = reuse::Sources::new(BTreeMap::new(), rival_records);
     let since_ms = since
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis()) as f64;
@@ -110,7 +108,7 @@ pub fn verify(
             ));
         }
         proved += usize::from(record["outcome"].as_str() == Some("shard"));
-        findings.extend(proves(root, tier, id, &case, &record, &sources));
+        findings.extend(proves(root, tier, id, &case, &record));
     }
     if active + proved == 0 {
         findings.push(format!(
@@ -129,15 +127,8 @@ pub fn verify(
     findings
 }
 
-pub(crate) fn proves(
-    root: &Path,
-    tier: Tier,
-    id: &str,
-    case: &Case,
-    record: &Value,
-    sources: &reuse::Sources,
-) -> Findings {
-    let mut findings: Findings = (reuse::proven(root, id, case, record, sources).into_iter())
+pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Findings {
+    let mut findings: Findings = (reuse::refused_in(id, record).into_iter())
         .map(|f| format!("{}: {f}", tier.name()))
         .collect();
     let times = |key: &str| -> Vec<f64> {
@@ -274,7 +265,7 @@ pub(crate) fn proves(
                             tier,
                             id,
                             case,
-                            (&speed, repeats),
+                            (&speed, repeats, false),
                             settings.as_ref(),
                             &block,
                         ));
@@ -390,7 +381,7 @@ pub(crate) fn block_findings(
     tier: Tier,
     id: &str,
     case: &Case,
-    (speed, repeats): (&crate::case::Speed, usize),
+    (speed, repeats, pilot): (&crate::case::Speed, usize, bool),
     settings: Option<&rival::Settings>,
     block: &speed::BlockRecord,
 ) -> Findings {
@@ -414,7 +405,7 @@ pub(crate) fn block_findings(
             t.len() + lost,
         ));
     }
-    if case.timed() && (block.noisy || speed::noisy(t, lost, repeats)) {
+    if !pilot && case.timed() && (block.noisy || speed::noisy(t, lost, repeats)) {
         findings.push(format!(
                     "{}: {id} passes with T(δ) at {at} threads under {repeats} runs, judged or lost, under two judged times, or with no finite CV; the judge refuses the block",
                     tier.name(),
@@ -606,7 +597,7 @@ pub fn union(root: &Path, id: &str, dir: &Path) -> Findings {
         );
         judged.extend(bounds.into_keys());
         findings.extend(
-            proves(root, tier, id, &case, &record, &reuse::Sources::none())
+            proves(root, tier, id, &case, &record)
                 .into_iter()
                 .map(|f| format!("shards: {at}: {f}")),
         );

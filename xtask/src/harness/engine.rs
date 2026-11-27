@@ -202,6 +202,13 @@ pub(crate) fn once(
 
 const PASSED: [&str; 2] = ["OMPI_ALLOW_RUN_AS_ROOT", "OMPI_ALLOW_RUN_AS_ROOT_CONFIRM"];
 
+pub(crate) fn cold_env(built: &Command) -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
+    let passed = (PASSED.iter()).filter_map(|&key| Some((key.into(), std::env::var_os(key)?)));
+    let own =
+        (built.get_envs()).filter_map(|(key, value)| Some((key.to_owned(), value?.to_owned())));
+    passed.chain(own).collect()
+}
+
 pub(crate) fn cold(
     files: &[(String, &[u8])],
     build: impl FnOnce(&Path) -> Result<Command, Failure>,
@@ -220,10 +227,7 @@ pub(crate) fn cold(
             }
         })
         .and_then(|built| {
-            let passed = (PASSED.iter()).filter_map(|&key| Some((key, std::env::var_os(key)?)));
-            let own: Vec<_> = (built.get_envs())
-                .filter_map(|(key, value)| Some((key.to_owned(), value?.to_owned())))
-                .collect();
+            let own = cold_env(&built);
             let mut command = if SHIMMED {
                 let shim = shim_path()?;
                 let mut command = Command::new(&shim);
@@ -238,7 +242,6 @@ pub(crate) fn cold(
             command
                 .current_dir(&dir)
                 .env_clear()
-                .envs(passed)
                 .envs(own)
                 .env("HOME", &dir)
                 .env("TMPDIR", &dir);

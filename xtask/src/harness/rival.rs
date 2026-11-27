@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest as _;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ffi::OsString,
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
@@ -303,48 +304,50 @@ pub(crate) struct Job {
 
 type Dataset = (String, String, Vec<u8>);
 
-enum Loaded {
-    File(PathBuf),
-    Missing(String),
-    Unlisted(String),
-}
-
 fn file_sha256(path: &Path) -> Result<String, String> {
     fs::read(path)
         .map(|bytes| crate::lock::hex(&sha2::Sha256::digest(bytes)))
         .map_err(|e| format!("{}: {e}", path.display()))
 }
 
-fn loaded(program: &Path) -> Result<Vec<Loaded>, String> {
-    let listed = match Command::new("ldd").arg(program).output() {
-        Ok(listed) => listed,
-        Err(e) => {
-            return Ok(vec![Loaded::Unlisted(format!(
-                "no ldd on this host: {}",
-                e.kind()
-            ))]);
-        }
-    };
+fn loaded(program: &Path, env: &[(OsString, OsString)]) -> Result<Vec<PathBuf>, String> {
+    let listed = (Command::new("ldd")
+        .env_clear()
+        .envs(env.iter().cloned())
+        .arg(program)
+        .output())
+    .map_err(|e| {
+        format!(
+            "no ldd on the rival's own PATH ({}): its libraries cannot be fingerprinted",
+            e.kind()
+        )
+    })?;
     let text = String::from_utf8_lossy(&listed.stdout).into_owned()
         + &String::from_utf8_lossy(&listed.stderr);
     if !listed.status.success() {
         return match text.contains("not a dynamic executable") {
-            true => Ok(vec![Loaded::Unlisted("not a dynamic executable".into())]),
+            true => Ok(Vec::new()),
             false => Err(format!("ldd {}: {}", program.display(), text.trim())),
         };
     }
-    Ok((text.lines())
-        .filter_map(|line| {
-            let line = line.trim();
-            let (name, target) = line.split_once(" => ").unwrap_or((line, line));
-            let target = target.split(" (0x").next().unwrap_or(target).trim();
-            match target {
-                "not found" => Some(Loaded::Missing(name.to_owned())),
-                t if t.starts_with('/') => Some(Loaded::File(PathBuf::from(t))),
-                _ => None,
-            }
-        })
-        .collect())
+    let mut out = Vec::new();
+    for line in text.lines().map(str::trim) {
+        let (name, target) = line.split_once(" => ").unwrap_or((line, line));
+        let target = target.split(" (0x").next().unwrap_or(target).trim();
+        match target {
+            "not found" => return Err(format!("ldd {}: {name} not found", program.display())),
+            t if t.starts_with('/') => out.push(PathBuf::from(t)),
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
+fn interpreter(program: &Path) -> Option<PathBuf> {
+    let head = fs::read(program).ok()?;
+    let line = head.strip_prefix(b"#!")?.split(|&b| b == b'\n').next()?;
+    let line = String::from_utf8_lossy(line);
+    line.split_whitespace().next().map(PathBuf::from)
 }
 
 pub(crate) struct ClaimPart {
@@ -1143,32 +1146,27 @@ impl Rivals {
     pub(crate) fn runtime(&self, job: &Job) -> Result<BTreeMap<String, String>, String> {
         let adapter = job.code.adapter();
         let bin = self.prefix.join(adapter.name()).join("bin");
-        let program = adapter.command().get_program().to_owned();
-        let mut programs = vec![program];
+        let env = engine::cold_env(&self.command(job));
+        let mut programs = vec![adapter.command().get_program().to_owned()];
         if job.layout.ranks > 1 {
             programs.push("mpiexec".into());
         }
-        let mut out = BTreeMap::new();
+        let mut files = Vec::new();
         for program in programs {
             let found = [bin.as_path(), Path::new("/usr/bin"), Path::new("/bin")]
                 .iter()
                 .map(|dir| dir.join(&program))
                 .find(|path| path.is_file())
                 .ok_or_else(|| format!("{}: {program:?} is on no PATH entry", adapter.name()))?;
-            out.insert(self.label(&found), file_sha256(&found)?);
-            for library in loaded(&found)? {
-                let sha = match &library {
-                    Loaded::File(path) => file_sha256(path)?,
-                    Loaded::Missing(name) => format!("not found: {name}"),
-                    Loaded::Unlisted(why) => format!("unlisted: {why}"),
-                };
-                let at = match &library {
-                    Loaded::File(path) => self.label(path),
-                    Loaded::Missing(name) => name.clone(),
-                    Loaded::Unlisted(_) => format!("{} loads", self.label(&found)),
-                };
-                out.insert(at, sha);
+            files.extend(interpreter(&found));
+            files.push(found);
+        }
+        let mut out = BTreeMap::new();
+        for file in files {
+            for library in loaded(&file, &env)? {
+                out.insert(self.label(&library), file_sha256(&library)?);
             }
+            out.insert(self.label(&file), file_sha256(&file)?);
         }
         Ok(out)
     }

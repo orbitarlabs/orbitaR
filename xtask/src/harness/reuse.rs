@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
-    cell::OnceCell,
     collections::{BTreeMap, BTreeSet},
     fs,
     num::NonZeroUsize,
@@ -198,52 +197,6 @@ fn read(dir: &Path) -> Result<BTreeMap<String, String>, String> {
     Ok(out)
 }
 
-pub(crate) fn lines(text: &str) -> BTreeMap<String, String> {
-    (text.lines())
-        .map(|line| (sha256(line.as_bytes()), line.to_owned()))
-        .collect()
-}
-
-pub(crate) struct Sources {
-    pinned: BTreeMap<String, String>,
-    dir: Option<PathBuf>,
-    read: OnceCell<Result<BTreeMap<String, String>, String>>,
-}
-
-impl Sources {
-    pub(crate) fn new(pinned: BTreeMap<String, String>, dir: Option<&Path>) -> Sources {
-        Sources {
-            pinned,
-            dir: dir.map(Path::to_path_buf),
-            read: OnceCell::new(),
-        }
-    }
-
-    pub(crate) fn none() -> Sources {
-        Sources::new(BTreeMap::new(), None)
-    }
-
-    pub(crate) fn get(&self, sha: &str) -> Result<&str, String> {
-        if let Some(text) = self.pinned.get(sha) {
-            return Ok(text);
-        }
-        let missing = |why: &str| {
-            format!(
-                "its source record {sha} is not available: {why} ({VAR} for a run, {} for results)",
-                crate::results::REUSED
-            )
-        };
-        let Some(dir) = &self.dir else {
-            return Err(missing("no pinned line holds it and no directory is named"));
-        };
-        match self.read.get_or_init(|| read(dir)) {
-            Ok(all) => (all.get(sha).map(String::as_str))
-                .ok_or_else(|| missing("no record in the named directory has that sha256")),
-            Err(e) => Err(missing(e)),
-        }
-    }
-}
-
 pub(crate) fn named(record: &Value) -> Vec<String> {
     let mut out: Vec<String> = (record["speed"].as_array().into_iter().flatten())
         .filter_map(|b| b["reused"]["record_sha256"].as_str())
@@ -371,7 +324,7 @@ impl Claimant<'_> {
             Tier::Claim,
             self.id,
             self.case,
-            (&speed, self.repeats()),
+            (&speed, self.repeats(), self.pilot),
             settings.as_ref(),
             &block,
         );
@@ -392,7 +345,7 @@ pub(crate) struct Want {
     pub(crate) code: Code,
     pub(crate) input: String,
     pub(crate) threads: NonZeroUsize,
-    pub(crate) key: Key,
+    pub(crate) key: Result<Key, String>,
     pub(crate) needs_v2: bool,
     pub(crate) needs_pressure: bool,
 }
@@ -643,12 +596,14 @@ fn matched(
     record: &Value,
     want: &Want,
 ) -> Result<BlockRecord, String> {
+    let wanted =
+        (want.key.as_ref()).map_err(|e| format!("this run's block has no reuse key: {e}"))?;
     let mut block = claimant.block(record, want.code, &want.input, want.threads)?;
     let key = block
         .reuse_key
         .as_ref()
         .ok_or("its block holds no reuse key")?;
-    let apart = differing(key, &want.key);
+    let apart = differing(key, wanted);
     if !apart.is_empty() {
         return Err(format!("its key differs in {}", apart.join(", ")));
     }
@@ -718,162 +673,27 @@ impl<'a> Split<'a> {
     }
 }
 
-fn normalized(block: &BlockRecord) -> Value {
-    let mut block = json!(block);
-    for key in ["accuracy", "reused"] {
-        block[key] = Value::Null;
-    }
-    block
-}
-
-pub(crate) fn proven(
-    root: &Path,
-    id: &str,
-    case: &Case,
-    record: &Value,
-    sources: &Sources,
-) -> Vec<String> {
-    let blocks: Vec<BlockRecord> = (record["speed"].as_array().into_iter().flatten())
-        .filter_map(|b| serde_json::from_value(b.clone()).ok())
-        .collect();
-    let reused: Vec<&BlockRecord> = blocks.iter().filter(|b| b.reused.is_some()).collect();
-    let reuse = &record["rival_reuse"];
-    let mut findings = Vec::new();
-    let counted = reuse["reused"].as_u64().unwrap_or(0);
-    if counted != reused.len() as u64 {
-        findings.push(format!(
-            "{id} marks {} reused blocks, but its rival_reuse counts {counted}",
-            reused.len()
-        ));
-    }
-    if reused.is_empty() {
-        return findings;
-    }
-    let pilot = record["pilot"].as_bool().unwrap_or(false);
-    let mode = if pilot { "pilot" } else { "claim" };
-    if record["tier"] != json!(Tier::Claim.name()) || reuse["mode"] != json!(mode) {
-        findings.push(format!(
-            "{id} reuses rival blocks in tier {} and mode {}, not the claim tier's {mode}",
-            record["tier"], reuse["mode"]
-        ));
-    }
-    let claimant = Claimant {
-        root,
-        id,
-        case,
-        pilot,
-        started_unix_ms: record["started_unix_ms"].as_u64().unwrap_or(0),
-        commit: record["commit"].as_str().unwrap_or_default(),
-    };
-    let ours = serde_json::from_value::<toml::Table>(record["node"].clone());
-    match (crate::node::declared(root), ours) {
-        (Ok(declared), Ok(ours)) => {
-            let apart = crate::node::differences(&ours, &declared, &tables());
-            if !apart.is_empty() {
-                findings.push(format!(
-                    "{id} reuses rival blocks on a node that is not NODE.toml's: {}",
-                    apart.join("; ")
-                ));
+pub(crate) fn allowed(tier: crate::case::Tier, pilot: bool) -> Result<(), String> {
+    match tier == Tier::Claim && pilot {
+        true => Ok(()),
+        false => Err(format!(
+            "{VAR} reuses rival blocks in a pilot alone (ORBITAR_PILOT=1, claim tier), not in {}{}: a claim times every rival fresh",
+            tier.name(),
+            if tier == Tier::Claim {
+                " without ORBITAR_PILOT"
+            } else {
+                ""
             }
-        }
-        (Err(e), _) => findings.push(format!("{id}: {e}")),
-        (_, Err(e)) => findings.push(format!("{id}: its node block: {e}")),
-    }
-    for b in blocks.iter().filter(|b| b.code != Code::Orbitar) {
-        let protocol = b.reuse_key.as_ref().map(|k| json!(k.protocol));
-        if protocol.as_ref() != Some(&reuse["protocol"]) {
-            findings.push(format!(
-                "{id}: the {} block {} at {} threads was keyed under another protocol than the run's",
-                b.code, b.input, b.threads
-            ));
-        }
-    }
-    for b in &reused {
-        if let Err(why) = from_source(&claimant, b, sources) {
-            findings.push(format!(
-                "{id}: its reused block {} {} at {} threads: {why}",
-                b.code, b.input, b.threads
-            ));
-        }
-    }
-    let codes: BTreeSet<Code> = reused.iter().map(|b| b.code).collect();
-    for code in codes {
-        if let Err(why) = drifted(&blocks, code, reuse, pilot) {
-            findings.push(format!(
-                "{id} reuses {code} blocks without a drift check that holds: {why}"
-            ));
-        }
-    }
-    findings
-}
-
-fn from_source(claimant: &Claimant, block: &BlockRecord, sources: &Sources) -> Result<(), String> {
-    if block.code == Code::Orbitar {
-        return Err("orbitaR's own blocks always run".into());
-    }
-    let named = block.reused.as_ref().ok_or("it is no reused block")?;
-    let text = sources.get(&named.record_sha256)?;
-    let (source, record) = claimant.source(&named.record_sha256, text)?;
-    if source != *named {
-        return Err(format!(
-            "it names commit {} started at {}, but its source record says commit {} started at {}",
-            named.commit, named.started_unix_ms, source.commit, source.started_unix_ms
-        ));
-    }
-    let theirs = claimant.block(&record, block.code, &block.input, block.threads)?;
-    if normalized(&theirs) != normalized(block) {
-        return Err("its samples, key or E_ref differ from its source's block".into());
-    }
-    let key = (block.reuse_key.as_ref()).ok_or("it holds no reuse key")?;
-    let expected = [
-        (key.schema == record::SCHEMA, "schema"),
-        (key.pilot == claimant.pilot, "pilot"),
-        (key.repeats == claimant.repeats(), "repeats"),
-        (key.timeout_s == claimant.case.timeout_s(), "timeout_s"),
-    ];
-    match expected.iter().find(|(holds, _)| !holds) {
-        Some((_, field)) => Err(format!("its key's {field} is not this run's")),
-        None => Ok(()),
+        )),
     }
 }
 
-fn drifted(blocks: &[BlockRecord], code: Code, reuse: &Value, pilot: bool) -> Result<(), String> {
-    let reused = (blocks.iter()).map(|b| (b.code == code && b.reused.is_some()).then_some(b.atoms));
-    let b = &blocks[smallest(reused).ok_or("no reused block")?];
-    let entry = (reuse["drift"].as_array().into_iter().flatten())
-        .find(|d| d["code"] == json!(code))
-        .ok_or("the record holds no drift entry for it")?;
-    let cell = [
-        (entry["input"] == json!(b.input), "input"),
-        (entry["threads"] == json!(b.threads), "threads"),
-        (entry["source"] == json!(b.reused), "source"),
-    ];
-    if let Some((_, field)) = cell.iter().find(|(same, _)| !same) {
-        return Err(format!(
-            "its drift entry's {field} is not that of its smallest reused cell {}",
-            b.input
-        ));
-    }
-    let runs: Vec<DriftRun> = serde_json::from_value(entry["runs"].clone())
-        .map_err(|e| format!("its drift runs: {e}"))?;
-    drift_holds(b, &runs)?;
-    if entry["held"] != json!(true) {
-        return Err("its drift entry does not say held".into());
-    }
-    if !pilot {
-        let quiet = |key: &str, quiet: &dyn Fn(&Value) -> bool| {
-            (entry[key].as_array())
-                .is_some_and(|all| all.len() == DRIFT_RUNS && all.iter().all(quiet))
-        };
-        let reading =
-            |v: &Value| serde_json::from_value::<Reading>(v.clone()).is_ok_and(|r| r.quiet());
-        let alone =
-            |v: &Value| serde_json::from_value::<During>(v.clone()).is_ok_and(|d| d.quiet());
-        if !quiet("load", &reading) || !quiet("during", &alone) {
-            return Err(format!(
-                "its {DRIFT_RUNS} drift runs did not each start on a quiet node and run alone"
-            ));
-        }
-    }
-    Ok(())
+pub(crate) fn refused_in(id: &str, record: &Value) -> Option<String> {
+    let reused = named(record);
+    (!reused.is_empty() && record["pilot"] != json!(true)).then(|| {
+        format!(
+            "{id} holds rival blocks reused from the records {}; only a pilot reuses, and a claim times every rival fresh",
+            reused.join(", ")
+        )
+    })
 }
