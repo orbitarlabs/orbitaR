@@ -1,3 +1,3 @@
-sha256 = "4fc9c50d2c7fb2c9786f38725508f91c7b8d06d426177aff1f284cf2a62d02d3"
+sha256 = "c7547b7aae828f8ead345d475fe2d1b615d2847c4be0a6f08060beeb7bf4ccbb"
 reviewer = "PENDING"
-reason = "ci: check splits into lint, three capped unit shards and bench; timing tests read their own clocks"
+reason = "ci: round 1 fixes: named shards on the unit target, cache save keys, the rival clock rule, same's verdict and the shim hold pinned by fixed inputs"
