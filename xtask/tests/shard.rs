@@ -13,7 +13,7 @@ fn stub(root: &Path, version: &str) -> xtask::Env {
         root,
         "cargo",
         &format!(
-            "case \"$1\" in\n  -vV) printf '{version}' ;;\n  \
+            "#!/bin/sh\ncase \"$1\" in\n  -vV) printf '{version}' ;;\n  \
              *) echo \"$CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER | $*\" >> '{}' ;;\nesac\n",
             log.display()
         ),
