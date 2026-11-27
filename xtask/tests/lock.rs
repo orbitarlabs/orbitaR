@@ -621,17 +621,41 @@ fn the_move_from_the_old_lock_keeps_every_review_verbatim_and_deletes_the_old_fi
         &lever(&["science"], &root),
         "S5 benchmarks/LOCK is the old one-file lock"
     ));
+    let tampered = old.replace("reason=round 2", "reason=round 3");
+    write(&root, "benchmarks/LOCK", &tampered);
     assert!(has(
         &lever(
             &["lock", "--reviewer", "PENDING", "--reason", "again"],
             &root
         ),
-        "lock: benchmarks/LOCK and benchmarks/locks both exist; benchmarks/locks is the finished move"
+        "lock: benchmarks/LOCK and benchmarks/locks both exist and 1 entries differ, the first 1_a/benchmarks/1_a/case.toml; neither is deleted"
     ));
     assert_eq!(
         fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
-        old
+        tampered
     );
+    assert_eq!(lock_files(&root), moved);
+    let mut gone = std::process::Command::new("true").spawn().unwrap();
+    let dead = gone.id();
+    gone.wait().unwrap();
+    write(&root, "benchmarks/LOCK", &old);
+    write(&root, "benchmarks/locks.move", &dead.to_string());
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "again"],
+        &root,
+    );
+    assert!(
+        f.is_empty(),
+        "a move killed after its rename is already moved: {f:?}"
+    );
+    assert!(!root.join("benchmarks/LOCK").exists());
+    assert!(!root.join("benchmarks/locks.move").exists());
+    assert_eq!(lock_files(&root), moved);
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "again"],
+        &root,
+    );
+    assert!(f.is_empty(), "{f:?}");
     assert_eq!(lock_files(&root), moved);
 }
 
@@ -863,16 +887,36 @@ fn legacy_tree(name: &str, extra: &str) -> (crate::Tree, String) {
 }
 
 #[test]
-fn a_move_clears_empty_directories_in_its_way_and_refuses_a_file_there() {
-    let (root, _) = legacy_tree("lock-move-empty-dirs", "");
-    fs::create_dir_all(root.join("benchmarks/locks/harness/xtask/src/harness.rs.lock")).unwrap();
-    fs::create_dir_all(root.join("benchmarks/locks/1_a/deep")).unwrap();
+fn a_move_refuses_a_lock_directory_that_holds_anything_and_deletes_nothing_in_it() {
+    let (root, old) = legacy_tree("lock-move-empty-dirs", "");
+    let leaf = root.join("benchmarks/locks/harness/xtask/src/harness.rs.lock");
+    fs::create_dir_all(&leaf).unwrap();
     let f = lever(
         &["lock", "--reviewer", "PENDING", "--reason", "moved"],
         &root,
     );
-    assert!(f.is_empty(), "{f:?}");
+    assert!(
+        has(
+            &f,
+            "lock: benchmarks/locks is not empty (harness); the move publishes only into an empty or absent benchmarks/locks, and benchmarks/LOCK is kept"
+        ),
+        "{f:?}"
+    );
+    assert!(leaf.is_dir());
+    assert_eq!(
+        fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
+        old
+    );
     assert_eq!(moves_left(&root), vec!["locks".to_owned()]);
+    fs::remove_dir_all(root.join("benchmarks/locks/harness")).unwrap();
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(
+        f.is_empty(),
+        "an empty benchmarks/locks takes the move: {f:?}"
+    );
     assert_eq!(
         lock_entry(&root, "harness", "xtask/src/harness.rs")["reviewer"].as_str(),
         Some("first")
@@ -889,7 +933,10 @@ fn a_move_clears_empty_directories_in_its_way_and_refuses_a_file_there() {
         fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
         old
     );
-    assert_eq!(moves_left(&root), vec!["locks".to_owned()]);
+    assert_eq!(
+        fs::read_to_string(root.join("benchmarks/locks/harness/stray.txt")).unwrap(),
+        "x\n"
+    );
 }
 
 #[test]
