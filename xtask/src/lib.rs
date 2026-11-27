@@ -168,8 +168,10 @@ enum Cli {
     /// commit is no ancestor of HEAD, a pilot, a pass with failures, a filter or a bound its case does not hold, and a
     /// claim record that harness/record.rs refuses. It pins each row's record, byte for byte, as one line of
     /// benchmarks/RECORDS.jsonl (record_sha256). A passing claim row also keeps [case.claim]: per rival G, its 95% CI, R
-    /// and the pairs, recomputed from the speed blocks by harness/speed.rs `compare`; the size series, checked against
-    /// the same blocks; each input that a code did not time, with the reason; the node block. render writes
+    /// and the pairs, the size series and the skips, each made again from the samples of the speed blocks by
+    /// harness::claim_summaries, the producer's own functions; the record's summaries must equal them bit for bit, and its
+    /// blocks must be the case's manifest (declared inputs and held-out names, the thread sweep, the configured skips)
+    /// at the atoms of each declared cell; also each input that a code did not time, with the reason, and the node block. render writes
     /// benchmarks/README.md and assets/benchmarks/results-{light,dark}.svg from RESULTS.toml alone, and
     /// assets/benchmarks/card-{speed,memory,scaling,verification}-{light,dark}.svg: speed, memory and scaling only from a
     /// claim row, verification only while each case it shows passes; it removes a card that no row backs. Science S11

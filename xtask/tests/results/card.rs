@@ -27,7 +27,7 @@ fn holds(card: &str, words: &[&str]) {
 fn rendered(name: &str, cells: &[Cell]) -> Vec<String> {
     let root = claim_cases(name, cells);
     let head = commit(&root, "head");
-    let found = collected(&root, &claim_record(&head, cells));
+    let found = collected(&root, &claim_record(&root, &head, cells));
     assert_eq!(found, Vec::<String>::new());
     assert!(lever(&["results", "render"], &root).is_empty());
     cards_of(&root)
@@ -37,7 +37,7 @@ fn rendered(name: &str, cells: &[Cell]) -> Vec<String> {
 fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_numbers() {
     let root = claim_cases("cards", &cells());
     let head = commit(&root, "head");
-    assert!(collected(&root, &claim_record(&head, &cells())).is_empty());
+    assert!(collected(&root, &claim_record(&root, &head, &cells())).is_empty());
     assert!(lever(&["results", "render"], &root).is_empty());
     let first = cards_of(&root);
     assert!(lever(&["results", "render"], &root).is_empty());
@@ -64,15 +64,15 @@ fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_num
         speed,
         &[
             ">SPEED</text>",
-            ">≥ 4.00×</text>",
+            ">≥ 4.10×</text>",
             ">faster than QE</text>",
             ">≥ 3.00×</text>",
             ">faster than ABINIT</text>",
             ">95% CI lower bound</text>",
-            ">geometric mean over 3 of 4 cells</text>",
-            ">geometric mean over 4 of 4 cells</text>",
+            ">geometric mean over 4 of 5 cells</text>",
+            ">geometric mean over 5 of 5 cells</text>",
             ">one representative cell: b</text>",
-            ">of the cells that every rival ran, the one whose ratios lie nearest each G; ties go to the first by name</text>",
+            ">of the cells that every rival ran, the one of least summed |log ratio − log G| over the rivals; ties go to the first by name</text>",
             ">8.00 s</text>",
             ">32.0 s</text>",
             ">24.0 s</text>",
@@ -87,14 +87,14 @@ fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_num
             ">MEMORY</text>",
             ">2.00×</text>",
             ">less peak memory than QE</text>",
-            ">geometric mean over 2 of 4 cells</text>",
-            ">1.85×</text>",
-            ">geometric mean over 3 of 4 cells</text>",
-            ">one representative cell: d</text>",
-            "nearest each R;",
-            ">6.40 GB</text>",
-            ">12.80 GB</text>",
-            ">10.80 GB</text>",
+            ">geometric mean over 3 of 5 cells</text>",
+            ">2.09×</text>",
+            ">geometric mean over 4 of 5 cells</text>",
+            ">one representative cell: b</text>",
+            "least summed |log ratio − log R| over the rivals;",
+            ">400 MB</text>",
+            ">800 MB</text>",
+            ">900 MB</text>",
             ">not in R against QE: input, its runs are too short for a peak Pss reading</text>",
             ">not in R against ABINIT: input, its runs are too short for a peak Pss reading</text>",
         ],
@@ -103,7 +103,7 @@ fn a_passing_claim_record_gives_speed_memory_and_scaling_cards_that_show_its_num
         scaling,
         &[
             ">SCALABILITY</text>",
-            ">8.00×</text>",
+            ">8.02×</text>",
             ">faster than QE at 128 atoms</text>",
             ">3.00×</text>",
             ">faster than ABINIT at 128 atoms</text>",
@@ -166,7 +166,7 @@ fn a_rival_without_a_point_at_the_largest_size_has_no_ratio_there_and_the_card_s
         &[
             ">none</text>",
             ">no QE ratio at 128 atoms</text>",
-            ">d skipped</text>",
+            ">d skipped: no dataset converges it</text>",
             ">faster than ABINIT at 128 atoms</text>",
             ">not timed: QE d (128 atoms), skipped: no dataset converges it</text>",
         ],
@@ -208,7 +208,7 @@ fn a_bound_just_below_a_hundredth_is_cut_and_never_rounded_up() {
 fn a_failing_claim_record_makes_no_card_and_render_removes_a_stray_one() {
     let root = claim_cases("no-card", &cells());
     let head = commit(&root, "head");
-    let mut failing = claim_record(&head, &cells());
+    let mut failing = claim_record(&root, &head, &cells());
     failing["outcome"] = "fail".into();
     failing["failures"] = serde_json::json!(["G against qe is below its bar"]);
     assert!(collected(&root, &failing).is_empty());

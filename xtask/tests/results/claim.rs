@@ -1,11 +1,13 @@
 use super::{WHAT, cases, commit, read, s11};
 use crate::{Tree, has, lever, write};
 use serde_json::{Value, json};
+use std::path::Path;
 
-const CLAIM: &str = "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"correctness\"]\nreference = \"analytic\"\nrivals = [\"qe\", \"abinit\"]\n\n[tolerance]\nf_error_max = 1e-9\n";
+const CLAIM: &str = "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"memory\", \"correctness\"]\nreference = \"analytic\"\nrivals = [\"qe\", \"abinit\"]\n\n[tolerance]\nf_error_max = 1e-9\n";
 pub(super) const RECORD: &str = "target/benchmarks/claim/5_e.json";
 const CODES: [&str; 3] = ["orbitar", "qe", "abinit"];
 const SKIP: &str = "no dataset converges it";
+const HELD: &str = "held-out-e";
 
 #[derive(Clone)]
 pub(super) struct Cell {
@@ -23,7 +25,7 @@ pub(super) fn cells() -> Vec<Cell> {
             runs: [
                 Some((0.2, 100_000_000)),
                 Some((0.4, 200_000_000)),
-                Some((0.6, 300_000_000)),
+                Some((0.6006, 300_000_000)),
             ],
             long: false,
         },
@@ -33,7 +35,7 @@ pub(super) fn cells() -> Vec<Cell> {
             runs: [
                 Some((8.0, 400_000_000)),
                 Some((32.0, 800_000_000)),
-                Some((24.0, 900_000_000)),
+                Some((24.024, 900_000_000)),
             ],
             long: true,
         },
@@ -43,7 +45,7 @@ pub(super) fn cells() -> Vec<Cell> {
             runs: [
                 Some((64.0, 1_600_000_000)),
                 None,
-                Some((192.0, 2_700_000_000)),
+                Some((192.192, 2_700_000_000)),
             ],
             long: true,
         },
@@ -52,12 +54,29 @@ pub(super) fn cells() -> Vec<Cell> {
             atoms: 128,
             runs: [
                 Some((512.0, 6_400_000_000)),
-                Some((4096.0, 12_800_000_000)),
-                Some((1536.0, 10_800_000_000)),
+                Some((4111.1552, 12_864_000_000)),
+                Some((1537.536, 10_800_000_000)),
+            ],
+            long: true,
+        },
+        Cell {
+            input: HELD,
+            atoms: 4,
+            runs: [
+                Some((1.0, 200_000_000)),
+                Some((4.4, 400_000_000)),
+                Some((3.003, 600_000_000)),
             ],
             long: true,
         },
     ]
+}
+
+fn path(input: &str) -> String {
+    match input {
+        "input" => "benchmarks/5_e/input.toml".to_owned(),
+        name => format!("benchmarks/5_e/inputs/{name}.toml"),
+    }
 }
 
 pub(super) fn claim_cases(name: &str, cells: &[Cell]) -> Tree {
@@ -70,13 +89,19 @@ pub(super) fn claim_cases(name: &str, cells: &[Cell]) -> Tree {
             "{WHAT}\n[5]\nwhat = \"F vs reference; speed vs rivals\"\nmetric = [\"f_error\"]\nunit = \"Ha/atom\"\n"
         ),
     );
+    for cell in cells.iter().filter(|c| c.input != HELD) {
+        write(
+            &root,
+            &path(cell.input),
+            &format!("[structure]\nspecies = {:?}\n", vec!["Si"; cell.atoms]),
+        );
+    }
     let mut skips = String::new();
     for cell in cells.iter().filter(|c| c.runs[1].is_none()) {
-        let path = match cell.input {
-            "input" => "benchmarks/5_e/input.toml".to_owned(),
-            name => format!("benchmarks/5_e/inputs/{name}.toml"),
-        };
-        skips.push_str(&format!("{{ cell = \"{path}\", reason = \"{SKIP}\" }}, "));
+        skips.push_str(&format!(
+            "{{ cell = \"{}\", reason = \"{SKIP}\" }}, ",
+            path(cell.input)
+        ));
     }
     let rivals = crate::harness::rival::RIVALS.replacen(
         "density_ratio = 8.0\n",
@@ -88,88 +113,30 @@ pub(super) fn claim_cases(name: &str, cells: &[Cell]) -> Tree {
     root
 }
 
-fn tidy(x: f64) -> f64 {
-    (x * 1e12).round() / 1e12
-}
-
-fn block(code: &str, cell: &Cell, t: f64, pss: u64) -> Value {
-    let wall = if cell.long { t + 1.0 } else { t + 0.3 };
+pub(super) fn block(code: &str, input: &str, atoms: usize, t: f64, pss: u64, long: bool) -> Value {
+    let wall = if long { t + 1.0 } else { t + 0.3 };
     let orbitar = code == "orbitar";
     json!({
-        "code": code, "input": cell.input, "threads": 8, "atoms": cell.atoms,
+        "code": code, "input": input, "threads": 8, "atoms": atoms,
         "e_ref_ha": -2.0, "e_ref_shift_ha": if orbitar { json!(0.0) } else { Value::Null },
-        "delta_ha": 1e-4 / 27.211_386_245_988 * cell.atoms as f64, "warmup": null,
-        "t_delta_s": vec![t; 5], "wall_s": vec![wall; 5], "peak_rss_bytes": vec![pss; 5], "peak_pss_bytes": vec![pss; 5],
-        "losses": [], "noisy": false, "median_t_delta_s": t, "range_t_delta_s": [t, t], "cv_t_delta": 0.0,
-        "median_peak_rss_bytes": pss as f64, "median_peak_pss_bytes": pss as f64,
+        "delta_ha": 1e-4 / 27.211_386_245_988 * atoms as f64, "warmup": null,
+        "t_delta_s": vec![t; 5], "wall_s": vec![wall; 5], "peak_rss_bytes": vec![pss; 5],
+        "peak_pss_bytes": vec![pss; 5], "losses": [], "noisy": false, "median_t_delta_s": t,
+        "range_t_delta_s": [t, t], "cv_t_delta": 0.0, "median_peak_rss_bytes": pss as f64,
+        "median_peak_pss_bytes": pss as f64,
         "rival": if orbitar { Value::Null } else { json!({}) }, "accuracy": null, "step_cap": null,
         "steps": vec![9; 5], "e_ref_steps": [8, 9],
     })
 }
 
-fn slope(points: &[(f64, f64)]) -> f64 {
-    let n = points.len() as f64;
-    let mx = points.iter().map(|p| p.0.ln()).sum::<f64>() / n;
-    let my = points.iter().map(|p| p.1.ln()).sum::<f64>() / n;
-    let sxx: f64 = points.iter().map(|p| (p.0.ln() - mx).powi(2)).sum();
-    let sxy: f64 = points
-        .iter()
-        .map(|p| (p.0.ln() - mx) * (p.1.ln() - my))
-        .sum();
-    sxy / sxx
-}
-
-pub(super) fn claim_record(commit: &str, cells: &[Cell]) -> Value {
+pub(super) fn measured_record(commit: &str, cells: &[Cell]) -> Value {
     let mut speed = Vec::new();
-    let mut skipped = Vec::new();
     for cell in cells {
         for (code, runs) in CODES.iter().zip(&cell.runs) {
-            match runs {
-                Some((t, pss)) => speed.push(block(code, cell, *t, *pss)),
-                None => skipped.push(json!({ "code": code, "input": cell.input, "reason": SKIP })),
+            if let Some((t, pss)) = runs {
+                speed.push(block(code, cell.input, cell.atoms, *t, *pss, cell.long));
             }
         }
-    }
-    let mut versus = Vec::new();
-    for (k, code) in CODES.iter().enumerate().skip(1) {
-        let (mut pairs, mut t, mut m) = (Vec::new(), Vec::new(), Vec::new());
-        for cell in cells {
-            let (Some((to, po)), Some((tr, pr))) = (cell.runs[0], cell.runs[k]) else {
-                continue;
-            };
-            t.push(tr / to);
-            if cell.long {
-                m.push(pr as f64 / po as f64);
-            }
-            pairs.push(json!({
-                "input": cell.input, "threads": 8, "medians_t_delta_s": [tr, to],
-                "medians_peak_pss_bytes": [pr as f64, po as f64], "in_r": cell.long, "losses": 0,
-            }));
-        }
-        let mean = |v: &[f64]| tidy((v.iter().map(|x| x.ln()).sum::<f64>() / v.len() as f64).exp());
-        let g = mean(&t);
-        versus.push(json!({ "code": code, "g": g, "g_ci": [g, g], "r": mean(&m), "pairs": pairs }));
-    }
-    let mut series = Vec::new();
-    for (k, code) in CODES.iter().enumerate() {
-        let points: Vec<(&Cell, f64, u64)> = (cells.iter())
-            .filter_map(|c| c.runs[k].map(|(t, pss)| (c, t, pss)))
-            .collect();
-        let fit = |y: fn(f64, u64) -> f64| {
-            let xy: Vec<(f64, f64)> = points
-                .iter()
-                .map(|(c, t, p)| (c.atoms as f64, y(*t, *p)))
-                .collect();
-            slope(&xy)
-        };
-        series.push(json!({
-            "code": code,
-            "t_delta_exponent": fit(|t, _| t),
-            "pss_exponent": fit(|_, p| p as f64),
-            "points": points.iter().map(|(c, t, p)| json!({
-                "input": c.input, "atoms": c.atoms, "median_t_delta_s": t, "median_peak_pss_bytes": *p as f64,
-            })).collect::<Vec<_>>(),
-        }));
     }
     let inputs: Vec<&str> = cells.iter().map(|c| c.input).collect();
     let runs = 5 * cells.len();
@@ -177,10 +144,10 @@ pub(super) fn claim_record(commit: &str, cells: &[Cell]) -> Value {
         "schema": 4, "case": "5_e", "tier": "claim", "commit": commit, "dirty": false, "pilot": false,
         "engine_sha256": "cd".repeat(32), "outcome": "pass", "failures": [], "filter": null,
         "metrics": { "f_error": 1e-10 }, "tolerance": { "f_error_max": 1e-9 },
-        "inputs": inputs, "held_out": [inputs[inputs.len() - 1]], "runs_s": vec![0.1; runs],
-        "peak_rss_bytes": vec![1; runs], "rotation_s": vec![0.1; cells.len() - 1], "rotation_max": 0.0,
-        "rotation_used": 0.0, "seed_fixed": false, "speed": speed, "skipped": skipped, "versus": versus,
-        "series": series,
+        "inputs": inputs, "held_out": [{ "input": HELD, "sha256": "ab".repeat(32) }],
+        "runs_s": vec![0.1; runs], "peak_rss_bytes": vec![1; runs],
+        "rotation_s": vec![0.1; cells.len() - 1], "rotation_max": 0.0, "rotation_used": 0.0,
+        "seed_fixed": false, "speed": speed,
         "node": {
             "host": { "cpu": "Stand-in CPU", "cores": 8, "core_cpus": ["0", "1"], "memory_bytes": 16_762_847_232_u64 },
             "orbitar": { "build": "cargo build --release", "profile_release": { "lto": "thin" } },
@@ -190,31 +157,53 @@ pub(super) fn claim_record(commit: &str, cells: &[Cell]) -> Value {
     })
 }
 
+pub(super) fn summed(root: &Path, mut record: Value) -> Value {
+    let made = xtask::harness::claim_summaries(root, &record).unwrap();
+    record["versus"] = made.versus;
+    record["series"] = made.series;
+    record["skipped"] = made.skipped;
+    record
+}
+
+pub(super) fn claim_record(root: &Path, commit: &str, cells: &[Cell]) -> Value {
+    summed(root, measured_record(commit, cells))
+}
+
 pub(super) fn collected(root: &Tree, record: &Value) -> Vec<String> {
     write(root, RECORD, &record.to_string());
     lever(&["results", "collect"], root)
 }
 
+fn speed_block<'a>(record: &'a mut Value, code: &str, input: &str) -> &'a mut Value {
+    (record["speed"].as_array_mut().unwrap().iter_mut())
+        .find(|b| b["code"] == code && b["input"] == input)
+        .unwrap()
+}
+
 #[test]
-fn a_passing_claim_record_keeps_its_comparisons_its_series_and_its_skips_in_a_claim_table() {
+fn a_passing_claim_record_keeps_the_comparisons_series_and_skips_that_its_samples_give() {
     let root = claim_cases("claim-table", &cells());
     let head = commit(&root, "head");
-    assert_eq!(
-        collected(&root, &claim_record(&head, &cells())),
-        Vec::<String>::new()
-    );
+    let record = claim_record(&root, &head, &cells());
+    assert_eq!(collected(&root, &record), Vec::<String>::new());
     let results = read(&root, "benchmarks/RESULTS.toml");
     for text in [
-        "[[case.claim.versus]]\nrival = \"qe\"\ng = 4e0\ng_ci = [4e0, 4e0]\nr = 2e0\n",
-        "[[case.claim.versus.pair]]\ninput = \"input\"\nthreads = 8\nt_delta_s_rival = 6e-1\nt_delta_s_orbitar = 2e-1\npeak_pss_bytes_rival = 3e8\npeak_pss_bytes_orbitar = 1e8\nin_r = false\nlosses = 0\n",
-        "[[case.claim.series]]\ncode = \"qe\"\nt_delta_exponent = 2.1531325849839087e0\n",
-        "[[case.claim.series.point]]\ninput = \"d\"\natoms = 128\nt_delta_s = 1.536e3\npeak_pss_bytes = 1.08e10\n",
+        "[[case.claim.versus]]\nrival = \"qe\"\n",
+        "[[case.claim.versus.pair]]\ninput = \"input\"\nthreads = 8\nt_delta_s_rival = 6.006e-1\nt_delta_s_orbitar = 2e-1\npeak_pss_bytes_rival = 3e8\npeak_pss_bytes_orbitar = 1e8\nin_r = false\nlosses = 0\n",
+        "input = \"held-out-e\"\nthreads = 8\n",
+        "[[case.claim.series]]\ncode = \"qe\"\ncoverage = \"partial\"\n",
+        "[[case.claim.series.point]]\ninput = \"c\"\natoms = 32\nstatus = \"skipped: no dataset converges it\"\n\n",
+        "[[case.claim.series.point]]\ninput = \"d\"\natoms = 128\nstatus = \"measured\"\nt_delta_s = 1.537536e3\npeak_pss_bytes = 1.08e10\n",
         "[[case.claim.skip]]\ncode = \"qe\"\ninput = \"c\"\natoms = 32\nkind = \"skipped\"\nreason = \"no dataset converges it\"\n",
         "[case.claim.node.host]\ncore_cpus = [\"0\", \"1\"]\ncores = 8\ncpu = \"Stand-in CPU\"\nmemory_bytes = 16762847232\n",
         "[case.claim.node.qe]\n\"a b\" = \"1 x sha256:02\"\nlibgfortran-ng = \"14.2 h0 sha256:01\"\n",
     ] {
         assert!(results.contains(text), "{text}: {results}");
     }
+    assert!(
+        !results.contains("input = \"held-out-e\"\natoms"),
+        "a held-out cell is no series point: {results}"
+    );
     let pinned = read(&root, "benchmarks/RECORDS.jsonl");
     assert_eq!(pinned, format!("{}\n", read(&root, RECORD)));
     assert!(lever(&["results", "render"], &root).is_empty());
@@ -224,10 +213,35 @@ fn a_passing_claim_record_keeps_its_comparisons_its_series_and_its_skips_in_a_cl
 }
 
 #[test]
-fn a_claim_record_that_the_harness_proof_or_its_own_speed_blocks_refute_is_refused_by_name() {
-    let root = claim_cases("claim-refused", &cells());
+fn a_claim_whose_samples_fail_the_bar_is_refused_whatever_summary_it_submits() {
+    let root = claim_cases("claim-bar", &cells());
     let head = commit(&root, "head");
-    let good = claim_record(&head, &cells());
+    let good = claim_record(&root, &head, &cells());
+    let mut close = cells();
+    for cell in &mut close {
+        let (t, pss) = cell.runs[0].unwrap();
+        cell.runs[2] = Some((t * 0.999_999_999_9, pss * 2));
+    }
+    let mut record = measured_record(&head, &close);
+    record["versus"] = good["versus"].clone();
+    record["versus"][1]["g"] = json!(1.0);
+    record["versus"][1]["g_ci"] = json!([1.0, 1.0]);
+    record["skipped"] = good["skipped"].clone();
+    record["series"] = good["series"].clone();
+    let found = collected(&root, &record);
+    assert!(
+        has(&found, "G against abinit = 0.99999999")
+            && has(&found, "whose lower bound is not at least 1"),
+        "{found:?}"
+    );
+    assert!(!root.join("benchmarks/RESULTS.toml").exists());
+}
+
+#[test]
+fn a_submitted_summary_must_equal_bit_for_bit_what_the_samples_give() {
+    let root = claim_cases("claim-exact", &cells());
+    let head = commit(&root, "head");
+    let good = claim_record(&root, &head, &cells());
     let edit = |f: &dyn Fn(&mut Value)| {
         let mut record = good.clone();
         f(&mut record);
@@ -235,12 +249,31 @@ fn a_claim_record_that_the_harness_proof_or_its_own_speed_blocks_refute_is_refus
     };
     let cases: Vec<(Value, &str)> = vec![
         (
-            edit(&|r| r["failures"] = json!(["a block failed"])),
-            "5_e says pass, but names failures",
+            edit(&|r| {
+                let g = r["versus"][0]["g"].as_f64().unwrap();
+                r["versus"][0]["g"] = json!(f64::from_bits(g.to_bits() + 1));
+            }),
+            "the record's versus for qe is not what its speed blocks give: g is",
         ),
         (
-            edit(&|r| r["filter"] = json!(["b"])),
-            "5_e says pass, but names failures [] or a filter [\"b\"]",
+            edit(&|r| r["versus"][0]["pairs"][0]["in_r"] = json!(true)),
+            "the record's versus for qe is not what its speed blocks give: pairs is",
+        ),
+        (
+            edit(&|r| r["skipped"] = json!([])),
+            "the record's skipped holds 0 entries, but its speed blocks give 1",
+        ),
+        (
+            edit(&|r| r["series"][1]["points"][1]["median_t_delta_s"] = json!(30.0)),
+            "the record's series for qe is not what its speed blocks give: points is",
+        ),
+        (
+            edit(&|r| r["series"][0]["t_delta_exponent"] = json!(1.9)),
+            "the record's series for orbitar is not what its speed blocks give: t_delta_exponent is 1.9",
+        ),
+        (
+            edit(&|r| r["failures"] = json!(["a block failed"])),
+            "5_e says pass, but names failures",
         ),
         (
             edit(&|r| r["pilot"] = json!("true")),
@@ -253,43 +286,6 @@ fn a_claim_record_that_the_harness_proof_or_its_own_speed_blocks_refute_is_refus
         (
             edit(&|r| r["versus"][0]["g_ci"][0] = json!(0.8)),
             "the harness's claim proof refuses it",
-        ),
-        (
-            edit(&|r| r["versus"][0]["g"] = json!(4.5)),
-            "versus qe: g is 4.5e0, but its speed blocks give",
-        ),
-        (
-            edit(&|r| r["versus"][0]["pairs"][1]["medians_t_delta_s"][0] = json!(33.0)),
-            "versus qe: medians_t_delta_s is 3.3e1, but its speed blocks give 3.2e1",
-        ),
-        (
-            edit(&|r| r["versus"][0]["pairs"][0]["in_r"] = json!(true)),
-            "versus qe: the pair \"input\" differs from its speed blocks in input, threads, in_r or losses",
-        ),
-        (
-            edit(&|r| {
-                let copy = r["speed"][1].clone();
-                r["speed"].as_array_mut().unwrap().push(copy);
-            }),
-            "the harness's claim proof refuses it",
-        ),
-        (
-            edit(&|r| r["skipped"] = json!([])),
-            "qe c: neither a speed block nor a recorded skip",
-        ),
-        (
-            edit(&|r| {
-                r["series"].as_array_mut().unwrap().remove(2);
-            }),
-            "series abinit: input has neither a point nor a recorded skip",
-        ),
-        (
-            edit(&|r| r["series"][1]["points"][1]["median_t_delta_s"] = json!(30.0)),
-            "series qe: the point of b differs from its speed block's atoms and medians",
-        ),
-        (
-            edit(&|r| r["series"][0]["t_delta_exponent"] = json!(1.9)),
-            "series orbitar: the T(δ) exponent is 1.9e0, but its points give",
         ),
         (
             edit(&|r| r["node"]["qe"]["qe"] = json!("7.5")),
@@ -310,15 +306,96 @@ fn a_claim_record_that_the_harness_proof_or_its_own_speed_blocks_refute_is_refus
 }
 
 #[test]
+fn the_pairs_follow_the_case_manifest_of_declared_inputs_and_held_out_names() {
+    let root = claim_cases("claim-manifest", &cells());
+    let head = commit(&root, "head");
+    let good = claim_record(&root, &head, &cells());
+    let renamed = {
+        let mut r = good.clone();
+        r["inputs"][4] = json!("held-out-x");
+        r["held_out"][0]["input"] = json!("held-out-x");
+        r
+    };
+    let dropped = {
+        let mut r = good.clone();
+        r["inputs"].as_array_mut().unwrap().remove(2);
+        r["rotation_s"].as_array_mut().unwrap().pop();
+        r["speed"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|b| b["input"] != "c");
+        r["runs_s"] = json!(vec![0.1; 20]);
+        r["peak_rss_bytes"] = json!(vec![1; 20]);
+        r
+    };
+    let doubled = {
+        let mut r = good.clone();
+        let copy = speed_block(&mut r, "abinit", "b").clone();
+        r["speed"].as_array_mut().unwrap().push(copy);
+        r
+    };
+    for (record, why) in [
+        (
+            renamed,
+            "the speed block of orbitar held-out-e at 8 threads is not in the case's manifest",
+        ),
+        (
+            dropped,
+            "the record's inputs [\"input\",\"b\",\"d\",\"held-out-e\"] are not the case's inputs and held-out names",
+        ),
+        (doubled, "the harness's claim proof refuses it"),
+    ] {
+        let found = collected(&root, &record);
+        assert!(has(&found, why), "{why}: {found:?}");
+    }
+}
+
+#[test]
+fn a_block_must_hold_its_declared_cell_and_sum_up_its_own_samples() {
+    let root = claim_cases("claim-blocks", &cells());
+    let head = commit(&root, "head");
+    let good = claim_record(&root, &head, &cells());
+    let summary = {
+        let mut r = good.clone();
+        let b = speed_block(&mut r, "qe", "d");
+        b["median_t_delta_s"] = json!(256.0);
+        b["range_t_delta_s"] = json!([256.0, 256.0]);
+        r
+    };
+    let larger = {
+        let mut r = good.clone();
+        *speed_block(&mut r, "qe", "d") = block("qe", "d", 256, 4111.1552, 12_864_000_000, true);
+        r
+    };
+    for (record, why) in [
+        (
+            summary,
+            "the speed block of qe d at 8 threads sums up other numbers than its samples give",
+        ),
+        (
+            larger,
+            "the speed block of qe d at 8 threads holds 256 atoms, but its cell holds 128",
+        ),
+    ] {
+        let found = collected(&root, &record);
+        assert!(has(&found, why), "{why}: {found:?}");
+    }
+}
+
+#[test]
 fn science_s11_derives_each_claim_row_again_from_its_pinned_record() {
     let root = claim_cases("claim-s11", &cells());
     let head = commit(&root, "head");
-    assert!(collected(&root, &claim_record(&head, &cells())).is_empty());
+    assert!(collected(&root, &claim_record(&root, &head, &cells())).is_empty());
     assert!(lever(&["results", "render"], &root).is_empty());
     let results = read(&root, "benchmarks/RESULTS.toml");
     let changed = "differs from what its record in benchmarks/RECORDS.jsonl gives";
+    let g = (results.lines())
+        .find(|l| l.starts_with("g = "))
+        .unwrap()
+        .to_owned();
     for (from, to) in [
-        ("g = 4e0\ng_ci = [4e0, 4e0]", "g = 5e0\ng_ci = [5e0, 5e0]"),
+        (g.as_str(), "g = 5e0"),
         ("in_r = false\nlosses = 0\n", "in_r = true\nlosses = 0\n"),
         (
             "reason = \"no dataset converges it\"",

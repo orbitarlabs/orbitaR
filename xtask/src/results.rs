@@ -1,6 +1,7 @@
 mod card;
 mod claim;
 
+use crate::harness::speed::log10;
 use crate::{
     Findings,
     case::{self, Bound, Case, Status, Tier},
@@ -953,21 +954,6 @@ const DARK_THEME: Theme = Theme {
     pass: "#0aac23",
     fail: "#dc3c3d",
 };
-
-fn log10(x: f64) -> f64 {
-    let text = format!("{x:e}");
-    let (mantissa, exponent) = text.split_once('e').unwrap_or((&text, "0"));
-    let m: f64 = mantissa.parse().unwrap_or(1.0);
-    let e = exponent.parse::<i32>().map_or(0.0, f64::from);
-    let y = m.sqrt().sqrt();
-    let z = (y - 1.0) / (y + 1.0);
-    let (mut term, mut sum) = (z, 0.0);
-    for k in 0..30 {
-        sum += term / f64::from(2 * k + 1);
-        term *= z * z;
-    }
-    e + 8.0 * sum / std::f64::consts::LN_10
-}
 
 fn escaped(text: &str) -> String {
     text.replace('&', "&amp;")

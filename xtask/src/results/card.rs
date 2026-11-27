@@ -1,6 +1,6 @@
 use super::{
     Outcome, Row,
-    claim::{Claim, ORBITAR, Pair, Series, Versus},
+    claim::{Claim, ORBITAR, Pair, Point, Series, Versus},
     escaped, log10, px,
 };
 use std::{collections::BTreeSet, fmt::Write as _};
@@ -477,7 +477,7 @@ impl Card for Bars<'_> {
             "",
             PALETTE.muted,
             &format!(
-                "of the cells that every rival ran, the one whose ratios lie nearest each {mean}; ties go to the first by name"
+                "of the cells that every rival ran, the one of least summed |log ratio − log {mean}| over the rivals; ties go to the first by name"
             ),
         );
         let top = (self.bars.iter())
@@ -520,9 +520,17 @@ struct Scaling<'a> {
     heroes: Vec<Hero>,
 }
 
+fn measured(s: &Series) -> impl Iterator<Item = (&Point, f64)> {
+    s.points.iter().filter_map(|p| Some((p, p.t_delta_s?)))
+}
+
+fn at<'a>(s: &'a Series, input: &str) -> Option<&'a Point> {
+    s.points.iter().find(|p| p.input == input)
+}
+
 fn domain(s: &Series) -> String {
-    match (s.points.first(), s.points.last()) {
-        (Some(a), Some(b)) => format!("{}–{} atoms", a.atoms, b.atoms),
+    match (measured(s).next(), measured(s).last()) {
+        (Some((a, _)), Some((b, _))) => format!("{}–{} atoms", a.atoms, b.atoms),
         _ => "no point".into(),
     }
 }
@@ -535,18 +543,13 @@ fn scaling(rows: &[Row]) -> Option<Scaling<'_>> {
     })?;
     let ours = claim.series.iter().find(|s| s.code == ORBITAR)?;
     let sizes: BTreeSet<u32> = (claim.series.iter())
-        .flat_map(|s| s.points.iter().map(|p| p.atoms))
+        .flat_map(|s| measured(s).map(|(p, _)| p.atoms))
         .collect();
     if sizes.len() < 2 {
         return None;
     }
     let mut cells: Vec<(u32, &str)> = (ours.points.iter())
         .map(|p| (p.atoms, p.input.as_str()))
-        .chain(
-            (claim.skip.iter())
-                .filter(|s| s.code == ORBITAR)
-                .map(|s| (s.atoms, s.input.as_str())),
-        )
         .collect();
     cells.sort_unstable();
     let largest = cells.last().map_or(0, |c| c.0);
@@ -572,14 +575,8 @@ fn scaling(rows: &[Row]) -> Option<Scaling<'_>> {
             });
             continue;
         };
-        let point = |series: &Series| {
-            series
-                .points
-                .iter()
-                .find(|p| p.input == input)
-                .map(|p| p.t_delta_s)
-        };
-        match (point(s), point(ours)) {
+        let time = |series: &Series| at(series, input).and_then(|p| p.t_delta_s);
+        match (time(s), time(ours)) {
             (Some(theirs), Some(mine)) => {
                 let ratio = theirs / mine;
                 heroes.push(Hero {
@@ -593,9 +590,9 @@ fn scaling(rows: &[Row]) -> Option<Scaling<'_>> {
                 });
             }
             _ => {
-                let why = (claim.skipped(&s.code, input))
-                    .or_else(|| claim.skipped(ORBITAR, input))
-                    .map_or("no point", |k| k.kind.name());
+                let why = (at(s, input).filter(|p| p.t_delta_s.is_none()))
+                    .or(at(ours, input))
+                    .map_or("no point", |p| p.status.as_str());
                 heroes.push(Hero {
                     big: "none".into(),
                     power: String::new(),
@@ -649,14 +646,14 @@ impl Card for Scaling<'_> {
             "median T(δ) per cell size · log–log axes · lower is better",
         );
         svg.heroes(&self.heroes);
-        let points = || self.claim.series.iter().flat_map(|s| s.points.iter());
-        let sizes: BTreeSet<u32> = points().map(|p| p.atoms).collect();
+        let points = || self.claim.series.iter().flat_map(measured);
+        let sizes: BTreeSet<u32> = points().map(|(p, _)| p.atoms).collect();
         let (first, last) = (
             f64::from(*sizes.first().unwrap_or(&1)),
             f64::from(*sizes.last().unwrap_or(&1)),
         );
         let (lo, hi) = (log10(first), log10(last));
-        let times: Vec<f64> = points().map(|p| log10(p.t_delta_s)).collect();
+        let times: Vec<f64> = points().map(|(_, t)| log10(t)).collect();
         let low = times.iter().copied().fold(f64::INFINITY, f64::min).floor();
         let high = times
             .iter()
@@ -702,8 +699,8 @@ impl Card for Scaling<'_> {
         );
         for s in &self.claim.series {
             let fill = colour(&s.code);
-            let path: Vec<String> = (s.points.iter())
-                .map(|p| format!("{},{}", px(x(p.atoms)), px(y(p.t_delta_s))))
+            let path: Vec<String> = measured(s)
+                .map(|(p, t)| format!("{},{}", px(x(p.atoms)), px(y(t))))
                 .collect();
             let _ = writeln!(
                 svg.out,
@@ -711,19 +708,19 @@ impl Card for Scaling<'_> {
                 path.join(" "),
                 fill[theme]
             );
-            for p in &s.points {
+            for (p, t) in measured(s) {
                 let _ = writeln!(
                     svg.out,
                     "<circle cx=\"{}\" cy=\"{}\" r=\"5\" fill=\"{}\"/>",
                     px(x(p.atoms)),
-                    px(y(p.t_delta_s)),
+                    px(y(t)),
                     fill[theme]
                 );
             }
-            if let Some(p) = s.points.last() {
+            if let Some((p, t)) = measured(s).last() {
                 svg.text(
                     x(p.atoms) + 12.0,
-                    y(p.t_delta_s) + 5.0,
+                    y(t) + 5.0,
                     15.0,
                     " font-weight=\"600\"",
                     fill,
