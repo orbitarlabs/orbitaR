@@ -1,4 +1,6 @@
-use crate::pw::{Basis, Complex64, Mat, MatRef, SphereFft, c64, kinetic_density, per_chunk};
+use crate::pw::{
+    Basis, Complex64, Mat, MatRef, SphereFft, c64, kinetic_density, per_chunk, per_point,
+};
 
 #[derive(Clone)]
 pub(super) struct Density {
@@ -128,15 +130,16 @@ impl Sums {
                 }
             }
         }
-        for (rho, projectors) in self.occupancies.iter_mut().zip(k.projectors) {
-            let p = projectors.adjoint() * x;
-            for i in 0..rho.nrows() {
-                for j in 0..rho.ncols() {
-                    rho[(i, j)] += (0..f.len())
-                        .map(|band| k.weight * f[band] * (p[(i, band)] * p[(j, band)].conj()).re)
-                        .sum::<f64>();
-                }
-            }
+        let added = per_point(k.projectors.len(), |atom| {
+            let p = k.projectors[atom].adjoint() * x;
+            Mat::from_fn(p.nrows(), p.nrows(), |i, j| {
+                (0..f.len())
+                    .map(|band| k.weight * f[band] * (p[(i, band)] * p[(j, band)].conj()).re)
+                    .sum::<f64>()
+            })
+        });
+        for (rho, added) in self.occupancies.iter_mut().zip(added) {
+            *rho += added;
         }
     }
 }

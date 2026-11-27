@@ -1,4 +1,4 @@
-# harness reviewer=int2-fix, captain to review reason=PR 18 green on Linux, on integration-2 as its reviewers passed it: a run's guarded peak (the memory guard, its size estimates, a failed run's kept peak) is the larger of wait4's RSS high-water mark and the Pss samples, which miss a peak between two 50 ms polls; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH, a symlink to the probed file, then the wrapped command's own PATH or /usr/bin:/bin; a test runs both rivals in a scope beside a decoy tool on their own PATH; tests catch the mutants of the claim tools, size series and cards that CI's first full mutants run missed, with the cards' bytes pinned as card.rs at 6039ee3 draws them
+# harness reviewer=int2-fix, captain to review reason=PR 18 green on Linux, on integration-2 as its reviewers passed it, merged with main at cf0ae67 (#19 and #27 as their reviews passed them): a run's guarded peak (the memory guard, its size estimates, a failed run's kept peak) is the larger of wait4's RSS high-water mark and the Pss samples, which miss a peak between two 50 ms polls; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH, a symlink to the probed file, then the wrapped command's own PATH or /usr/bin:/bin; tests catch the mutants of the claim tools, size series and cards that CI's first full mutants run missed, with the cards' bytes pinned as card.rs at 6039ee3 draws them
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -20,16 +20,17 @@ c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harn
 5300a574bfe7f256b784932116102679e3dd8a781b3e85d3676cae3c71d22b8b  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
-5e9037b343df1ac8920cf12ef6fe44877b6b21a678dcf28535ee1ab4df3f0b60  xtask/src/lib.rs
+559e4a3236d15f89eb70629d1ddd2e7934c5c52598d3d88c47208b4a42704f1a  xtask/src/lib.rs
 d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
 7b9668521afebc2a339451a67f56046865cf41b19322ead20b100f1ba493da20  xtask/src/native.rs
 dd125db005245fa9789ae86efcea78cacf86874ed115eec7c06614c71c4b74b1  xtask/src/node.rs
 a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_text.rs
-61555ff273ebe6fccb87cd8e2b6e1c0bff47246b4be9782e8cfbafea8e89a750  xtask/src/publish.rs
-9ae32a6167bbfc7b985e63fa43c65d45ecee51a25434a8410ebf9929e6c4093d  xtask/src/release.rs
-69753ec74301a7e1248c342a8ff4c99df60229e7228674269fb0bb51bac47739  xtask/src/release/mac.rs
+36b99e5a53344bbe4f2da44f7bcd646c07adc1c8af5ed64905bc465ac6a20e37  xtask/src/publish.rs
+1ebe6d2fe4d15388e4c3f68be9934fd2dd8e8fbd465e5183ad4b471284ed9e11  xtask/src/release.rs
+58ae1a4318862fd2a9f574fa1ade4c0cb28a01a2f55200f35f44e14b60b47889  xtask/src/release/archive.rs
+e39c9e39f45f11364aeca1051ee4e75e5122dae7d62459ce9b7dd919d2ad56a3  xtask/src/release/mac.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
 7a1290837563a0a0a006f295309853e5c6f258077b4d4f832f65ccdfc357f9ac  xtask/src/results.rs
 947636281b235c44cd68fb6ac3ddfa82b291a34a0d9b4c7f5e32406c7c9a88f4  xtask/src/results/card.rs
@@ -49,7 +50,7 @@ b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk
 37df1f7f7b9a18c49ea5fe978fc0613f55a0cd4c6a6c08edf2b0bad1a795d06d  xtask/tests/case.rs
 b7eeebba385d0d02a1867c7b9c39b97336923dc72ddaf878fe4f40517187bde7  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
-0d97cee7c2d91d6aced20e7e35e9fa2de6bdaa900fd38eaba0442893bc28b0e1  xtask/tests/harness.rs
+ec4ca0766f341079f1d3f1eae84fc84347d5419a6aad58d4633bbc214a1ca41b  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
 34bb356c822a8e35907af2fdbd5033f4fb84d7525f941599a30694a0995cf02e  xtask/tests/harness/datasets.rs
 3a76633569c2153ae6114e2157563e635df9c12c3204da6d4cbcab29a0118629  xtask/tests/harness/engine.rs
@@ -70,9 +71,10 @@ fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/ha
 c42a2e5450ddcbdc637f26637bcd8a869c26f3a206edf8fe0d5d1e802a8b3087  xtask/tests/native.rs
 c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/node.rs
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
-3c2ea0d64e25ff4fb8e11f6a6c444629424470bd13776d1c0e08dc9ad257277e  xtask/tests/publish.rs
-8b7427ba6f297cb2fa085a161a4657762243d5b3df7ce54cc521d0a0c28d1fc5  xtask/tests/release.rs
-498f547694fa6d58e456bc4c4ad8488ae6d5877e14ce6fb84fc0cf37826894be  xtask/tests/release/mac.rs
+adbbdc00ab51db5acb2968db1f53f8b3b022c4ff5a885bc26c697a133bf313be  xtask/tests/publish.rs
+9b9f3220b49c3f47d25873de7410b06de25ad6a1954bd1b0621b86e907538201  xtask/tests/release.rs
+fc2f0e2d82c9a12dcd8947f645e4eafd8eaea82d55fe6a80853c3e15383976ca  xtask/tests/release/archive.rs
+445712a3248ffe26d7f8ae34898d83a8f60657603ef9b4b1df3e6942619b88ed  xtask/tests/release/mac.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 b006ba5bdf2cadf498ccce6924780a9a25a2887bcafac1e605e3c857aabd4c84  xtask/tests/results.rs
 3f5c85d8663aeaf69b6a6acbd27e0253ecb3dda6e3089674ce3dd84218ba1813  xtask/tests/results/card.rs
@@ -94,7 +96,7 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/version-
 25c05a1ee1c58ca7a2667e5a94eeffe983abf96c387d0c81e6eff62cbe2fe5f0  .config/nextest.toml
 170e990fbecd92a2790e88cd82074156a7d9a28482a2be86cdabbc8110f06632  clippy.toml
 1b163dc0af0ee6ec9ccd7608ec3d27d85e642bc0fc218b693a3b3600bf1cfb61  .github/workflows/ci.yml
-09f2b1de21e526e61e5af0190d3bc2d895d5ed400b1ad0410ce23f47e2dc4d5a  .github/workflows/package.yml
+14ecbeceb664c563314e72ffa5ca2f177fdf19770160afc0fb5f722d93924e13  .github/workflows/package.yml
 78670b960043d5292fddc44dfbf1e1177fce02ef77b415f6cdca7b37c2199c2f  .github/workflows/text.yml
 8f17496d6bc593407b195136d75b7f4cf035c668eefec6bfef0a1a7410f0415f  Cargo.toml
 de836b60f523429179a0b1e7d4cb19ae5461df6ac535a28c022abef0ea8d3c66  Cargo.lock
