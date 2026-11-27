@@ -60,7 +60,7 @@ fn s2_frees_no_number_in_measure_code() {
 
 #[test]
 fn s3_rejects_a_symlinked_engine_file() {
-    let root = tree("s3-link", &[("src/lib.rs", ""), ("benchmarks/LOCK", "")]);
+    let root = tree("s3-link", &[("src/lib.rs", ""), ("benchmarks/.keep", "")]);
     std::fs::create_dir_all(root.join("src/ks")).unwrap();
     std::os::unix::fs::symlink("/etc/hostname", root.join("src/ks/alias.rs")).unwrap();
     assert!(has(
@@ -145,7 +145,7 @@ fn cited_engine(name: &str, body: &str, entries: &str) -> Vec<String> {
         &[
             ("src/SOURCE.toml", &table),
             ("src/xc/lda.rs", body),
-            ("benchmarks/LOCK", ""),
+            ("benchmarks/.keep", ""),
         ],
     );
     lever(&["science"], &root)
@@ -197,7 +197,7 @@ fn s2_checks_stale_citations_when_the_table_is_the_only_source_file() {
     let table = format!("[\"src/xc/lda.rs\"]\n{GAMMA}");
     let root = tree(
         "s2-table-only",
-        &[("src/SOURCE.toml", &table), ("benchmarks/LOCK", "")],
+        &[("src/SOURCE.toml", &table), ("benchmarks/.keep", "")],
     );
     let findings = lever(&["science"], &root);
     assert!(
@@ -629,25 +629,22 @@ fn base_with(name: &str, case: &str) -> Tree {
 }
 
 fn eased(root: &Tree, file: &str, body: &str) -> Vec<String> {
-    let old = std::fs::read_to_string(root.join("benchmarks/LOCK")).unwrap();
+    let old = crate::lock_files(root);
     write(root, file, body);
     forge(root, &old)
 }
 
-fn forge(root: &Tree, old: &str) -> Vec<String> {
+fn forge(root: &Tree, old: &std::collections::BTreeMap<String, String>) -> Vec<String> {
     assert!(lever(&["lock", "--reviewer", "self", "--reason", "rehash"], root).is_empty());
-    let rehashed = std::fs::read_to_string(root.join("benchmarks/LOCK")).unwrap();
-    let headers = |text: &str| -> Vec<String> {
-        text.lines()
-            .filter(|l| l.starts_with("# "))
-            .map(str::to_owned)
-            .collect()
-    };
-    let mut forged = rehashed.clone();
-    for (new, old) in headers(&rehashed).iter().zip(headers(old)) {
-        forged = forged.replace(new, &old);
+    for (path, text) in crate::lock_files(root) {
+        let Some(was) = old.get(&path) else { continue };
+        let was: toml::Table = was.parse().unwrap();
+        let mut entry: toml::Table = text.parse().unwrap();
+        for key in ["reviewer", "reason"] {
+            entry.insert(key.into(), was[key].clone());
+        }
+        write(root, &path, &toml::to_string(&entry).unwrap());
     }
-    write(root, "benchmarks/LOCK", &forged);
     lever(&["science", "--base", "HEAD"], root)
 }
 
@@ -713,10 +710,10 @@ fn s9_needs_a_lock_once_the_base_has_benchmarks() {
     git(&root, &["commit", "-qm", "base"]);
     assert!(lever(&["lock", "--reviewer", "owner", "--reason", "late"], &root).is_empty());
     let f = lever(&["science", "--base", "HEAD"], &root);
-    assert!(has(&f, "S9 cannot read benchmarks/LOCK at HEAD"), "{f:?}");
+    assert!(has(&f, "S9 cannot read benchmarks/locks at HEAD"), "{f:?}");
     let f = lever(&["science", "--base", "no-such-base"], &root);
     assert!(
-        has(&f, "S9 cannot read benchmarks/LOCK at no-such-base"),
+        has(&f, "S9 cannot read benchmarks/locks at no-such-base"),
         "{f:?}"
     );
 }
@@ -734,7 +731,7 @@ fn s9_catches_a_lost_id_and_a_reused_number() {
 #[test]
 fn s9_catches_easing_that_keeps_the_old_review_line() {
     let root = base("s9-easier");
-    let old = std::fs::read_to_string(root.join("benchmarks/LOCK")).unwrap();
+    let old = crate::lock_files(&root);
     write(
         &root,
         "benchmarks/1_a/case.toml",
@@ -743,7 +740,10 @@ fn s9_catches_easing_that_keeps_the_old_review_line() {
     write(&root, "xtask/src/harness.rs", "// a kinder judge\n");
     let f = forge(&root, &old);
     assert!(
-        has(&f, "S9 the harness changed without a new LOCK review line"),
+        has(
+            &f,
+            "S9 the harness changed without a new lock review: xtask/src/harness.rs"
+        ),
         "{f:?}"
     );
     assert!(has(&f, "S9 1_a got easier"), "{f:?}");
@@ -759,11 +759,85 @@ fn s9_catches_a_rewritten_measure_that_keeps_the_old_review_line() {
         "// a kinder measure\n",
     );
     assert!(
-        has(&f, "S9 1_a changed without a new LOCK review line"),
+        has(
+            &f,
+            "S9 1_a changed without a new lock review: tests/benchmarks/1_a/case.rs"
+        ),
         "{f:?}"
     );
     assert!(!has(&f, "S9 2_b"), "{f:?}");
     assert!(!has(&f, "S9 the harness changed"), "{f:?}");
+}
+
+#[test]
+fn s9_reads_an_old_one_file_lock_at_the_base() {
+    let root = base("s9-legacy");
+    let mut old = String::new();
+    for (block, files) in [
+        ("harness", vec!["xtask/src/harness.rs"]),
+        (
+            "1_a",
+            vec!["benchmarks/1_a/case.toml", "tests/benchmarks/1_a/case.rs"],
+        ),
+        ("2_b", vec!["benchmarks/2_b/case.toml"]),
+    ] {
+        let entry = crate::lock_entry(&root, block, files[0]);
+        old.push_str(&format!(
+            "# {block} reviewer={} reason={}\n",
+            entry["reviewer"].as_str().unwrap(),
+            entry["reason"].as_str().unwrap()
+        ));
+        for file in files {
+            let sha = crate::lock_entry(&root, block, file)["sha256"].clone();
+            old.push_str(&format!("{}  {file}\n", sha.as_str().unwrap()));
+        }
+    }
+    let moved = crate::lock_files(&root);
+    std::fs::remove_dir_all(root.join("benchmarks/locks")).unwrap();
+    write(&root, "benchmarks/LOCK", &old);
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-qm", "old lock"]);
+    std::fs::remove_file(root.join("benchmarks/LOCK")).unwrap();
+    for (path, text) in &moved {
+        write(&root, path, text);
+    }
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(!has(&f, "S9") && !has(&f, "S5"), "{f:?}");
+    let f = forge(&root, &moved);
+    assert!(!has(&f, "S9"), "{f:?}");
+    let f = eased(&root, "xtask/src/harness.rs", "// a kinder judge\n");
+    assert!(
+        has(
+            &f,
+            "S9 the harness changed without a new lock review: xtask/src/harness.rs"
+        ),
+        "{f:?}"
+    );
+}
+
+#[test]
+fn s9_needs_a_tombstone_for_a_dropped_entry_and_lets_a_tombstone_go() {
+    let root = base("s9-dropped");
+    let entry = "benchmarks/locks/1_a/tests/benchmarks/1_a/case.rs.lock";
+    std::fs::remove_file(root.join("tests/benchmarks/1_a/case.rs")).unwrap();
+    std::fs::remove_file(root.join(entry)).unwrap();
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(
+        has(
+            &f,
+            "S9 1_a changed without a new lock review: tests/benchmarks/1_a/case.rs"
+        ),
+        "{f:?}"
+    );
+    git(&root, &["checkout", "--", entry]);
+    assert!(lever(&["lock", "--reviewer", "second", "--reason", "drop"], &root).is_empty());
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(!has(&f, "S9 1_a") && !has(&f, "S5"), "{f:?}");
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-qm", "tombstone"]);
+    std::fs::remove_file(root.join(entry)).unwrap();
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(!has(&f, "S9 1_a"), "{f:?}");
 }
 
 #[test]
@@ -1858,9 +1932,9 @@ fn s5_and_lock_refuse_a_case_family_name_that_is_no_file_name() {
         "{f:?}"
     );
     assert!(
-        !std::fs::read_to_string(root.join("benchmarks/LOCK"))
-            .unwrap()
-            .contains("x.toml")
+        !crate::lock_files(&root)
+            .keys()
+            .any(|f| f.contains("x.toml"))
     );
 }
 
@@ -2070,7 +2144,7 @@ fn functional_tree(name: &str, file: &str, body: &str) -> Vec<String> {
         &[
             ("src/model/spec.rs", FUNCTIONAL),
             (file, body),
-            ("benchmarks/LOCK", ""),
+            ("benchmarks/.keep", ""),
         ],
     );
     lever(&["science"], &root)
@@ -2111,7 +2185,7 @@ fn s10_frees_only_the_default_of_the_enum_file() {
         "s10-home",
         &[
             ("src/model/spec.rs", spec.as_str()),
-            ("benchmarks/LOCK", ""),
+            ("benchmarks/.keep", ""),
         ],
     );
     let f = lever(&["science"], &root);
@@ -2132,7 +2206,7 @@ fn s10_follows_the_enum_to_the_file_that_defines_it() {
                 "src/ks/run.rs",
                 "pub fn f() -> bool {\n    Functional::Lda == Functional::Pbe\n}\n",
             ),
-            ("benchmarks/LOCK", ""),
+            ("benchmarks/.keep", ""),
         ],
     );
     let f = lever(&["science"], &root);
@@ -2165,7 +2239,7 @@ fn s10_reads_the_variants_of_the_functional_enum_not_of_an_enum_before_it() {
                 "src/io/run.rs",
                 "pub fn f() -> bool {\n    Functional::Lda == Functional::Pbe\n}\n",
             ),
-            ("benchmarks/LOCK", ""),
+            ("benchmarks/.keep", ""),
         ],
     );
     let f = lever(&["science"], &root);

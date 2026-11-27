@@ -1,9 +1,19 @@
-use crate::{Findings, case, walk};
+use crate::{Findings, case, harness::datasets::regular_in, walk};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, fmt::Write as _, path::Path};
+use std::{
+    collections::BTreeMap,
+    fmt::Write as _,
+    io::Write as _,
+    path::Path,
+    process::{Command, Stdio},
+};
 
-pub(crate) const PATH: &str = "benchmarks/LOCK";
+pub(crate) const DIR: &str = "benchmarks/locks";
+pub(crate) const LEGACY: &str = "benchmarks/LOCK";
 pub(crate) const HARNESS: &str = "harness";
+const SUFFIX: &str = ".lock";
+const REMOVED: &str = "removed";
 const HARNESS_FILES: [&str; 14] = [
     "xtask/",
     "tests/benchmarks.rs",
@@ -21,44 +31,231 @@ const HARNESS_FILES: [&str; 14] = [
     "benchmarks/ACWF.toml",
 ];
 
-pub(crate) struct Block {
-    pub(crate) header: String,
-    pub(crate) lines: Vec<String>,
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Entry {
+    sha256: String,
+    reviewer: String,
+    reason: String,
+}
+
+pub(crate) type Lock = BTreeMap<String, BTreeMap<String, Entry>>;
+
+impl Entry {
+    fn new(sha256: &str, reviewer: &str, reason: &str) -> Self {
+        Self {
+            sha256: sha256.to_owned(),
+            reviewer: reviewer.trim().to_owned(),
+            reason: reason.replace('\n', " ").trim().to_owned(),
+        }
+    }
+
+    fn removed(&self) -> bool {
+        self.sha256 == REMOVED
+    }
+
+    fn review(&self) -> (&str, &str) {
+        (&self.reviewer, &self.reason)
+    }
+
+    fn parse(stored: &str, text: &str) -> Result<Self, String> {
+        let entry: Self = toml::from_str(text).map_err(|e| format!("{stored}: {e}"))?;
+        let hex = entry.sha256.len() == 64
+            && (entry.sha256.bytes()).all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+        if !(hex || entry.removed()) {
+            return Err(format!(
+                "{stored}: sha256 holds 64 hex digits or {REMOVED:?}"
+            ));
+        }
+        if entry.reviewer.trim().is_empty() || entry.reason.trim().is_empty() {
+            return Err(format!("{stored} needs a reviewer and a reason"));
+        }
+        Ok(entry)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum State {
     Reviewed,
-    Stale,
+    Stale(Vec<String>),
     Unlocked,
     Broken(String),
 }
 
-pub(crate) fn blocks(text: &str) -> Result<BTreeMap<String, Block>, String> {
-    let mut blocks: BTreeMap<String, Block> = BTreeMap::new();
-    let mut current: Option<String> = None;
+fn stored_at(block: &str, file: &str) -> String {
+    format!("{DIR}/{block}/{file}{SUFFIX}")
+}
+
+fn place(stored: &str) -> Result<(String, String), String> {
+    (stored.strip_prefix(DIR))
+        .and_then(|rest| rest.strip_prefix('/'))
+        .and_then(|rest| rest.split_once('/'))
+        .and_then(|(block, file)| Some((block, file.strip_suffix(SUFFIX)?)))
+        .filter(|(block, file)| !block.is_empty() && !file.is_empty())
+        .map(|(block, file)| (block.to_owned(), file.to_owned()))
+        .ok_or_else(|| format!("{stored} is no {DIR}/<block>/<file>{SUFFIX} entry"))
+}
+
+fn parse(stored: impl IntoIterator<Item = (String, Vec<u8>)>) -> Result<Lock, String> {
+    let mut lock = Lock::new();
+    for (path, bytes) in stored {
+        let (block, file) = place(&path)?;
+        let text = String::from_utf8(bytes).map_err(|e| format!("{path}: {e}"))?;
+        let entry = Entry::parse(&path, &text)?;
+        lock.entry(block).or_default().insert(file, entry);
+    }
+    Ok(lock)
+}
+
+pub(crate) fn legacy(text: &str) -> Result<Lock, String> {
+    let mut lock = Lock::new();
+    let mut current: Option<(String, Entry)> = None;
     for line in text.lines() {
         if let Some(header) = line.strip_prefix("# ") {
-            let id = header.split_whitespace().next().unwrap_or("").to_owned();
-            if blocks.contains_key(&id) {
-                return Err(format!("{PATH} lists {id} twice"));
+            let (block, review) = (header.split_once(" reviewer="))
+                .and_then(|(block, rest)| Some((block, rest.split_once(" reason=")?)))
+                .ok_or_else(|| format!("{LEGACY}: {header:?} needs reviewer= and reason="))?;
+            if lock.insert(block.to_owned(), BTreeMap::new()).is_some() {
+                return Err(format!("{LEGACY} lists {block} twice"));
             }
-            blocks.insert(
-                id.clone(),
-                Block {
-                    header: header.to_owned(),
-                    lines: Vec::new(),
-                },
-            );
-            current = Some(id);
-        } else if !line.trim().is_empty() {
-            let Some(block) = current.as_ref().and_then(|id| blocks.get_mut(id)) else {
-                return Err(format!("{PATH}: hash line before any header: {line}"));
+            let review = Entry {
+                sha256: String::new(),
+                reviewer: review.0.to_owned(),
+                reason: review.1.to_owned(),
             };
-            block.lines.push(line.to_owned());
+            current = Some((block.to_owned(), review));
+        } else if !line.trim().is_empty() {
+            let Some((block, review)) = &current else {
+                return Err(format!("{LEGACY}: hash line before any header: {line}"));
+            };
+            let (sha, file) = (line.split_once("  "))
+                .ok_or_else(|| format!("{LEGACY}: {line:?} is no `<sha256>  <file>` line"))?;
+            let entry = Entry {
+                sha256: sha.to_owned(),
+                ..review.clone()
+            };
+            (lock.entry(block.clone()).or_default()).insert(file.to_owned(), entry);
         }
     }
-    Ok(blocks)
+    Ok(lock)
+}
+
+fn present(root: &Path, path: &str) -> bool {
+    !std::fs::symlink_metadata(root.join(path))
+        .is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
+}
+
+fn on_disk(root: &Path) -> Result<Lock, String> {
+    if let Some(fault) = walk::faults(root, DIR).into_iter().next() {
+        return Err(fault);
+    }
+    if let Some(odd) = (walk::links(root, DIR).into_iter())
+        .chain(walk::others(root, DIR))
+        .next()
+    {
+        return Err(format!("{odd} is no regular file"));
+    }
+    let files = (walk::files(root, DIR).into_iter())
+        .map(|path| Ok((path.clone(), regular_in(root, &path)?)))
+        .collect::<Result<Vec<_>, String>>()?;
+    parse(files)
+}
+
+pub(crate) fn read(root: &Path) -> Result<Lock, String> {
+    if present(root, LEGACY) {
+        return Err(format!(
+            "{LEGACY} is the old one-file lock; `cargo xtask lock --reviewer <name> --reason <text>` moves it into {DIR}"
+        ));
+    }
+    on_disk(root)
+}
+
+fn stored(root: &Path) -> Result<(Lock, bool), String> {
+    if !present(root, LEGACY) {
+        return on_disk(root).map(|lock| (lock, false));
+    }
+    if !on_disk(root)?.is_empty() {
+        return Err(format!(
+            "{LEGACY} and {DIR} both exist; delete {LEGACY}, as {DIR} replaces it"
+        ));
+    }
+    let text =
+        String::from_utf8(regular_in(root, LEGACY)?).map_err(|e| format!("{LEGACY}: {e}"))?;
+    legacy(&text).map(|lock| (lock, true))
+}
+
+pub(crate) fn at(root: &Path, base: &str, listed: &[String]) -> Result<Option<Lock>, String> {
+    let prefix = format!("{DIR}/");
+    let stored: Vec<String> = (listed.iter())
+        .filter(|path| path.starts_with(&prefix))
+        .cloned()
+        .collect();
+    if !stored.is_empty() {
+        let blobs = blobs(root, base, &stored)?;
+        return parse(stored.into_iter().zip(blobs)).map(Some);
+    }
+    if !listed.iter().any(|path| path == LEGACY) {
+        return Ok(None);
+    }
+    let bytes = blobs(root, base, &[LEGACY.to_owned()])?.concat();
+    let text = String::from_utf8(bytes).map_err(|e| format!("{LEGACY} at {base}: {e}"))?;
+    legacy(&text).map(Some)
+}
+
+fn blobs(root: &Path, base: &str, paths: &[String]) -> Result<Vec<Vec<u8>>, String> {
+    let fail = |e: &dyn std::fmt::Display| format!("git cat-file at {base}: {e}");
+    let mut child = Command::new("git")
+        .args(["cat-file", "--batch"])
+        .current_dir(root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| fail(&e))?;
+    let asked: String = paths.iter().map(|p| format!("{base}:{p}\n")).collect();
+    let mut stdin = child.stdin.take().ok_or_else(|| fail(&"no stdin"))?;
+    let writer = std::thread::spawn(move || stdin.write_all(asked.as_bytes()));
+    let out = child.wait_with_output().map_err(|e| fail(&e))?;
+    (writer.join())
+        .map_err(|_| fail(&"the writer panicked"))?
+        .map_err(|e| fail(&e))?;
+    let mut rest = out.stdout.as_slice();
+    let mut blobs = Vec::new();
+    for path in paths {
+        let end = (rest.iter().position(|b| *b == b'\n')).ok_or_else(|| fail(&path))?;
+        let header = String::from_utf8_lossy(&rest[..end]).into_owned();
+        let size: usize = match header.split(' ').collect::<Vec<_>>().as_slice() {
+            [_, "blob", size] => size.parse().map_err(|_| fail(&header))?,
+            _ => return Err(fail(&format!("{path}: {header}"))),
+        };
+        let body = (rest.get(end + 1..end + 1 + size)).ok_or_else(|| fail(&path))?;
+        blobs.push(body.to_vec());
+        rest = rest.get(end + 2 + size..).unwrap_or_default();
+    }
+    Ok(blobs)
+}
+
+pub(crate) fn unreviewed(old: &Lock, new: &Lock) -> BTreeMap<String, Vec<String>> {
+    let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (block, files) in old {
+        let now = new.get(block);
+        for (file, was) in files {
+            let silent = match now.and_then(|n| n.get(file)) {
+                Some(is) => is.sha256 != was.sha256 && is.review() == was.review(),
+                None => !was.removed(),
+            };
+            if silent {
+                out.entry(block.clone()).or_default().push(file.clone());
+            }
+        }
+    }
+    out
+}
+
+pub(crate) fn kept_review(old: &Lock, new: &Lock, block: &str, file: &str) -> bool {
+    let was = old.get(block).and_then(|files| files.get(file));
+    let is = new.get(block).and_then(|files| files.get(file));
+    was.is_some_and(|was| is.is_none_or(|is| is.review() == was.review()))
 }
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
@@ -68,17 +265,7 @@ pub(crate) fn hex(bytes: &[u8]) -> String {
     })
 }
 
-pub(crate) fn text(root: &Path) -> Result<String, String> {
-    if std::fs::symlink_metadata(root.join(PATH))
-        .is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound)
-    {
-        return Ok(String::new());
-    }
-    let bytes = crate::harness::datasets::regular_in(root, PATH)?;
-    String::from_utf8(bytes).map_err(|e| format!("{PATH}: {e}"))
-}
-
-pub(crate) fn hashes(root: &Path, id: &str) -> Result<Vec<String>, String> {
+fn hashes(root: &Path, id: &str) -> Result<Vec<String>, String> {
     let walked: Vec<String> = if id == HARNESS {
         (HARNESS_FILES.iter())
             .filter_map(|f| f.strip_suffix('/').map(str::to_owned))
@@ -113,7 +300,7 @@ pub(crate) fn hashes(root: &Path, id: &str) -> Result<Vec<String>, String> {
     files
         .into_iter()
         .map(|file| {
-            let mut bytes = crate::harness::datasets::regular_in(root, &file)?;
+            let mut bytes = regular_in(root, &file)?;
             if file == crate::layout::RUNNER {
                 bytes = without_case_table(&bytes);
             }
@@ -145,7 +332,16 @@ pub(crate) fn digest(root: &Path, id: &str) -> String {
 }
 
 pub(crate) fn fingerprint(root: &Path) -> String {
-    let mut text = text(root).unwrap_or_else(|e| format!("! {e}"));
+    let mut text = String::new();
+    let stored = std::iter::once(LEGACY.to_owned())
+        .chain(walk::files(root, DIR))
+        .chain(walk::links(root, DIR))
+        .chain(walk::others(root, DIR));
+    for path in stored {
+        let bytes = regular_in(root, &path).unwrap_or_else(|e| format!("! {e}").into_bytes());
+        text.push_str(&path);
+        text.push_str(&String::from_utf8_lossy(&bytes));
+    }
     let ids = case::ids(root).unwrap_or_default();
     for id in std::iter::once(HARNESS).chain(ids.iter().map(String::as_str)) {
         text.push_str(&lines(root, id));
@@ -153,24 +349,47 @@ pub(crate) fn fingerprint(root: &Path) -> String {
     hex(&Sha256::digest(text))
 }
 
-pub(crate) fn state(root: &Path, id: &str) -> Result<State, String> {
-    Ok(state_in(&blocks(&text(root)?)?, root, id))
+fn hashed(root: &Path, id: &str) -> Result<BTreeMap<String, String>, String> {
+    Ok((hashes(root, id)?.into_iter())
+        .filter_map(|line| {
+            let (sha, file) = line.split_once("  ")?;
+            Some((file.to_owned(), sha.to_owned()))
+        })
+        .collect())
 }
 
-fn state_in(blocks: &BTreeMap<String, Block>, root: &Path, id: &str) -> State {
-    let lines = match hashes(root, id) {
-        Ok(lines) => lines,
+pub(crate) fn state(root: &Path, id: &str) -> Result<State, String> {
+    Ok(state_in(&read(root)?, root, id))
+}
+
+fn state_in(lock: &Lock, root: &Path, id: &str) -> State {
+    let hashed = match hashed(root, id) {
+        Ok(hashed) => hashed,
         Err(e) => return State::Broken(e),
     };
-    match blocks.get(id) {
-        Some(block) if block.lines == lines => State::Reviewed,
-        Some(_) => State::Stale,
-        None => State::Unlocked,
+    let none = BTreeMap::new();
+    let entries = match lock.get(id) {
+        Some(entries) => entries,
+        None if hashed.is_empty() => &none,
+        None => return State::Unlocked,
+    };
+    let changed = (hashed.iter())
+        .filter(|(file, sha)| entries.get(*file).is_none_or(|e| e.sha256 != **sha))
+        .map(|(file, _)| file)
+        .chain(
+            (entries.iter())
+                .filter(|(file, e)| !e.removed() && !hashed.contains_key(*file))
+                .map(|(file, _)| file),
+        );
+    let stale: Vec<String> = changed.cloned().collect();
+    match stale.is_empty() {
+        true => State::Reviewed,
+        false => State::Stale(stale),
     }
 }
 
 pub(crate) fn findings(root: &Path) -> Findings {
-    let locked = match text(root).and_then(|text| blocks(&text)) {
+    let locked = match read(root) {
         Ok(locked) => locked,
         Err(e) => return vec![format!("science: S5 {e}")],
     };
@@ -187,31 +406,33 @@ pub(crate) fn findings(root: &Path) -> Findings {
     for id in std::iter::once(HARNESS).chain(ids.iter().map(String::as_str)) {
         match state_in(&locked, root, id) {
             State::Unlocked => findings.push(format!(
-                "science: S5 {id} is not in {PATH}; run `cargo xtask lock --reviewer <name> --reason <text>`"
+                "science: S5 {id} is not in {DIR}; run `cargo xtask lock --reviewer <name> --reason <text>`"
             )),
-            State::Stale => findings.push(format!(
-                "science: S5 {id} changed since its LOCK review; run `cargo xtask lock` and get a science review"
+            State::Stale(files) => findings.push(format!(
+                "science: S5 {id} changed since its lock review: {}; run `cargo xtask lock` and get a science review",
+                files.join(", ")
             )),
             State::Reviewed => {}
             State::Broken(e) => findings.push(format!("science: S5 {id}: {e}")),
         }
-        if let Some(block) = locked.get(id)
-            && !(block.header.contains(" reviewer=") && block.header.contains(" reason="))
-        {
-            findings.push(format!(
-                "science: S5 {id} LOCK header needs reviewer= and reason="
-            ));
-        }
     }
     findings
+}
+
+pub(crate) fn blocks(root: &Path) -> Vec<String> {
+    read(root)
+        .map(Lock::into_keys)
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
     if reviewer.trim().is_empty() || reason.trim().is_empty() {
         return vec!["usage: cargo xtask lock --reviewer <name> --reason <text>".into()];
     }
-    let locked = match text(root).and_then(|text| blocks(&text)) {
-        Ok(locked) => locked,
+    let (locked, legacy) = match stored(root) {
+        Ok(stored) => stored,
         Err(e) => return vec![format!("lock: {e}")],
     };
     let ids = match case::ids(root) {
@@ -242,28 +463,49 @@ pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
     if !findings.is_empty() {
         return findings;
     }
-    let line = format!(
-        "reviewer={} reason={}",
-        reviewer.trim(),
-        reason.replace('\n', " ").trim()
-    );
-    let mut out = String::new();
+    let mut next = Lock::new();
     for id in std::iter::once(HARNESS).chain(ids.iter().map(String::as_str)) {
-        let lines = match hashes(root, id) {
-            Ok(lines) => lines,
+        let hashed = match hashed(root, id) {
+            Ok(hashed) => hashed,
             Err(e) => return vec![format!("lock: {id}: {e}")],
         };
-        let header = match locked.get(id) {
-            Some(block) if block.lines == lines => block.header.clone(),
-            _ => format!("{id} {line}"),
-        };
-        let _ = writeln!(out, "# {header}");
-        for line in lines {
-            let _ = writeln!(out, "{line}");
+        let kept = locked.get(id).cloned().unwrap_or_default();
+        let block = next.entry(id.to_owned()).or_default();
+        for (file, sha) in &hashed {
+            let entry = match kept.get(file) {
+                Some(entry) if entry.sha256 == *sha => entry.clone(),
+                _ => Entry::new(sha, reviewer, reason),
+            };
+            block.insert(file.clone(), entry);
+        }
+        for (file, entry) in kept.into_iter().filter(|(f, _)| !hashed.contains_key(f)) {
+            let entry = match entry.removed() {
+                true => entry,
+                false => Entry::new(REMOVED, reviewer, reason),
+            };
+            block.insert(file, entry);
         }
     }
-    match std::fs::write(root.join(PATH), out) {
-        Ok(()) => Vec::new(),
-        Err(e) => vec![format!("lock: {PATH}: {e}")],
+    let written = if legacy { Lock::new() } else { locked };
+    for (block, files) in &next {
+        for (file, entry) in files {
+            if written.get(block).and_then(|w| w.get(file)) == Some(entry) {
+                continue;
+            }
+            let path = root.join(stored_at(block, file));
+            let wrote = (path.parent().map_or(Ok(()), std::fs::create_dir_all))
+                .and_then(|()| toml::to_string(entry).map_err(std::io::Error::other))
+                .and_then(|text| std::fs::write(&path, text));
+            if let Err(e) = wrote {
+                return vec![format!("lock: {}: {e}", stored_at(block, file))];
+            }
+        }
+    }
+    match legacy {
+        true => match std::fs::remove_file(root.join(LEGACY)) {
+            Ok(()) => Vec::new(),
+            Err(e) => vec![format!("lock: {LEGACY}: {e}")],
+        },
+        false => Vec::new(),
     }
 }

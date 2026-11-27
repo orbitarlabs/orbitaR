@@ -402,7 +402,7 @@ pub(crate) fn ids(root: &Path) -> Result<Vec<String>, String> {
         let kind = entry
             .file_type()
             .map_err(|e| format!("{}: {e}", entry.path().display()))?;
-        if !kind.is_dir() {
+        if !kind.is_dir() || entry.path() == root.join(crate::lock::DIR) {
             continue;
         }
         let id = (entry.file_name().into_string())

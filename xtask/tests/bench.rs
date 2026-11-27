@@ -63,7 +63,7 @@ fn the_claim_tier_refuses_extra_rust_flags_and_names_them() {
 
 #[test]
 fn the_claim_tier_needs_a_declared_node() {
-    let root = tree("bench-node", &[("benchmarks/LOCK", "")]);
+    let root = tree("bench-node", &[("benchmarks/.keep", "")]);
     assert!(has(
         &lever(&["bench", "claim"], &root),
         "benchmarks/NODE.toml is missing"
@@ -188,11 +188,10 @@ fn a_run_of_one_case_clears_that_cases_record_and_keeps_its_peers() {
 #[test]
 fn a_run_that_rewrites_the_lock_fails() {
     let root = tree("bench-lock", &[("benchmarks/1_a/case.toml", ACTIVE)]);
-    let body =
-        "[ \"$1\" = test ] && echo '# 1_a reviewer=case reason=easier' >> benchmarks/LOCK\nexit 0";
+    let body = "[ \"$1\" = test ] && mkdir -p benchmarks/locks/1_a && echo 'reason = \"easier\"' >> benchmarks/locks/1_a/case.toml.lock\nexit 0";
     let f = xtask::run(&["smoke"], &root, &fake_cargo(&root, body));
     assert!(
-        has(&f, "the run changed benchmarks/LOCK or a locked file"),
+        has(&f, "the run changed benchmarks/locks or a locked file"),
         "{f:?}"
     );
 }
@@ -238,7 +237,10 @@ fn the_claim_tier_refuses_a_host_that_differs_from_the_declared_node_in_any_key(
         .into_iter()
         .enumerate()
     {
-        let root = tree(&format!("bench-node-match-{n}"), &[("benchmarks/LOCK", "")]);
+        let root = tree(
+            &format!("bench-node-match-{n}"),
+            &[("benchmarks/.keep", "")],
+        );
         assert!(lever(&["node"], &root).is_empty());
         if !change.is_empty() {
             let path = root.join("benchmarks/NODE.toml");

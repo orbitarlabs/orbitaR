@@ -170,7 +170,7 @@ pub(crate) fn check(root: &Path, base: Option<&str>) -> Findings {
     for dir in ["benchmarks", "tests/benchmarks"] {
         for link in walk::links(root, dir) {
             findings.push(format!(
-                "science: S5 {link} is a symlink; LOCK hashes real files only"
+                "science: S5 {link} is a symlink; the lock hashes real files only"
             ));
         }
     }
@@ -820,33 +820,26 @@ fn easier(root: &Path, base: &str, ids: &[String]) -> Findings {
             .success()
             .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
     };
-    let listed = base_benchmarks(root, base);
-    let Some(base_lock) = show(lock::PATH) else {
-        return match listed {
-            Ok(listed) if listed.is_empty() => Vec::new(),
-            Ok(_) => vec![format!("science: S9 cannot read {} at {base}", lock::PATH)],
-            Err(e) => vec![format!(
-                "science: S9 cannot read {} at {base}: {e}",
-                lock::PATH
-            )],
-        };
-    };
-    let listed = match listed {
+    let listed = match base_benchmarks(root, base) {
         Ok(listed) => listed,
+        Err(e) => {
+            return vec![format!(
+                "science: S9 cannot read {} at {base}: {e}",
+                lock::DIR
+            )];
+        }
+    };
+    let old_lock = match lock::at(root, base, &listed) {
+        Ok(Some(old)) => old,
+        Ok(None) if listed.is_empty() => return Vec::new(),
+        Ok(None) => return vec![format!("science: S9 cannot read {} at {base}", lock::DIR)],
         Err(e) => return vec![format!("science: S9 {e}")],
     };
-    let (old_lock, new_lock) = match (
-        lock::blocks(&base_lock),
-        lock::text(root).and_then(|text| lock::blocks(&text)),
-    ) {
-        (Ok(old), Ok(new)) => (old, new),
-        (Err(e), _) | (_, Err(e)) => return vec![format!("science: S9 {e}")],
+    let new_lock = match lock::read(root) {
+        Ok(new) => new,
+        Err(e) => return vec![format!("science: S9 {e}")],
     };
     let mut findings = Vec::new();
-    let reviewed =
-        |id: &str| old_lock.get(id).map(|b| &b.header) != new_lock.get(id).map(|b| &b.header);
-    let changed =
-        |id: &str| old_lock.get(id).map(|b| &b.lines) != new_lock.get(id).map(|b| &b.lines);
     let base_max = old_lock
         .keys()
         .filter_map(|id| case::parse_id(id).ok())
@@ -866,8 +859,15 @@ fn easier(root: &Path, base: &str, ids: &[String]) -> Findings {
             ));
         }
     }
-    if changed(lock::HARNESS) && !reviewed(lock::HARNESS) {
-        findings.push("science: S9 the harness changed without a new LOCK review line".into());
+    for (block, files) in lock::unreviewed(&old_lock, &new_lock) {
+        let name = match block == lock::HARNESS {
+            true => "the harness",
+            false => block.as_str(),
+        };
+        findings.push(format!(
+            "science: S9 {name} changed without a new lock review: {}",
+            files.join(", ")
+        ));
     }
     for id in ids {
         let path = format!("benchmarks/{id}/case.toml");
@@ -925,14 +925,10 @@ fn easier(root: &Path, base: &str, ids: &[String]) -> Findings {
         if new.timeout_s() > old.timeout_s() || new.repeats() < old.repeats() {
             looser.push("timeout or repeats got easier".into());
         }
-        if (changed(id) || !looser.is_empty()) && !reviewed(id) {
-            let what = if looser.is_empty() {
-                "changed".to_owned()
-            } else {
-                format!("got easier ({})", looser.join(", "))
-            };
+        if !looser.is_empty() && lock::kept_review(&old_lock, &new_lock, id, &path) {
             findings.push(format!(
-                "science: S9 {id} {what} without a new LOCK review line"
+                "science: S9 {id} got easier ({}) without a new lock review of {path}",
+                looser.join(", ")
             ));
         }
     }
@@ -1167,6 +1163,7 @@ fn reference_numbers(root: &Path) -> Vec<f64> {
     walk::files(root, "benchmarks")
         .into_iter()
         .filter(|f| f.contains("/reference/") && !f.ends_with("SOURCE.toml"))
+        .filter(|f| !f.starts_with(lock::DIR))
         .flat_map(|file| numbers_in(&walk::read(root, &file)))
         .filter(|(_, _, digits, _)| *digits >= 3)
         .map(|(_, value, _, _)| value)

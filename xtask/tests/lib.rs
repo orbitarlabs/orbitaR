@@ -85,6 +85,29 @@ pub fn write(root: &Path, path: &str, body: &str) {
     fs::write(path, body).unwrap();
 }
 
+pub fn lock_files(root: &Path) -> std::collections::BTreeMap<String, String> {
+    walkdir::WalkDir::new(root.join("benchmarks/locks"))
+        .into_iter()
+        .flatten()
+        .filter(|e| e.file_type().is_file())
+        .map(|e| {
+            let rel = e.path().strip_prefix(root).unwrap();
+            (
+                rel.to_string_lossy().into_owned(),
+                fs::read_to_string(e.path()).unwrap(),
+            )
+        })
+        .collect()
+}
+
+pub fn lock_entry(root: &Path, block: &str, file: &str) -> toml::Table {
+    let path = root.join(format!("benchmarks/locks/{block}/{file}.lock"));
+    fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+        .parse()
+        .unwrap()
+}
+
 pub fn has(findings: &[String], needle: &str) -> bool {
     findings.iter().any(|f| f.contains(needle))
 }

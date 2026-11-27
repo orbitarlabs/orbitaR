@@ -12,7 +12,7 @@ cargo xtask new-case <slug> <reference>
   benchmarks/<N>_<slug>/case.toml        status planned · tier push, or claim for vasp-measured · empty [tolerance]
   tests/benchmarks/<N>_<slug>/case.rs    a measure() stub that returns Err
   tests/benchmarks.rs                    the case table, generated again
-<N>                                      the highest case number in benchmarks/ or benchmarks/LOCK, plus one
+<N>                                      the highest case number in benchmarks/ or benchmarks/locks/, plus one
 ```
 
 ```text
@@ -29,19 +29,19 @@ you write
 ```
 
 - `reference/SOURCE.toml` names the kind, citation, locator, convention, and license of the reference.
-- `cargo xtask science` checks SOURCE.toml (S8) and LOCK (S5).
-- `cargo xtask lock --reviewer <name> --reason <text>` hashes the case into `benchmarks/LOCK`.
-- A changed hash in `benchmarks/LOCK` needs a full review: see `## Pull requests`.
+- `cargo xtask science` checks SOURCE.toml (S8) and the lock (S5, S9).
+- `cargo xtask lock --reviewer <name> --reason <text>` writes a lock file per hashed file: sha256, reviewer, reason.
+- A changed hash in `benchmarks/locks/<block>/<file>.lock` needs a full review: see `## Pull requests`.
 
 ## Pull requests
 
 - Each pull request passes `cargo xtask check`, `smoke`, `science --base origin/main`, and `docs --base origin/main`.
 - Each pull request passes `cargo xtask bench pr` too, as CI runs it.
-- A full review covers each change under `src/` or `benchmarks/` and each changed hash in `benchmarks/LOCK`.
+- A full review covers each change under `src/` or `benchmarks/` and each changed hash in `benchmarks/locks/`.
 - A full review also covers each change to a claim or to how a result is judged, wherever it lies.
 - A change in doubt, or one that overlaps a full review, takes a full review.
 - In a full review, a reviewer reads the diff and the command output. The reviewer is not the author.
-- The pull request records each reviewer who agrees. A LOCK change names its reviewer and its reason.
+- The pull request records each reviewer who agrees. A lock change names its reviewer and its reason.
 - The commands and CI judge every other change.
 - No pull request text or commit message holds a generated-by line or a co-author trailer: `cargo xtask pr-text`.
 - Anyone may author a commit, but not as Claude, nor with half of the orbitar-admin or GitHub identity.

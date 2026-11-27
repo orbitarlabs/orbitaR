@@ -93,7 +93,7 @@ fn a_second_cargo_or_clippy_config_is_caught() {
         assert_eq!(
             findings,
             [format!(
-                "manifest: {second} is a second config that this lever and benchmarks/LOCK miss; remove it"
+                "manifest: {second} is a second config that this lever and benchmarks/locks miss; remove it"
             )]
         );
     }
