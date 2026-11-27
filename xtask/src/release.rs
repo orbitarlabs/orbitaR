@@ -1,4 +1,9 @@
-use crate::{Env, Findings, git, harness::datasets::Family, lock::hex, walk};
+use crate::{
+    Env, Findings, git,
+    harness::datasets::{self, Family},
+    lock::hex,
+    walk,
+};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -74,19 +79,35 @@ fn jth_version(root: &Path) -> Result<String, String> {
         .ok_or_else(|| format!("{path}: no [project] version"))
 }
 
-fn pylock(root: &Path, path: &str) -> Result<BTreeSet<String>, String> {
-    let text = fs::read_to_string(root.join(path)).map_err(|e| format!("{path}: {e}"))?;
-    let lock: toml::Value = toml::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
-    let packages = lock["packages"].as_array().cloned().unwrap_or_default();
-    Ok(packages
-        .iter()
-        .map(|p| {
-            format!(
-                "{}=={}",
-                p["name"].as_str().unwrap_or("?"),
-                p["version"].as_str().unwrap_or("?")
-            )
-        })
+#[derive(Deserialize)]
+struct Pylock {
+    #[serde(default)]
+    packages: Vec<Locked>,
+}
+
+#[derive(Deserialize)]
+struct Locked {
+    name: String,
+    version: String,
+    #[serde(default)]
+    wheels: Vec<LockedWheel>,
+}
+
+#[derive(Deserialize)]
+struct LockedWheel {
+    url: String,
+    hashes: BTreeMap<String, String>,
+}
+
+fn locked(root: &Path) -> Result<Vec<Locked>, String> {
+    let text = fs::read_to_string(root.join(PYLOCK)).map_err(|e| format!("{PYLOCK}: {e}"))?;
+    let lock: Pylock = toml::from_str(&text).map_err(|e| format!("{PYLOCK}: {e}"))?;
+    Ok(lock.packages)
+}
+
+fn pylock(root: &Path) -> Result<BTreeSet<String>, String> {
+    Ok((locked(root)?.iter())
+        .map(|p| format!("{}=={}", p.name, p.version))
         .collect())
 }
 
@@ -295,12 +316,14 @@ fn contents(root: &Path, file: &str, listing: &Listing, crates: &BTreeSet<String
             requires.insert(dist);
         }
     }
-    match (pylock(root, PYLOCK), jth_version(root)) {
+    match (pylock(root), jth_version(root)) {
         (Ok(mut pinned), Ok(jth)) => {
-            pinned.insert(format!("orbitar-jth=={jth}"));
-            if pinned != requires {
+            let data = format!("orbitar-jth=={jth}");
+            pinned.insert(data.clone());
+            let unpinned: BTreeSet<&String> = requires.difference(&pinned).collect();
+            if !unpinned.is_empty() || !requires.contains(&data) {
                 findings.push(format!(
-                    "wheel: Requires-Dist {requires:?} differs from {PYLOCK} and {JTH} {pinned:?}"
+                    "wheel: Requires-Dist {requires:?} differs from {PYLOCK} and {JTH}: {unpinned:?} has no pin, {data} is required"
                 ));
             }
         }
@@ -614,35 +637,43 @@ pub fn install(root: &Path, commit: &str) -> Result<(Install, PathBuf), Findings
     let python = venv.join("bin/python");
     run(
         Command::new("uv")
-            .args(["venv", "--quiet", "--python", "3.12"])
+            .args(["venv", "--quiet", "--clear", "--python", "3.12"])
             .arg(&venv),
         "uv venv",
     )
     .map_err(one)?;
     let uv_install = |args: &[&str]| {
         let mut command = Command::new("uv");
-        command
-            .args(["pip", "install", "--quiet", "--python"])
+        let pip = [
+            "pip",
+            "install",
+            "--quiet",
+            "--no-cache",
+            "--offline",
+            "--no-config",
+        ];
+        sealed(&mut command)
+            .args(pip)
+            .arg("--python")
             .arg(&python)
             .args(args)
             .current_dir(root);
         command
     };
-    run(&mut uv_install(&["--no-build", "-r", PYLOCK]), PYLOCK).map_err(one)?;
-    let mut local = vec!["--no-index", "--no-deps"];
-    let dirs: Vec<String> = WHEELS.iter().map(|t| format!("target/wheel/{t}")).collect();
+    wheelhouse(root).map_err(one)?;
+    let mut local = vec!["--no-index", "--no-build"];
+    let dirs: Vec<String> = (std::iter::once(HOUSE))
+        .chain(WHEELS)
+        .map(|t| format!("target/wheel/{t}"))
+        .collect();
     for dir in &dirs {
         local.extend(["--find-links", dir.as_str()]);
     }
-    let data = JTH.rsplit('/').next().unwrap_or(JTH);
     for line in readme_lines(root, "Install") {
         match line.strip_prefix("pip install ") {
             Some(args) => {
-                let words: Vec<&str> = local
-                    .iter()
-                    .copied()
+                let words: Vec<&str> = (local.iter().copied())
                     .chain(args.split_whitespace())
-                    .chain(std::iter::once(data))
                     .collect();
                 run(&mut uv_install(&words), &line)
             }
@@ -681,6 +712,34 @@ pub fn install(root: &Path, commit: &str) -> Result<(Install, PathBuf), Findings
     Ok((install, python))
 }
 
+const HOUSE: &str = "house";
+
+fn wheelhouse(root: &Path) -> Result<(), String> {
+    let house = root.join("target/wheel").join(HOUSE);
+    fs::create_dir_all(&house).map_err(|e| format!("{}: {e}", house.display()))?;
+    let mut kept = BTreeSet::new();
+    for wheel in locked(root)?.iter().flat_map(|p| &p.wheels) {
+        let file = (wheel.url.rsplit('/').next())
+            .filter(|f| f.ends_with(".whl"))
+            .ok_or_else(|| format!("{PYLOCK}: {} names no wheel file", wheel.url))?;
+        let sha = (wheel.hashes.get("sha256"))
+            .ok_or_else(|| format!("{PYLOCK}: {file} has no sha256"))?;
+        let local = house.join(file);
+        if datasets::cached(&local, sha)?.is_none() {
+            datasets::download(&local, &wheel.url, sha, PYLOCK)?;
+        }
+        kept.insert(OsString::from(file));
+    }
+    let entries = fs::read_dir(&house).map_err(|e| format!("{}: {e}", house.display()))?;
+    for entry in entries.flatten() {
+        if !kept.contains(&entry.file_name()) {
+            fs::remove_file(entry.path())
+                .map_err(|e| format!("{}: {e}", entry.path().display()))?;
+        }
+    }
+    Ok(())
+}
+
 fn readme_tests(root: &Path, python: PathBuf, env: &Env) -> Findings {
     let vars: [(&str, OsString); 1] = [("ORBITAR_PYTHON", python.into_os_string())];
     let test = [
@@ -710,10 +769,27 @@ pub fn readme_lines(root: &Path, heading: &str) -> Vec<String> {
         .collect()
 }
 
+fn sealed(command: &mut Command) -> &mut Command {
+    for (key, _) in std::env::vars_os() {
+        let name = key.to_string_lossy();
+        if name.starts_with("UV_") || name.starts_with("PIP_") {
+            command.env_remove(&key);
+        }
+    }
+    command
+}
+
 fn venv_run(python: &Path, args: &[&str]) -> Command {
     let mut command = Command::new("uv");
-    command
-        .args(["run", "--no-project", "--quiet", "--python"])
+    sealed(&mut command)
+        .args([
+            "run",
+            "--no-project",
+            "--quiet",
+            "--offline",
+            "--no-config",
+            "--python",
+        ])
         .arg(python)
         .arg("--")
         .args(args);

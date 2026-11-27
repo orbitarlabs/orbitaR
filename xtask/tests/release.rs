@@ -246,6 +246,7 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
     let found = checked("requires", NAME, |m| {
         m[5].1 = METADATA.replace("ase==3.29.0", "ase==3.28.0")
     });
+    assert!(has(&found, "{\"ase==3.28.0\"} has no pin"), "{found:?}");
     assert!(has(&found, "differs from python/pylock.toml"), "{found:?}");
     for metadata in [
         METADATA.replace("Requires-Dist: orbitar-jth==2.0.0\n", ""),
@@ -265,6 +266,14 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         let found = checked("extra", NAME, |m| m[5].1 = metadata.clone());
         assert!(has(&found, needle), "{field}: {found:?}");
     }
+}
+
+#[test]
+fn a_wheel_that_requires_a_part_of_the_locked_closure_passes() {
+    let closure = "[[packages]]\nname = \"ase\"\nversion = \"3.29.0\"\n\n\
+                   [[packages]]\nname = \"matplotlib\"\nversion = \"3.11.2\"\n";
+    let found = checked_beside("closure", NAME, &[("python/pylock.toml", closure)], |_| {});
+    assert_eq!(found, Vec::<String>::new());
 }
 
 #[test]
@@ -1030,6 +1039,37 @@ fn a_data_wheel_without_the_family_entry_point_or_at_another_version_fails() {
 }
 
 fn installable(name: &str, data: bool) -> crate::Tree {
+    installable_with(name, data, "")
+}
+
+const ORBITAR_WHEEL: &str = "target/wheel/wheel/orbitar-0.1.0-py3-none-any.whl";
+
+fn orbitar_wheel(root: &Path, commit: &str, requires: &str) {
+    let tag = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n";
+    let ase = "from importlib.metadata import entry_points\nfrom pathlib import Path\nFAMILY = 'jth-2.0'\n\
+               def installed(family):\n    for point in entry_points(group='orbitar.datasets', name=family):\n        \
+               return Path(point.load().__file__).parent\n";
+    let orbitar: Vec<(&str, String)> = vec![
+        ("orbitar/__init__.py", String::new()),
+        ("orbitar/ase.py", ase.into()),
+        ("orbitar/datasets.py", String::new()),
+        (
+            "orbitar-0.1.0.data/scripts/orbitar",
+            format!("#!/bin/sh\necho 'orbitar 0.1.0 (commit {commit})'\n"),
+        ),
+        (
+            "orbitar-0.1.0.dist-info/METADATA",
+            format!(
+                "Metadata-Version: 2.1\nName: orbitar\nVersion: 0.1.0\nRequires-Dist: orbitar-jth==2.0.0\n{requires}"
+            ),
+        ),
+        ("orbitar-0.1.0.dist-info/WHEEL", tag.into()),
+        ("orbitar-0.1.0.dist-info/RECORD", String::new()),
+    ];
+    wheel(root, ORBITAR_WHEEL, &orbitar, &[]);
+}
+
+fn installable_with(name: &str, data: bool, requires: &str) -> crate::Tree {
     let root = tree(
         &format!("install-{name}"),
         &[
@@ -1046,31 +1086,8 @@ fn installable(name: &str, data: bool) -> crate::Tree {
             ("target/wheel/jth-wheel/.keep", ""),
         ],
     );
+    orbitar_wheel(&root, "abc", requires);
     let tag = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n";
-    let ase = "from importlib.metadata import entry_points\nfrom pathlib import Path\nFAMILY = 'jth-2.0'\n\
-               def installed(family):\n    for point in entry_points(group='orbitar.datasets', name=family):\n        \
-               return Path(point.load().__file__).parent\n";
-    let orbitar: Vec<(&str, String)> = vec![
-        ("orbitar/__init__.py", String::new()),
-        ("orbitar/ase.py", ase.into()),
-        ("orbitar/datasets.py", String::new()),
-        (
-            "orbitar-0.1.0.data/scripts/orbitar",
-            "#!/bin/sh\necho 'orbitar 0.1.0 (commit abc)'\n".into(),
-        ),
-        (
-            "orbitar-0.1.0.dist-info/METADATA",
-            "Metadata-Version: 2.1\nName: orbitar\nVersion: 0.1.0\nRequires-Dist: orbitar-jth==2.0.0\n".into(),
-        ),
-        ("orbitar-0.1.0.dist-info/WHEEL", tag.into()),
-        ("orbitar-0.1.0.dist-info/RECORD", String::new()),
-    ];
-    wheel(
-        &root,
-        "target/wheel/wheel/orbitar-0.1.0-py3-none-any.whl",
-        &orbitar,
-        &[],
-    );
     if data {
         let jth: Vec<(&str, String)> = vec![
             ("orbitar_jth/__init__.py", String::new()),
@@ -1115,6 +1132,162 @@ fn pip_install_orbitar_from_the_local_wheels_brings_the_data_package_into_the_ve
     );
     assert_eq!(install.version_printed, "orbitar 0.1.0 (commit abc)");
     assert_eq!(install.version_wanted, install.version_printed);
+}
+
+const DEP: &str = "dep-1.0-py3-none-any.whl";
+
+fn dist(root: &Path, dir: &str, name: &str, version: &str, requires: &str) -> String {
+    let tag = "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n";
+    let info = format!("{name}-{version}.dist-info");
+    let members: Vec<(String, String)> = vec![
+        (format!("{name}/__init__.py"), String::new()),
+        (
+            format!("{info}/METADATA"),
+            format!("Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n{requires}"),
+        ),
+        (format!("{info}/WHEEL"), tag.into()),
+        (format!("{info}/RECORD"), String::new()),
+    ];
+    let members: Vec<(&str, String)> = (members.iter())
+        .map(|(p, t)| (p.as_str(), t.clone()))
+        .collect();
+    let file = format!("{dir}/{name}-{version}-py3-none-any.whl");
+    std::fs::create_dir_all(root.join(dir)).unwrap();
+    wheel(root, &file, &members, &[]);
+    let digest = sha256(&std::fs::read(root.join(&file)).unwrap());
+    let url = format!("file://{}", root.join(&file).display());
+    format!(
+        "[[packages]]\nname = \"{name}\"\nversion = \"{version}\"\n\
+         wheels = [{{ url = \"{url}\", hashes = {{ sha256 = \"{digest}\" }} }}]\n\n"
+    )
+}
+
+const LOCK_HEAD: &str = "lock-version = \"1.0\"\ncreated-by = \"test\"\n\n";
+
+fn locked_dep(name: &str, sha: Option<&str>) -> crate::Tree {
+    let root = installable_with(name, true, "Requires-Dist: dep==1.0\n");
+    let mut entry = dist(&root, ".", "dep", "1.0", "");
+    if let Some(pin) = sha {
+        let at = entry.find("sha256 = \"").unwrap() + "sha256 = \"".len();
+        entry.replace_range(at..at + 64, pin);
+    }
+    write(&root, "python/pylock.toml", &format!("{LOCK_HEAD}{entry}"));
+    root
+}
+
+fn offered_beside_the_house(name: &str) -> crate::Tree {
+    let root = installable_with(name, true, "Requires-Dist: top==1.0\n");
+    let top = dist(&root, "locked", "top", "1.0", "Requires-Dist: dep\n");
+    let dep = dist(&root, "locked", "dep", "1.0", "");
+    dist(&root, "offered", "dep", "2.0", "");
+    write(
+        &root,
+        "python/pylock.toml",
+        &format!("{LOCK_HEAD}{top}{dep}"),
+    );
+    root
+}
+
+fn installs_the_verified_dep(root: &Path) {
+    let found = xtask::install(root, "abc").err();
+    let site = root.join("target/wheel/venv/lib/python3.12/site-packages");
+    assert!(!site.join("dep-2.0.dist-info").exists(), "{found:?}");
+    assert_eq!(found, None);
+    assert!(site.join("dep-1.0.dist-info").is_dir());
+}
+
+#[test]
+fn pip_install_orbitar_takes_no_wheel_that_uv_config_offers_beside_the_house() {
+    let root = offered_beside_the_house("unchecked");
+    let offered = root.join("offered").display().to_string();
+    write(
+        &root,
+        "uv.toml",
+        &format!("[pip]\nfind-links = [\"{offered}\"]\n"),
+    );
+    installs_the_verified_dep(&root);
+}
+
+const SEALED_ROOT: &str = "XTASK_TEST_SEALED_ROOT";
+
+#[test]
+fn pip_install_orbitar_keeps_the_verified_wheel_under_an_inherited_uv_override() {
+    if let Some(root) = std::env::var_os(SEALED_ROOT) {
+        installs_the_verified_dep(Path::new(&root));
+        return;
+    }
+    let root = offered_beside_the_house("unchecked-env");
+    write(&root, "override.txt", "dep==2.0\n");
+    let test =
+        "release::pip_install_orbitar_keeps_the_verified_wheel_under_an_inherited_uv_override";
+    let out = Command::new(std::env::current_exe().unwrap())
+        .args([test, "--exact", "--nocapture", "--test-threads=1"])
+        .env(SEALED_ROOT, &*root)
+        .env("UV_OVERRIDE", root.join("override.txt"))
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&out.stdout) + String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "{text}");
+    assert!(text.contains("1 passed"), "{text}");
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+#[test]
+fn pip_install_orbitar_resolves_its_locked_dependencies_from_the_wheelhouse_alone() {
+    let root = locked_dep("dep", None);
+    write(
+        &root,
+        "target/wheel/house/dep-0.9-py3-none-any.whl",
+        "stale",
+    );
+    xtask::install(&root, "abc").unwrap();
+    let site = root.join("target/wheel/venv/lib/python3.12/site-packages");
+    assert!(site.join("dep/__init__.py").is_file());
+    assert!(root.join("target/wheel/house").join(DEP).is_file());
+    assert!(
+        !root
+            .join("target/wheel/house/dep-0.9-py3-none-any.whl")
+            .exists()
+    );
+}
+
+#[test]
+fn pip_install_orbitar_refuses_a_locked_wheel_off_its_pin() {
+    let root = locked_dep("dep-off-pin", Some(&"0".repeat(64)));
+    let Err(found) = xtask::install(&root, "abc") else {
+        panic!("a wheel off its pin entered the wheelhouse")
+    };
+    assert!(has(&found, "python/pylock.toml pins 0000"), "{found:?}");
+}
+
+#[test]
+fn pip_install_orbitar_fails_when_the_lock_lacks_a_dependency() {
+    let root = installable_with("dep-unlocked", true, "Requires-Dist: dep==1.0\n");
+    let Err(found) = xtask::install(&root, "abc") else {
+        panic!("orbitar installed without its dependency dep")
+    };
+    assert!(has(&found, "pip install orbitar exited with"), "{found:?}");
+    assert!(has(&found, "dep"), "{found:?}");
+}
+
+#[test]
+fn pip_install_orbitar_installs_a_wheel_rebuilt_at_the_same_path_and_time() {
+    let root = installable("rebuilt", true);
+    xtask::install(&root, "abc").unwrap();
+    let path = root.join(ORBITAR_WHEEL);
+    let built = std::fs::metadata(&path).unwrap().modified().unwrap();
+    orbitar_wheel(&root, "def", "");
+    let file = std::fs::File::options().write(true).open(&path).unwrap();
+    file.set_modified(built).unwrap();
+    let (install, _) = xtask::install(&root, "def").unwrap();
+    assert_eq!(install.version_printed, "orbitar 0.1.0 (commit def)");
 }
 
 #[test]

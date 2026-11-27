@@ -36,9 +36,9 @@ RUN --mount=type=secret,id=ca,required=false --mount=type=bind,source=container/
 FROM scratch AS wheel
 COPY --from=wheel-build /dist/ /
 
-FROM ghcr.io/astral-sh/uv@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
+FROM --platform=linux/amd64 ghcr.io/astral-sh/uv@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
 
-FROM python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS slim
+FROM --platform=linux/amd64 python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS slim
 
 FROM slim AS jth-build
 RUN --mount=type=secret,id=ca,required=false --mount=type=bind,source=container/with-ca.sh,target=/with-ca \

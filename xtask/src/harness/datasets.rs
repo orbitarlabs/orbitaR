@@ -753,13 +753,7 @@ fn fetched(
     sha: &str,
 ) -> Result<Vec<u8>, String> {
     let local = root.join("target/datasets").join(path);
-    let cached = match fs::symlink_metadata(&local) {
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-        _ => Some(regular(&local, &local.display().to_string())?),
-    };
-    if let Some(bytes) = cached
-        && digest(&bytes) == sha
-    {
+    if let Some(bytes) = cached(&local, sha)? {
         return Ok(bytes);
     }
     let Some(source) = url else {
@@ -782,9 +776,25 @@ fn fetched(
             )),
         };
     };
+    download(&local, source, sha, table)
+}
+
+pub(crate) fn cached(local: &Path, sha: &str) -> Result<Option<Vec<u8>>, String> {
+    match fs::symlink_metadata(local) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        _ => Ok(Some(regular(local, &local.display().to_string())?).filter(|b| digest(b) == sha)),
+    }
+}
+
+pub(crate) fn download(
+    local: &Path,
+    source: &str,
+    sha: &str,
+    table: &str,
+) -> Result<Vec<u8>, String> {
     let dir = local
         .parent()
-        .ok_or_else(|| format!("{path}: no directory"))?;
+        .ok_or_else(|| format!("{}: no directory", local.display()))?;
     fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     static FETCHES: AtomicUsize = AtomicUsize::new(0);
     let part = local.with_extension(format!(
@@ -824,7 +834,7 @@ fn fetched(
             digest(&bytes)
         ));
     }
-    fs::rename(&part, &local).map_err(|e| format!("{}: {e}", local.display()))?;
+    fs::rename(&part, local).map_err(|e| format!("{}: {e}", local.display()))?;
     Ok(bytes)
 }
 
