@@ -135,7 +135,7 @@ pub(crate) fn time(
             Ok(r) => Some([r.peak_rss_bytes, r.peak_pss_bytes]),
             Err(_) => engine::last_peaks(),
         };
-        let measured = measured.map(|[rss, pss]| if pss == 0 { rss } else { pss });
+        let measured = measured.map(peak_bytes);
         if let (Err(_), Some(bytes)) = (&ran, measured) {
             failed.borrow_mut().entry(owned(b)).or_default().push(bytes);
         }
@@ -246,10 +246,7 @@ pub(crate) fn time(
         let attempt = run(b, timed_stop(b)?, Pass::Timed).and_then(|r| match reached(b, &r) {
             Ok(t) => Ok((t, r)),
             Err(f) => {
-                let bytes = match r.peak_pss_bytes {
-                    0 => r.peak_rss_bytes,
-                    pss => pss,
-                };
+                let bytes = peak_bytes([r.peak_rss_bytes, r.peak_pss_bytes]);
                 failed.borrow_mut().entry(owned(b)).or_default().push(bytes);
                 Err(f)
             }
@@ -345,6 +342,8 @@ pub(crate) fn time(
                     if b.rival.is_none()
                         && let Err(f) = engine::same_output(&runs[i], &next)
                     {
+                        let bytes = peak_bytes([next.peak_rss_bytes, next.peak_pss_bytes]);
+                        failed.borrow_mut().entry(owned(b)).or_default().push(bytes);
                         fatal = Some(named(b, f));
                         break 'rounds;
                     }
@@ -593,6 +592,10 @@ pub fn estimated_peak(smaller: &[Peak], atoms: usize, in_flight: usize) -> Optio
         .filter(|alpha| alpha.is_finite())
         .map_or(0.0, |alpha| size.powf(alpha));
     Some(m.bytes * dense.max(fitted))
+}
+
+pub(crate) fn peak_bytes([rss, pss]: [u64; 2]) -> u64 {
+    if pss == 0 { rss } else { pss }
 }
 
 pub(crate) type Comparable = (Code, String, Option<NonZeroUsize>, Vec<String>);

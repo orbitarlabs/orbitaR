@@ -1848,3 +1848,72 @@ fn a_fitted_abinit_layout_keeps_its_smaller_sizes_history_and_records_its_fitted
         "{record}"
     );
 }
+
+fn anchored(name: &str, tuned: &str) -> Value {
+    let input = INPUT.replace("shift = [0.5, 0.5, 0.5]\n", "");
+    assert_ne!(input, INPUT);
+    let root = memory_rivals(name, &input, tuned, PW, ABINIT);
+    let repeat = input
+        .replace(
+            "cell_bohr = [[0.0, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+            "cell_bohr = [[0.0, 10.0, 10.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]",
+        )
+        .replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]")
+        .replace("[[0.0, 0.0, 0.25]]", "[[0.0, 0.0, 0.25], [0.5, 0.0, 0.25]]")
+        .replace("mesh = [2, 2, 2]", "mesh = [1, 2, 2]");
+    assert_ne!(repeat, input);
+    write(&root, "benchmarks/1_a/inputs/b.toml", &repeat);
+    write(
+        &root,
+        "benchmarks/1_a/inputs/c.toml",
+        &input.replace("[[0.0, 0.0, 0.25]]", "[[0.1, 0.1, 0.1]]"),
+    );
+    guarded(&root, "step -2", 14e9)
+}
+
+#[test]
+fn a_fold_equivalent_repeat_takes_its_accuracy_from_its_cases_anchor_row_alone() {
+    let rows = "\"benchmarks/1_a/input.toml\" = [[10.0, 1e-6, 0.0, 2e-6, 0.0], [13.0, 1e-6, 0.0, 2e-6, 0.0]]";
+    let with_c = TUNED.replace(
+        rows,
+        &format!("{rows}\n\"benchmarks/1_a/inputs/c.toml\" = [[10.0, 9e-6, 0.05, 2e-6, 0.0], [13.0, 9e-6, 0.05, 2e-6, 0.0]]"),
+    );
+    assert_ne!(with_c, TUNED);
+    let record = anchored("rival-anchor", &with_c);
+    let b = |code: &str| {
+        blocks(&record, code)
+            .into_iter()
+            .find(|b| b["input"] == "b")
+            .unwrap_or_else(|| panic!("no {code} b: {record}"))
+            .clone()
+    };
+    let (theirs, ours) = (b("abinit"), b("orbitar"));
+    let basis = theirs["accuracy"]["basis"].as_str().unwrap_or_default();
+    assert!(
+        basis.starts_with("matched anchor benchmarks/1_a/input.toml"),
+        "{theirs}"
+    );
+    assert_eq!(theirs["accuracy"]["e_ha_per_atom"], json!(1e-6), "{theirs}");
+    assert_eq!(ours["accuracy"]["e_ha_per_atom"], json!(1e-6), "{ours}");
+    assert_eq!(ours["accuracy"]["e_p_gpa"], json!(0.0), "{ours}");
+    assert_eq!(
+        ours["accuracy"]["e_p_from"], "benchmarks/1_a/input.toml's row",
+        "{ours}"
+    );
+    let failures = record["failures"].to_string();
+    assert!(
+        failures.contains(
+            "qe: b at 8 threads: b: a fold-equivalent repeat of benchmarks/1_a/input.toml"
+        ),
+        "{record}"
+    );
+    let without = with_c.replace(&format!("{rows}\n"), "");
+    assert_ne!(without, with_c);
+    let record = anchored("rival-anchor-missing", &without);
+    assert!(
+        record["failures"].to_string().contains(
+            "abinit: b at 8 threads: b: a fold-equivalent repeat of benchmarks/1_a/input.toml, a calibration cell, takes its accuracy from that matched row alone"
+        ),
+        "{record}"
+    );
+}

@@ -1463,7 +1463,7 @@ fn a_shard_of_a_candidate_dataset_table_never_proves_the_case() {
     );
 }
 
-fn series_findings(name: &str, series: &str) -> Vec<String> {
+fn series_findings(name: &str, series: &str, declared: &[&str]) -> Vec<String> {
     let claim = ACTIVE.replace("\"push\"", "\"claim\"").replace(
         "[\"correctness\"]",
         "[\"speed\", \"memory\", \"correctness\"]\nrivals = [\"qe\"]",
@@ -1472,7 +1472,7 @@ fn series_findings(name: &str, series: &str) -> Vec<String> {
         "density_ratio = 8.0\n",
         "density_ratio = 8.0\nskip_cells = [{ cell = \"benchmarks/1_a/input.toml\", reason = \"no dataset\" }]\n",
     );
-    let speed = block(&QUIET);
+    let speed = [block(&QUIET), block_of("qe", &QUIET, 0)].join(", ");
     let record = GOOD
         .replace(
             "\"runs_s\": [0.1]",
@@ -1494,6 +1494,13 @@ fn series_findings(name: &str, series: &str) -> Vec<String> {
             ("records/1_a.json", &record),
         ],
     );
+    for input in declared {
+        let path = match *input {
+            "input" => "benchmarks/1_a/input.toml".to_owned(),
+            other => format!("benchmarks/1_a/inputs/{other}.toml"),
+        };
+        write(&root, &path, crate::harness::rival::INPUT);
+    }
     verify(&root, Tier::Claim, &root.join("records"), UNIX_EPOCH, None)
 }
 
@@ -1513,7 +1520,7 @@ fn a_memory_claim_record_needs_every_code_at_every_declared_size_though_a_rival_
         "[{ours}, {{\"code\": \"qe\", \"points\": [{}]}}]",
         point("input", "skipped: no dataset", 0.0)
     );
-    let f = series_findings("record-series-skip", &skipped);
+    let f = series_findings("record-series-skip", &skipped, &["input"]);
     assert!(
         has(
             &f,
@@ -1522,7 +1529,7 @@ fn a_memory_claim_record_needs_every_code_at_every_declared_size_though_a_rival_
         "{f:?}"
     );
     let absent = format!("[{ours}]");
-    let f = series_findings("record-series-absent", &absent);
+    let f = series_findings("record-series-absent", &absent, &["input"]);
     assert!(
         has(&f, "its series lacks qe at input (no series point)"),
         "{f:?}"
@@ -1532,7 +1539,7 @@ fn a_memory_claim_record_needs_every_code_at_every_declared_size_though_a_rival_
         point("input", "measured", 0.0),
         point("input", "measured", 1e6)
     );
-    let f = series_findings("record-series-unpolled", &unpolled);
+    let f = series_findings("record-series-unpolled", &unpolled, &["input"]);
     assert!(
         has(&f, "its series lacks orbitar at input (measured)"),
         "{f:?}"
@@ -1541,6 +1548,15 @@ fn a_memory_claim_record_needs_every_code_at_every_declared_size_though_a_rival_
         "[{ours}, {{\"code\": \"qe\", \"points\": [{}]}}]",
         point("input", "measured", 1e6)
     );
-    let f = series_findings("record-series-full", &full);
+    let f = series_findings("record-series-full", &full, &["input"]);
     assert!(!has(&f, "passes a memory claim"), "{f:?}");
+    let f = series_findings("record-series-undeclared", &full, &["input", "b"]);
+    assert!(
+        has(&f, "its series lacks orbitar at b (no series point)"),
+        "{f:?}"
+    );
+    assert!(
+        has(&f, "no qe block at b holds a timed run with a positive Pss"),
+        "{f:?}"
+    );
 }

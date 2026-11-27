@@ -336,12 +336,18 @@ impl Containment {
         command
     }
 
+    pub(crate) fn tree_wide(&self) -> bool {
+        self.limit == Limit::Scope
+    }
+
     pub(crate) fn describe(&self) -> Value {
         let what = match self.limit {
             Limit::Scope => {
                 "systemd-run --user --scope: MemoryMax over the whole process tree, no swap"
             }
-            Limit::Prlimit => "prlimit --as: the address space of each process alone",
+            Limit::Prlimit => {
+                "prlimit --as: the address space of each process alone, not the tree; a pilot only"
+            }
         };
         serde_json::json!({
             "limit": what,

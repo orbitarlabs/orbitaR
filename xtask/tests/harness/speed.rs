@@ -1533,7 +1533,10 @@ fn a_claim_without_a_process_tree_memory_limit_is_refused_and_a_pilot_is_not() {
         .unwrap()
         .unwrap();
     let refused = claim.contained().err().unwrap_or_default();
-    assert!(refused.contains("under a 14 GB memory limit"), "{refused}");
+    assert!(
+        refused.contains("in a `systemd-run --user --scope` with MemoryMax 14 GB"),
+        "{refused}"
+    );
     let pilot = Session::from_vars(&root, contained_vars(&root, &bin, &empty, true))
         .unwrap()
         .unwrap();
@@ -1579,5 +1582,65 @@ fn a_claim_runs_each_timed_process_tree_inside_a_memory_scope_and_records_it() {
             .unwrap()
             .starts_with("systemd-run"),
         "{record}"
+    );
+}
+
+#[test]
+fn prlimit_alone_serves_a_pilot_and_never_a_claim() {
+    let (_, _, root) = claim("speed-prlimit", "step -2");
+    let bin = fake(&root, "step -2");
+    let tools = root.join("tools");
+    super::rival::script(
+        &tools.join("prlimit"),
+        "while [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"",
+    );
+    let claim = Session::from_vars(&root, contained_vars(&root, &bin, &tools, false))
+        .unwrap()
+        .unwrap();
+    let refused = claim.contained().err().unwrap_or_default();
+    assert!(
+        refused.contains("`prlimit --as` bounds each process alone"),
+        "{refused}"
+    );
+    let pilot = Session::from_vars(&root, contained_vars(&root, &bin, &tools, true))
+        .unwrap()
+        .unwrap()
+        .with_load(&procfs(&root, 1));
+    assert!(pilot.contained().is_ok());
+    let _ = pilot.evaluate("1_a", both);
+    let record: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    let limit = record["containment"]["limit"].as_str().unwrap_or_default();
+    assert!(
+        limit.contains("each process alone, not the tree; a pilot only"),
+        "{record}"
+    );
+}
+
+#[test]
+fn a_timed_repeat_whose_output_differs_keeps_its_peak() {
+    let count =
+        std::env::temp_dir().join(format!("xtask-speed-differs-{}.count", std::process::id()));
+    let _ = std::fs::remove_file(&count);
+    let body = format!(
+        "if ! tight; then n=$(cat '{0}' 2>/dev/null || echo 0); echo $((n + 1)) > '{0}'\n\
+         if [ \"$n\" = 2 ]; then dd if=/dev/zero of=/dev/null bs=30000000 count=1 2>/dev/null; step -2.000000001; else step -2; fi\n\
+         else step -2; fi",
+        count.display()
+    );
+    let (outcome, record) = {
+        let (outcome, record, _) = claim("speed-differs", &body);
+        (outcome, record)
+    };
+    let _ = std::fs::remove_file(&count);
+    assert!(
+        matches!(&outcome, Outcome::Fail(why) if why.contains("output differs")),
+        "{outcome:?}"
+    );
+    let kept = kept_peak(&record, "input");
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{kept:?}: {record}"
     );
 }

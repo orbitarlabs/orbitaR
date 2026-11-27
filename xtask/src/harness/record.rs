@@ -344,11 +344,16 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                             ));
                     }
                     if case.claims().contains(&crate::case::Claim::Memory) {
-                        findings.extend(series_holes(record, case.rivals()).into_iter().map(
-                            |hole| {
-                                format!("{}: {id} passes a memory claim, but {hole}", tier.name())
-                            },
-                        ));
+                        findings.extend(
+                            series_holes(root, id, record, case.rivals())
+                                .into_iter()
+                                .map(|hole| {
+                                    format!(
+                                        "{}: {id} passes a memory claim, but {hole}",
+                                        tier.name()
+                                    )
+                                }),
+                        );
                     }
                     let milestone = case.milestone();
                     for code in case
@@ -665,20 +670,33 @@ pub fn union(root: &Path, id: &str, dir: &Path) -> Findings {
     findings
 }
 
-fn series_holes(record: &Value, rivals: &[rival::Rival]) -> Vec<String> {
-    let held: Vec<&str> = (record["held_out"].as_array().into_iter().flatten())
-        .filter_map(|h| h["input"].as_str())
-        .collect();
-    let declared = (record["inputs"].as_array().into_iter().flatten())
-        .filter_map(Value::as_str)
-        .filter(|name| !held.contains(name));
+fn series_holes(root: &Path, id: &str, record: &Value, rivals: &[rival::Rival]) -> Vec<String> {
+    let dir = root.join("benchmarks").join(id);
+    let declared: Vec<String> = match super::inputs(root, &dir, None) {
+        Ok((inputs, _)) => inputs.into_iter().map(|(name, _)| name).collect(),
+        Err(e) => return vec![format!("its declared inputs do not load: {e}")],
+    };
+    if declared.is_empty() {
+        return vec![format!("benchmarks/{id} declares no input")];
+    }
     let codes: Vec<String> = std::iter::once(speed::Code::Orbitar)
         .chain(rivals.iter().map(|&r| speed::Code::Rival(r)))
         .map(|code| code.to_string())
         .collect();
     let mut holes = Vec::new();
-    for input in declared {
+    for input in declared.iter().map(String::as_str) {
         for code in &codes {
+            let polled = (record["speed"].as_array().into_iter().flatten())
+                .filter(|b| {
+                    b["code"].as_str() == Some(code.as_str()) && b["input"].as_str() == Some(input)
+                })
+                .flat_map(|b| b["peak_pss_bytes"].as_array().into_iter().flatten())
+                .any(|bytes| bytes.as_u64().is_some_and(|b| b > 0));
+            if !polled {
+                holes.push(format!(
+                    "no {code} block at {input} holds a timed run with a positive Pss"
+                ));
+            }
             let point = (record["series"].as_array().into_iter().flatten())
                 .filter(|entry| entry["code"].as_str() == Some(code.as_str()))
                 .flat_map(|entry| entry["points"].as_array().into_iter().flatten())

@@ -829,6 +829,17 @@ impl RivalPaths<'_> {
         cell: &rival::Cell,
     ) -> Result<Option<(rival::Row, String)>, String> {
         let cutoff = rivals.cutoff(code, cell)?;
+        if let Some(anchor) = self.anchor(rivals, name, cell)? {
+            return match rivals.calibrated_own(code, &anchor, cutoff) {
+                Some(row) => Ok(Some(row)),
+                None => Err(format!(
+                    "{name}: a fold-equivalent repeat of {anchor}, a calibration cell, takes its accuracy from that \
+                     matched row alone, and {} has none at {cutoff} Ha; run `cargo xtask rivals calibrate --cell \
+                     {anchor}` on the node",
+                    code.adapter().name()
+                )),
+            };
+        }
         if self.held.get(name) != Some(&None) {
             return rivals.calibrated(code, &self.keyed(name), cell, cutoff);
         }
@@ -839,6 +850,33 @@ impl RivalPaths<'_> {
                 "held-out {name}: no calibration of its own; run `cargo xtask rivals calibrate --cell {own}`"
             )),
         }
+    }
+
+    fn anchor(
+        &self,
+        rivals: &rival::Rivals,
+        name: &str,
+        cell: &rival::Cell,
+    ) -> Result<Option<String>, String> {
+        let (own, base) = (self.own(name), rival::input_path(self.id, "input"));
+        let tuned_own = rival::Rival::all()
+            .iter()
+            .any(|&code| rivals.tuned.of(code).calibration.contains_key(&own));
+        if name == "input" || self.held.contains_key(name) || tuned_own {
+            return Ok(None);
+        }
+        if !rivals.settings.calibration_cells.contains(&base) {
+            return Ok(None);
+        }
+        let anchor = rivals.cell_at(&base)?;
+        Ok(cell.repeats(&anchor).map(|_| base))
+    }
+
+    fn matched(&self, name: &str, from: &str) -> bool {
+        name != "input"
+            && !self.held.contains_key(name)
+            && from == rival::input_path(self.id, "input")
+            && from != self.own(name)
     }
 
     fn keyed(&self, name: &str) -> String {
@@ -876,9 +914,16 @@ fn accuracies(
         rival::Cell::parse(&b.table)
             .and_then(|cell| paths.calibration(rivals, code, b.input, &cell))
     };
-    let basis = |b: &Block, from: &str| match from == path(b) {
-        true => "own".to_owned(),
-        false => format!("borrowed from {from}"),
+    let basis = |b: &Block, from: &str| match (from == path(b), paths.matched(b.input, from)) {
+        (true, _) => "own".to_owned(),
+        (false, true) => format!(
+            "matched anchor {from}: a fold-equivalent repeat at the same cutoff, energy and pressure residuals from that one row"
+        ),
+        (false, false) => format!("borrowed from {from}"),
+    };
+    let e_p_from = |b: &Block, from: &str| match from == path(b) || paths.matched(b.input, from) {
+        true => format!("{from}'s row"),
+        false => "the largest pressure error among the rows of cells with its elements".to_owned(),
     };
     let pressure_of = |b: &Block| {
         (pressures.get(&(b.code(), b.index)).cloned())
@@ -963,7 +1008,7 @@ fn accuracies(
             "p_orbitar_gpa": ours.as_ref().ok(),
             "p_abinit_gpa": theirs_p.as_ref().ok(),
             "p_abinit_from": row.map(|_| if own { "its calibration row" } else { "its reference run at c" }),
-            "e_p_from": calibration.as_ref().map(|(_, from)| format!("{from}'s row")),
+            "e_p_from": calibration.as_ref().map(|(_, from)| e_p_from(b, from)),
             "d_p_gpa": d_p,
             "e_p_gpa": e_p,
             "bound_p": "2 d_P + e_P",
@@ -1108,13 +1153,15 @@ impl Session {
     }
 
     pub fn contained(&self) -> Result<(), String> {
-        match (self.contain_required, &self.containment) {
-            (true, None) => Err(format!(
-                "a claim runs each timed process tree under a {} GB memory limit, and neither `systemd-run --user \
-                 --scope` nor `prlimit` works from this PATH; install one, or run a pilot (ORBITAR_PILOT=1)",
+        let tree_wide = (self.containment.as_ref()).is_some_and(engine::Containment::tree_wide);
+        match self.contain_required && !tree_wide {
+            true => Err(format!(
+                "a claim (not a pilot) runs each timed process tree in a `systemd-run --user --scope` with MemoryMax \
+                 {} GB, and no such scope works from this PATH; `prlimit --as` bounds each process alone, so it \
+                 serves a pilot (ORBITAR_PILOT=1) only",
                 self.guard_bytes / 1e9
             )),
-            _ => Ok(()),
+            false => Ok(()),
         }
     }
 
@@ -1918,8 +1965,7 @@ impl Session {
 
 fn past_guard(at: &str, run: &str, guard: Option<f64>) -> Option<String> {
     let limit = guard?;
-    let [rss, pss] = engine::last_peaks()?;
-    let bytes = if pss == 0 { rss } else { pss } as f64;
+    let bytes = speed::peak_bytes(engine::last_peaks()?) as f64;
     (bytes > limit).then(|| {
         format!(
             "{at}: refused after its {run} run: its measured peak {:.2} GB passes the {} GB guard",
@@ -2319,7 +2365,12 @@ pub fn main(cases: &[(&'static str, Measure)]) -> ! {
     let trials = match session {
         Ok(Some(session)) if session.contained().is_err() => {
             let refused = session.contained().err().unwrap_or_default();
-            vec![Trial::test("session", move || Err(Failed::from(refused.clone())))]
+            (cases.iter())
+                .map(|&(id, _)| {
+                    let refused = refused.clone();
+                    Trial::test(id, move || Err(Failed::from(refused.clone())))
+                })
+                .collect()
         }
         Ok(Some(session)) => cases
             .iter()
