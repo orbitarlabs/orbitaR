@@ -165,7 +165,12 @@ enum Cli {
     /// collect reads <dir>/<tier>/*.json (default target/benchmarks; every tier there when none is named) and writes
     /// a row per active case: what it checks and its headline metric (benchmarks/results-what.toml), each bound's
     /// measured value and ratio, the outcome, the record's commit and engine. It refuses a dirty record or one whose
-    /// commit is no ancestor of HEAD. render writes benchmarks/README.md and assets/benchmarks/results-{light,dark}.svg from RESULTS.toml alone (results.rs).
+    /// commit is no ancestor of HEAD. A passing claim record's row also keeps, per rival named by its case, G, its 95%
+    /// CI, R and each pair's medians, the size series (median T(δ) and peak Pss per size and code, the fitted
+    /// exponents) and the node block. render writes benchmarks/README.md and assets/benchmarks/results-{light,dark}.svg
+    /// from RESULTS.toml alone, and assets/benchmarks/card-{speed,memory,scaling,verification}-{light,dark}.svg: speed,
+    /// memory and scaling only from such a row, verification only while each case it shows passes; it removes
+    /// a card that no row backs (results.rs, results/card.rs).
     Results {
         #[command(subcommand)]
         step: Step,

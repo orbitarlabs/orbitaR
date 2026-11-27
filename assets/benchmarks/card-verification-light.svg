@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960.0" height="404.0" viewBox="0 0 960.0 404.0" font-family="system-ui, sans-serif">
+<rect x="0.5" y="0.5" width="959.0" height="403.0" rx="16" fill="#f6f4ef" stroke="#e3dfd5"/>
+<text x="48.0" y="56.0" font-size="13.0" font-weight="700" letter-spacing="1.5" fill="#bf6038">VERIFICATION</text>
+<text x="48.0" y="94.0" font-size="30.0" font-weight="650" fill="#171817">The engine computes what it claims</text>
+<text x="48.0" y="122.0" font-size="15.0" fill="#6b6964">each number from an active case's record, against the case's own bound</text>
+<rect x="48.0" y="152.0" width="204.0" height="168.0" rx="12" fill="none" stroke="#e3dfd5"/>
+<text x="64.0" y="198.0" font-size="24.0" font-weight="700" fill="#bf6038">1.7 × 10⁻¹⁰ Ha</text>
+<text x="64.0" y="232.0" font-size="14.0" fill="#171817">free energy vs ABINIT</text>
+<text x="64.0" y="251.0" font-size="14.0" fill="#171817">PBE, same datasets</text>
+<text x="64.0" y="280.0" font-size="12.0" fill="#6b6964">case 6</text>
+<text x="64.0" y="296.0" font-size="12.0" fill="#6b6964">bound 5.0 × 10⁻¹⁰</text>
+<rect x="268.0" y="152.0" width="204.0" height="168.0" rx="12" fill="none" stroke="#e3dfd5"/>
+<text x="284.0" y="198.0" font-size="24.0" font-weight="700" fill="#bf6038">2.0 × 10⁻¹⁰ Ha</text>
+<text x="284.0" y="232.0" font-size="14.0" fill="#171817">free energy vs ABINIT</text>
+<text x="284.0" y="251.0" font-size="14.0" fill="#171817">r2SCAN, same datasets</text>
+<text x="284.0" y="280.0" font-size="12.0" fill="#6b6964">case 20</text>
+<text x="284.0" y="296.0" font-size="12.0" fill="#6b6964">bound 5.0 × 10⁻¹⁰</text>
+<rect x="488.0" y="152.0" width="204.0" height="168.0" rx="12" fill="none" stroke="#e3dfd5"/>
+<text x="504.0" y="198.0" font-size="24.0" font-weight="700" fill="#bf6038">dF/dx ✓</text>
+<text x="504.0" y="232.0" font-size="14.0" fill="#171817">forces and stress vs</text>
+<text x="504.0" y="251.0" font-size="14.0" fill="#171817">finite differences of F</text>
+<text x="504.0" y="280.0" font-size="12.0" fill="#6b6964">cases 13, 15, 22</text>
+<text x="504.0" y="296.0" font-size="12.0" fill="#6b6964">worst 34% of bound</text>
+<rect x="708.0" y="152.0" width="204.0" height="168.0" rx="12" fill="none" stroke="#e3dfd5"/>
+<text x="724.0" y="198.0" font-size="24.0" font-weight="700" fill="#bf6038">0 bits</text>
+<text x="724.0" y="232.0" font-size="14.0" fill="#171817">1 vs 4 threads</text>
+<text x="724.0" y="251.0" font-size="14.0" fill="#171817">bit for bit</text>
+<text x="724.0" y="280.0" font-size="12.0" fill="#6b6964">case 9</text>
+<text x="724.0" y="296.0" font-size="12.0" fill="#6b6964">9 quantities, each 0</text>
+<text x="48.0" y="364.0" font-size="13.0" fill="#6b6964">orbitaR at commit 631c179 · code verification, separate from accuracy</text>
+</svg>

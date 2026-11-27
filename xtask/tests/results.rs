@@ -1,3 +1,5 @@
+mod card;
+
 use crate::{Tree, git, has, lever, tree, write};
 use std::{fs, path::Path, process::Command};
 

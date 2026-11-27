@@ -1,12 +1,16 @@
+mod card;
+
 use crate::{
     Findings,
     case::{self, Bound, Case, Status, Tier},
-    git, walk,
+    git,
+    harness::speed::read_finite,
+    walk,
 };
 use serde::Deserialize;
 use serde_json::Value;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
@@ -36,7 +40,62 @@ struct Row {
     engine_sha256: Option<String>,
     #[serde(default, rename = "metric")]
     metrics: Vec<Metric>,
+    #[serde(default)]
+    versus: Vec<Versus>,
+    #[serde(default)]
+    series: Vec<Series>,
+    node: Option<toml::Table>,
 }
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Versus {
+    rival: String,
+    g: f64,
+    g_ci: [f64; 2],
+    r: f64,
+    #[serde(rename = "pair")]
+    pairs: Vec<Pair>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Pair {
+    input: String,
+    threads: u32,
+    t_delta_s_rival: f64,
+    t_delta_s_orbitar: f64,
+    peak_pss_bytes_rival: f64,
+    peak_pss_bytes_orbitar: f64,
+    in_r: bool,
+}
+
+impl Versus {
+    fn in_r(&self) -> impl Iterator<Item = &Pair> {
+        self.pairs.iter().filter(|p| p.in_r)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Series {
+    code: String,
+    t_delta_exponent: f64,
+    pss_exponent: f64,
+    #[serde(rename = "point")]
+    points: Vec<Point>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Point {
+    input: String,
+    atoms: u32,
+    t_delta_s: f64,
+    peak_pss_bytes: f64,
+}
+
+const ORBITAR: &str = "orbitar";
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 enum Outcome {
@@ -196,6 +255,9 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
             commit: None,
             engine_sha256: None,
             metrics: Vec::new(),
+            versus: Vec::new(),
+            series: Vec::new(),
+            node: None,
         });
         if row.outcome != Outcome::NoRecord
             && let Err(e) = headline(&mut row.metrics, &what.metric)
@@ -206,6 +268,9 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
         row.unit.clone_from(&what.unit);
         row.exact.clone_from(&what.exact);
         row.tier = case.tier();
+        if let Err(e) = consistent(&row) {
+            findings.push(format!("results: {RESULTS}: {id}: {e}"));
+        }
         kept.push(row);
     }
     if !findings.is_empty() {
@@ -311,6 +376,10 @@ fn row(
         });
     }
     headline(&mut metrics, &whats[&number].metric).map_err(|e| format!("{id}: {e}"))?;
+    let (versus, series, node) = match (tier, outcome) {
+        (Tier::Claim, Outcome::Pass) => rivals(case, &record).map_err(|e| format!("{id}: {e}"))?,
+        _ => (Vec::new(), Vec::new(), None),
+    };
     Ok(Some(Row {
         number,
         id: id.to_owned(),
@@ -323,7 +392,125 @@ fn row(
         commit: Some(commit.to_owned()),
         engine_sha256: Some(engine.to_owned()),
         metrics,
+        versus,
+        series,
+        node,
     }))
+}
+
+type Claimed = (Vec<Versus>, Vec<Series>, Option<toml::Table>);
+
+fn rivals(case: &Case, record: &Value) -> Result<Claimed, String> {
+    let named: Vec<&str> = case.rivals().iter().map(|r| r.adapter().name()).collect();
+    let entries = record["versus"].as_array().map_or(&[][..], Vec::as_slice);
+    let mut versus = Vec::new();
+    for v in entries {
+        let rival = v["code"].as_str().ok_or("a versus entry names no code")?;
+        if !named.contains(&rival) || versus.iter().any(|w: &Versus| w.rival == rival) {
+            return Err(format!(
+                "versus {rival}: the case names rivals {named:?}, each once"
+            ));
+        }
+        let number = |field: &Value, name: &str| {
+            read_finite(field).ok_or(format!("versus {rival}: no number {name}"))
+        };
+        let mut pairs = Vec::new();
+        for p in v["pairs"].as_array().into_iter().flatten() {
+            let medians = |key: &str| -> Result<[f64; 2], String> {
+                Ok([number(&p[key][0], key)?, number(&p[key][1], key)?])
+            };
+            let [t_delta_s_rival, t_delta_s_orbitar] = medians("medians_t_delta_s")?;
+            let [peak_pss_bytes_rival, peak_pss_bytes_orbitar] = medians("medians_peak_pss_bytes")?;
+            pairs.push(Pair {
+                input: (p["input"].as_str())
+                    .ok_or(format!("versus {rival}: a pair names no input"))?
+                    .to_owned(),
+                threads: (p["threads"].as_u64())
+                    .and_then(|n| u32::try_from(n).ok())
+                    .ok_or(format!("versus {rival}: a pair names no thread count"))?,
+                t_delta_s_rival,
+                t_delta_s_orbitar,
+                peak_pss_bytes_rival,
+                peak_pss_bytes_orbitar,
+                in_r: (p["in_r"].as_bool()).ok_or(format!("versus {rival}: a pair has no in_r"))?,
+            });
+        }
+        versus.push(Versus {
+            rival: rival.to_owned(),
+            g: number(&v["g"], "g")?,
+            g_ci: [
+                number(&v["g_ci"][0], "g_ci")?,
+                number(&v["g_ci"][1], "g_ci")?,
+            ],
+            r: number(&v["r"], "r")?,
+            pairs,
+        });
+    }
+    if let Some(missing) = (named.iter()).find(|n| !versus.iter().any(|v| v.rival == **n)) {
+        return Err(format!(
+            "a passing claim record holds no versus entry for {missing}, which the case names"
+        ));
+    }
+    let mut series = Vec::new();
+    for s in record["series"].as_array().into_iter().flatten() {
+        let code = s["code"].as_str().ok_or("a series entry names no code")?;
+        let number = |field: &Value, name: &str| {
+            read_finite(field).ok_or(format!("series {code}: no number {name}"))
+        };
+        let mut points = Vec::new();
+        for p in s["points"].as_array().into_iter().flatten() {
+            points.push(Point {
+                input: (p["input"].as_str())
+                    .ok_or(format!("series {code}: a point names no input"))?
+                    .to_owned(),
+                atoms: (p["atoms"].as_u64())
+                    .and_then(|n| u32::try_from(n).ok())
+                    .ok_or(format!("series {code}: a point names no atom count"))?,
+                t_delta_s: number(&p["median_t_delta_s"], "median_t_delta_s")?,
+                peak_pss_bytes: number(&p["median_peak_pss_bytes"], "median_peak_pss_bytes")?,
+            });
+        }
+        series.push(Series {
+            code: code.to_owned(),
+            t_delta_exponent: number(&s["t_delta_exponent"], "t_delta_exponent")?,
+            pss_exponent: number(&s["pss_exponent"], "pss_exponent")?,
+            points,
+        });
+    }
+    let node = match versus.is_empty() && series.is_empty() {
+        true => None,
+        false => Some(
+            serde_json::from_value::<toml::Table>(record["node"].clone())
+                .map_err(|e| format!("the record's node block: {e}"))?,
+        ),
+    };
+    for code in versus.iter().map(|v| v.rival.as_str()) {
+        package(node.as_ref(), code)?;
+    }
+    for code in series.iter().map(|s| s.code.as_str()) {
+        if code != ORBITAR && !named.contains(&code) {
+            return Err(format!(
+                "series {code}: the case names rivals {named:?}, and orbitar"
+            ));
+        }
+    }
+    Ok((versus, series, node))
+}
+
+fn cpu(node: &toml::Table) -> Result<&str, String> {
+    (node.get("host").and_then(|h| h.get("cpu")?.as_str()))
+        .ok_or_else(|| "the node block names no CPU: [host].cpu".to_owned())
+}
+
+fn package(node: Option<&toml::Table>, code: &str) -> Result<(String, String), String> {
+    let text = (node.and_then(|n| n.get(code)?.get(code)?.as_str())).unwrap_or("");
+    let mut words = text.split_whitespace();
+    match (words.next(), words.next()) {
+        (Some(version), Some(build)) => Ok((version.to_owned(), build.to_owned())),
+        _ => Err(format!(
+            "the node block names no version and build of {code}: [{code}].{code}"
+        )),
+    }
 }
 
 fn headline(metrics: &mut [Metric], names: &[String]) -> Result<(), String> {
@@ -479,7 +666,126 @@ fn consistent(row: &Row) -> Result<(), String> {
     if row.what.trim().is_empty() {
         return Err("no what phrase".into());
     }
+    let claimed = !row.versus.is_empty() || !row.series.is_empty();
+    if claimed != row.node.is_some() {
+        return Err("a row has a node block exactly when it has a versus or series entry".into());
+    }
+    if claimed && (row.run, row.outcome) != (Some(Tier::Claim), Outcome::Pass) {
+        return Err("only a passing claim record gives versus and series entries".into());
+    }
+    if let Some(node) = &row.node {
+        cpu(node)?;
+    }
+    for v in &row.versus {
+        package(row.node.as_ref(), &v.rival)?;
+        agrees(v)?;
+    }
+    let codes: BTreeSet<&str> = row.series.iter().map(|s| s.code.as_str()).collect();
+    if codes.len() != row.series.len() {
+        return Err("a series names each code once".into());
+    }
+    row.series.iter().try_for_each(fits)
+}
+
+const AGREE: f64 = 1e-9;
+
+fn close(a: f64, b: f64) -> bool {
+    a.to_bits() == b.to_bits() || (a / b - 1.0).abs() <= AGREE
+}
+
+fn agrees(v: &Versus) -> Result<(), String> {
+    let name = &v.rival;
+    if v.pairs.is_empty() {
+        return Err(format!("versus {name} has no pair"));
+    }
+    let medians = (v.pairs.iter()).flat_map(|p| {
+        [
+            p.t_delta_s_rival,
+            p.t_delta_s_orbitar,
+            p.peak_pss_bytes_rival,
+            p.peak_pss_bytes_orbitar,
+        ]
+    });
+    if medians.into_iter().any(|m| m.is_nan() || m <= 0.0) {
+        return Err(format!("versus {name}: each median lies above 0"));
+    }
+    let g = geomean(v.pairs.iter().map(|p| p.t_delta_s_rival))
+        / geomean(v.pairs.iter().map(|p| p.t_delta_s_orbitar));
+    if !close(g, v.g) {
+        return Err(format!(
+            "versus {name}: G is {:e}, but its pairs give {g:e}",
+            v.g
+        ));
+    }
+    if !(v.g_ci[0] <= v.g && v.g <= v.g_ci[1]) {
+        return Err(format!(
+            "versus {name}: G {:e} lies outside its 95% CI [{:e}, {:e}]",
+            v.g, v.g_ci[0], v.g_ci[1]
+        ));
+    }
+    if v.in_r().next().is_none() {
+        return Err(format!("versus {name}: R reads no pair"));
+    }
+    let r = geomean(v.in_r().map(|p| p.peak_pss_bytes_rival))
+        / geomean(v.in_r().map(|p| p.peak_pss_bytes_orbitar));
+    if !close(r, v.r) {
+        return Err(format!(
+            "versus {name}: R is {:e}, but its pairs give {r:e}",
+            v.r
+        ));
+    }
     Ok(())
+}
+
+fn fits(s: &Series) -> Result<(), String> {
+    let name = &s.code;
+    let positive = |v: f64| v.is_finite() && v > 0.0;
+    if (s.points.iter())
+        .any(|p| p.atoms == 0 || !positive(p.t_delta_s) || !positive(p.peak_pss_bytes))
+    {
+        return Err(format!(
+            "series {name}: each point holds atoms, T(δ) and peak Pss above 0"
+        ));
+    }
+    if (s.points.windows(2)).any(|w| (w[0].atoms, &w[0].input) >= (w[1].atoms, &w[1].input)) {
+        return Err(format!(
+            "series {name}: points go by atoms, then input, once each"
+        ));
+    }
+    for (exponent, label, y) in [
+        (
+            s.t_delta_exponent,
+            "T(δ)",
+            (|p: &Point| p.t_delta_s) as fn(&Point) -> f64,
+        ),
+        (s.pss_exponent, "peak Pss", |p: &Point| p.peak_pss_bytes),
+    ] {
+        let slope = slope(
+            s.points
+                .iter()
+                .map(|p| (log10(f64::from(p.atoms)), log10(y(p)))),
+        );
+        let nan = slope.is_nan() && exponent.is_nan();
+        if !(nan || close(slope, exponent) || (slope - exponent).abs() <= AGREE) {
+            return Err(format!(
+                "series {name}: the {label} exponent is {exponent:e}, but its points give {slope:e}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn slope(points: impl Iterator<Item = (f64, f64)>) -> f64 {
+    let points: Vec<(f64, f64)> = points.collect();
+    let n = points.len() as f64;
+    let mx = points.iter().map(|p| p.0).sum::<f64>() / n;
+    let my = points.iter().map(|p| p.1).sum::<f64>() / n;
+    let sxx: f64 = points.iter().map(|p| (p.0 - mx) * (p.0 - mx)).sum();
+    let sxy: f64 = points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
+    match sxx > 0.0 {
+        true => sxy / sxx,
+        false => f64::NAN,
+    }
 }
 
 fn num(v: f64) -> String {
@@ -545,16 +851,104 @@ fn write(rows: &[Row]) -> String {
                 out.push_str("headline = true\n");
             }
         }
+        for v in &row.versus {
+            let _ = write!(
+                out,
+                "\n[[case.versus]]\nrival = {}\ng = {}\ng_ci = [{}, {}]\nr = {}\n",
+                quoted(&v.rival),
+                num(v.g),
+                num(v.g_ci[0]),
+                num(v.g_ci[1]),
+                num(v.r)
+            );
+            for p in &v.pairs {
+                let _ = write!(
+                    out,
+                    "\n[[case.versus.pair]]\ninput = {}\nthreads = {}\nt_delta_s_rival = {}\nt_delta_s_orbitar = {}\npeak_pss_bytes_rival = {}\npeak_pss_bytes_orbitar = {}\nin_r = {}\n",
+                    quoted(&p.input),
+                    p.threads,
+                    num(p.t_delta_s_rival),
+                    num(p.t_delta_s_orbitar),
+                    num(p.peak_pss_bytes_rival),
+                    num(p.peak_pss_bytes_orbitar),
+                    p.in_r
+                );
+            }
+        }
+        for s in &row.series {
+            let _ = write!(
+                out,
+                "\n[[case.series]]\ncode = {}\nt_delta_exponent = {}\npss_exponent = {}\n",
+                quoted(&s.code),
+                num(s.t_delta_exponent),
+                num(s.pss_exponent)
+            );
+            for p in &s.points {
+                let _ = write!(
+                    out,
+                    "\n[[case.series.point]]\ninput = {}\natoms = {}\nt_delta_s = {}\npeak_pss_bytes = {}\n",
+                    quoted(&p.input),
+                    p.atoms,
+                    num(p.t_delta_s),
+                    num(p.peak_pss_bytes)
+                );
+            }
+        }
+        if let Some(node) = &row.node {
+            table(&mut out, "case.node", node);
+        }
     }
     out
 }
 
-fn rendered(rows: &[Row]) -> [(&'static str, String); 3] {
+fn table(out: &mut String, path: &str, table: &toml::Table) {
+    let _ = writeln!(out, "\n[{path}]");
+    let key = |k: &str| match !k.is_empty()
+        && (k.bytes()).all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    {
+        true => k.to_owned(),
+        false => quoted(k),
+    };
+    for (k, v) in table.iter().filter(|(_, v)| !v.is_table()) {
+        let _ = writeln!(out, "{} = {}", key(k), value(v));
+    }
+    for (k, v) in table {
+        if let toml::Value::Table(inner) = v {
+            self::table(out, &format!("{path}.{}", key(k)), inner);
+        }
+    }
+}
+
+fn value(v: &toml::Value) -> String {
+    match v {
+        toml::Value::String(s) => quoted(s),
+        toml::Value::Float(f) => num(*f),
+        toml::Value::Array(items) => {
+            format!(
+                "[{}]",
+                items.iter().map(value).collect::<Vec<_>>().join(", ")
+            )
+        }
+        toml::Value::Table(inner) => format!(
+            "{{ {} }}",
+            (inner.iter())
+                .map(|(k, v)| format!("{} = {}", quoted(k), value(v)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        other => other.to_string(),
+    }
+}
+
+fn rendered(rows: &[Row]) -> Vec<(&'static str, Option<String>)> {
     [
-        (PAGE, page(rows)),
-        (LIGHT, chart(rows, &LIGHT_THEME)),
-        (DARK, chart(rows, &DARK_THEME)),
+        (PAGE, Some(page(rows))),
+        (LIGHT, Some(chart(rows, &LIGHT_THEME))),
+        (DARK, Some(chart(rows, &DARK_THEME))),
     ]
+    .into_iter()
+    .chain(card::cards(rows))
+    .collect()
 }
 
 pub(crate) fn render(root: &Path) -> Findings {
@@ -570,9 +964,13 @@ pub(crate) fn render(root: &Path) -> Findings {
     let mut findings = Vec::new();
     for (path, body) in rendered(&rows) {
         let path = root.join(path);
-        if let Err(e) =
-            (path.parent().map_or(Ok(()), fs::create_dir_all)).and_then(|()| fs::write(&path, body))
-        {
+        let done = match body {
+            Some(body) => (path.parent().map_or(Ok(()), fs::create_dir_all))
+                .and_then(|()| fs::write(&path, body)),
+            None if fs::symlink_metadata(&path).is_ok() => fs::remove_file(&path),
+            None => Ok(()),
+        };
+        if let Err(e) = done {
             findings.push(format!("results: {}: {e}", path.display()));
         }
     }
@@ -586,25 +984,31 @@ pub(crate) fn check(root: &Path) -> Findings {
     };
     let exists = |p: &str| fs::symlink_metadata(root.join(p)).is_ok();
     let Some(rows) = rows else {
-        return [PAGE, LIGHT, DARK]
-            .into_iter()
+        return ([PAGE, LIGHT, DARK].into_iter().chain(card::CARDS))
             .filter(|p| exists(p))
             .map(|p| {
                 format!("science: S11 {p} exists without {RESULTS}; render it from the records")
             })
             .collect();
     };
-    (rendered(&rows).into_iter())
-        .filter(|(path, want)| {
-            let file = fs::symlink_metadata(root.join(path)).is_ok_and(|m| m.is_file());
-            !file || walk::read(root, path) != *want
-        })
-        .map(|(path, _)| {
-            format!(
+    let mut findings = Vec::new();
+    for (path, want) in rendered(&rows) {
+        let Some(want) = want else {
+            if exists(path) {
+                findings.push(format!(
+                    "science: S11 {path} exists, but no row of {RESULTS} backs it; `cargo xtask results render` removes it"
+                ));
+            }
+            continue;
+        };
+        let file = fs::symlink_metadata(root.join(path)).is_ok_and(|m| m.is_file());
+        if !file || walk::read(root, path) != want {
+            findings.push(format!(
                 "science: S11 {path} differs from what `cargo xtask results render` makes of {RESULTS}"
-            )
-        })
-        .collect()
+            ));
+        }
+    }
+    findings
 }
 
 fn headline_of(row: &Row) -> Option<&Metric> {
@@ -737,6 +1141,29 @@ fn log10(x: f64) -> f64 {
         term *= z * z;
     }
     e + 8.0 * sum / std::f64::consts::LN_10
+}
+
+fn pow10(y: f64) -> f64 {
+    let k = y.floor();
+    let whole: f64 = format!("1e{k}").parse().unwrap_or(f64::NAN);
+    let z = (y - k) * std::f64::consts::LN_10 / 256.0;
+    let (mut term, mut sum) = (1.0, 1.0);
+    for n in 1..12 {
+        term *= z / f64::from(n);
+        sum += term;
+    }
+    for _ in 0..8 {
+        sum *= sum;
+    }
+    whole * sum
+}
+
+fn geomean(values: impl Iterator<Item = f64>) -> f64 {
+    let values: Vec<f64> = values.collect();
+    match values.iter().any(|v| v.is_infinite()) {
+        true => f64::INFINITY,
+        false => pow10(values.iter().map(|&v| log10(v)).sum::<f64>() / values.len() as f64),
+    }
 }
 
 fn escaped(text: &str) -> String {
