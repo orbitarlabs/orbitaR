@@ -1450,7 +1450,7 @@ fn a_held_out_variant_may_strain_its_cell_or_move_an_atom_up_to_each_bound_and_n
     ] {
         assert_ne!(variant, INPUT, "{n}");
         assert_eq!(
-            within_the_generators(&format!("held-out-bound-{n}"), INPUT, &variant),
+            within_the_generators(&format!("held-out-edge-{n}"), INPUT, &variant),
             within,
             "{n}"
         );
