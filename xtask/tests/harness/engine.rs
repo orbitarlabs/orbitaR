@@ -126,7 +126,7 @@ fn runs(file: &std::path::Path) -> bool {
     };
     let start = std::time::Instant::now();
     while state() {
-        if start.elapsed() > std::time::Duration::from_secs(10) {
+        if start.elapsed() > std::time::Duration::from_secs(1) {
             return true;
         }
         std::thread::sleep(std::time::Duration::from_millis(20));
@@ -377,9 +377,15 @@ fn a_process_that_the_engine_leaves_behind_ends_with_its_run() {
 fn a_run_is_timed_by_the_shim_from_the_engines_spawn_to_its_exit_not_by_its_own() {
     use std::io::Read as _;
     let dir = tree("engine-shim-hold", &[]);
-    let start = std::time::Instant::now();
+    let now = || {
+        (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH))
+            .unwrap()
+            .as_secs_f64()
+    };
+    let stamped = "date +%s.%N > s0; sleep 1; date +%s.%N > s1";
+    let spawned = now();
     let mut shim = std::process::Command::new(env!("CARGO_BIN_EXE_xtask"))
-        .args(["--peak-rss-shim", "stderr", "20000", "sleep", "1"])
+        .args(["--peak-rss-shim", "stderr", "20000", "sh", "-c", stamped])
         .current_dir(&*dir)
         .env("ORBITAR_SHIM_HOLD_MS", "1000")
         .stdin(std::process::Stdio::piped())
@@ -394,11 +400,26 @@ fn a_run_is_timed_by_the_shim_from_the_engines_spawn_to_its_exit_not_by_its_own(
         .read_to_string(&mut report)
         .unwrap();
     assert!(shim.wait().unwrap().success());
-    let whole = start.elapsed().as_secs_f64();
+    let reported = now();
     drop(control);
+    let stamp = |name: &str| -> f64 {
+        std::fs::read_to_string(dir.join(name))
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap()
+    };
+    let (start, end) = (stamp("s0"), stamp("s1"));
     let report: serde_json::Value = serde_json::from_str(&report).unwrap();
     let engine = report["Ok"]["seconds"].as_f64().unwrap();
-    assert!(engine >= 1.0 && engine + 2.0 <= whole, "{engine} {whole}");
+    assert!(
+        start - spawned >= 1.0 && reported - end >= 1.0,
+        "{spawned} {start} {end} {reported}"
+    );
+    assert!(
+        engine >= end - start && engine < end - start + 1.0,
+        "{engine}: {start} {end}"
+    );
 }
 
 #[test]
