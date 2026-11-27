@@ -1185,19 +1185,19 @@ fn no_held_out(evidence: &Evidence) -> Result<Metrics, String> {
 fn a_claim_beside_rivals_runs_each_held_out_variant_and_names_its_hash_and_the_tuned_inputs() {
     let held = std::env::temp_dir().join(format!("xtask-variants-{}", std::process::id()));
     let variant = rival::INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 1.5");
-    crate::write(&held, "1_a/x.toml", &variant);
+    crate::write(&held, "1_a/input.toml", &variant);
     let (_, record) = held_out("held-out-runs", Some(&held));
     let _ = std::fs::remove_dir_all(&held);
     assert_eq!(
         record["inputs"],
-        serde_json::json!(["input", "held-out-x"]),
+        serde_json::json!(["input", "held-out-input"]),
         "{record}"
     );
     let timed: Vec<&str> = (record["speed"].as_array().unwrap().iter())
         .filter(|b| b["code"] == "orbitar")
         .map(|b| b["input"].as_str().unwrap())
         .collect();
-    assert_eq!(timed, ["input", "held-out-x"], "{record}");
+    assert_eq!(timed, ["input", "held-out-input"], "{record}");
     assert_eq!(
         record["rotation_s"].as_array().unwrap().len(),
         1,
@@ -1211,7 +1211,7 @@ fn a_claim_beside_rivals_runs_each_held_out_variant_and_names_its_hash_and_the_t
     let sha = hex(&Sha256::digest(&variant));
     assert_eq!(
         record["held_out"],
-        serde_json::json!([{ "input": "held-out-x", "sha256": sha }])
+        serde_json::json!([{ "input": "held-out-input", "base": "input", "sha256": sha }])
     );
     assert_eq!(record["tuned"], serde_json::json!(["input"]), "{record}");
     let (_, record) = held_out("held-out-unset", None);
@@ -1265,6 +1265,136 @@ fn a_held_out_variant_inherits_each_rival_skip_of_the_input_whose_stem_it_holds(
             { "code": "qe", "input": "held-out-input", "reason": "no dataset" }
         ]),
         "{record}"
+    );
+}
+
+fn skipping_qe_for(root: &Tree, cells: &[&str]) {
+    let skips: Vec<String> = (cells.iter())
+        .map(|c| format!("{{ cell = \"{c}\", reason = \"no dataset\" }}"))
+        .collect();
+    crate::write(
+        root,
+        "benchmarks/RIVALS.toml",
+        &rival::RIVALS.replace(
+            "density_ratio = 8.0\n",
+            &format!("density_ratio = 8.0\nskip_cells = [{}]\n", skips.join(", ")),
+        ),
+    );
+    let tuned = std::fs::read_to_string(root.join("benchmarks/TUNED.toml")).unwrap();
+    crate::write(
+        root,
+        "benchmarks/TUNED.toml",
+        &rival::with_layout_policies(root, &tuned),
+    );
+}
+
+fn timed_by<'a>(record: &'a serde_json::Value, code: &str) -> Vec<&'a str> {
+    (record["speed"].as_array().into_iter().flatten())
+        .filter(|b| b["code"] == code)
+        .map(|b| b["input"].as_str().unwrap())
+        .collect()
+}
+
+fn claim_with_variants(root: &Tree, id: &str, held: &Path) -> (Outcome, serde_json::Value) {
+    let bin = speed::fake(root, "step -2");
+    let session = Session::new(root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_held_out(held);
+    let outcome = session.evaluate(id, no_held_out);
+    let text = std::fs::read_to_string(root.join(format!("records/{id}.json"))).unwrap();
+    (outcome, serde_json::from_str(&text).unwrap())
+}
+
+#[test]
+fn a_held_out_variant_must_name_an_input_of_its_case_and_hold_its_species_mesh_spin_and_occupations()
+ {
+    use rival::{ABINIT, INPUT, PW, TUNED, rivals_tree};
+    let other = INPUT.replace("mesh = [2, 2, 2]", "mesh = [3, 3, 3]");
+    assert_ne!(other, INPUT);
+    for (n, (file, variant, why)) in [
+        (
+            "nio.toml",
+            INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 1.5"),
+            "1_a has no input nio",
+        ),
+        (
+            "input.toml",
+            other,
+            "not a variant of 1_a's input input: its kpoints differs",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let root = rivals_tree(&format!("held-out-misnamed-{n}"), INPUT, TUNED, PW, ABINIT);
+        crate::write(&root, "benchmarks/1_a/reference/input.json", "{}");
+        let held = std::env::temp_dir().join(format!(
+            "xtask-variants-misnamed-{n}-{}",
+            std::process::id()
+        ));
+        crate::write(&held, &format!("1_a/{file}"), &variant);
+        let (outcome, _) = claim_with_variants(&root, "1_a", &held);
+        let _ = std::fs::remove_dir_all(&held);
+        assert!(
+            matches!(&outcome, Outcome::Fail(f) if f.contains(why)),
+            "{n}: {outcome:?}"
+        );
+    }
+}
+
+#[test]
+fn a_committed_input_whose_name_starts_like_a_variants_inherits_no_skip() {
+    use rival::{ABINIT, INPUT, PW, TUNED, rivals_tree};
+    let root = rivals_tree("held-out-committed", INPUT, TUNED, PW, ABINIT);
+    skipping_qe_for(&root, &["benchmarks/1_a/input.toml"]);
+    let committed = INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 1.5");
+    crate::write(
+        &root,
+        "benchmarks/1_a/inputs/held-out-input.toml",
+        &committed,
+    );
+    for name in ["input", "held-out-input"] {
+        crate::write(
+            &root,
+            &format!("benchmarks/1_a/reference/{name}.json"),
+            "{}",
+        );
+    }
+    let bin = speed::fake(&root, "step -2");
+    let session = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"));
+    session.evaluate("1_a", speed::both);
+    let text = std::fs::read_to_string(root.join("records/1_a.json")).unwrap();
+    let record: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(timed_by(&record, "qe"), ["held-out-input"], "{record}");
+}
+
+#[test]
+fn variants_of_the_same_stem_in_two_cases_each_inherit_their_own_cases_skip() {
+    use rival::{ABINIT, INPUT, PW, TUNED, rivals_tree};
+    let root = rivals_tree("held-out-two-cases", INPUT, TUNED, PW, ABINIT);
+    skipping_qe_for(&root, &["benchmarks/1_a/input.toml"]);
+    let case = std::fs::read_to_string(root.join("benchmarks/1_a/case.toml")).unwrap();
+    crate::write(&root, "benchmarks/2_b/case.toml", &case);
+    crate::write(&root, "benchmarks/2_b/input.toml", INPUT);
+    let held = std::env::temp_dir().join(format!("xtask-variants-two-{}", std::process::id()));
+    let variant = INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 1.5");
+    for id in ["1_a", "2_b"] {
+        crate::write(
+            &root,
+            &format!("benchmarks/{id}/reference/input.json"),
+            "{}",
+        );
+        crate::write(&held, &format!("{id}/input.toml"), &variant);
+    }
+    let (_, first) = claim_with_variants(&root, "1_a", &held);
+    let (_, second) = claim_with_variants(&root, "2_b", &held);
+    let _ = std::fs::remove_dir_all(&held);
+    assert_eq!(timed_by(&first, "qe"), Vec::<&str>::new(), "{first}");
+    assert_eq!(
+        timed_by(&second, "qe"),
+        ["input", "held-out-input"],
+        "{second}"
     );
 }
 

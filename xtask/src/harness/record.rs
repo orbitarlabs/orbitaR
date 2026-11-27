@@ -195,10 +195,36 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                     };
                     let [p] = speed.threads;
                     let timed = settings.as_ref().is_none_or(|s| s.times(p.get()));
+                    let names: Vec<&str> = (record["inputs"].as_array().into_iter().flatten())
+                        .filter_map(Value::as_str)
+                        .collect();
+                    let mut bases = BTreeMap::new();
+                    let variants: BTreeSet<&str> =
+                        (record["held_out"].as_array().into_iter().flatten())
+                            .filter_map(|h| h["input"].as_str())
+                            .collect();
+                    for held in record["held_out"].as_array().into_iter().flatten() {
+                        let (Some(name), Some(base)) =
+                            (held["input"].as_str(), held["base"].as_str())
+                        else {
+                            findings.push(format!(
+                                "{}: {id} record holds a held-out variant without the input it varies: {held}",
+                                tier.name()
+                            ));
+                            continue;
+                        };
+                        if !names.contains(&base) || variants.contains(base) {
+                            findings.push(format!(
+                                "{}: {id} record's held-out {name} varies {base}, which is no input of the record",
+                                tier.name()
+                            ));
+                        }
+                        bases.insert(name, base);
+                    }
                     let due: usize = (record["inputs"].as_array().into_iter().flatten())
                         .filter_map(Value::as_str)
                         .map(|name| {
-                            let path = rival::base_path(id, name);
+                            let path = rival::input_path(id, bases.get(name).unwrap_or(&name));
                             let theirs = (case.rivals().iter())
                                 .filter(|&&code| {
                                     !settings

@@ -767,19 +767,31 @@ pub fn rival_layout_policies(root: &Path) -> Result<BTreeMap<String, String>, St
         .collect()
 }
 
-fn borrows(id: &str, b: &Block, rivals: &rival::Rivals) -> bool {
+struct RivalPaths<'a> {
+    id: &'a str,
+    held: &'a BTreeMap<String, String>,
+}
+
+impl RivalPaths<'_> {
+    fn own(&self, name: &str) -> String {
+        rival::input_path(self.id, name)
+    }
+
+    fn keyed(&self, name: &str) -> String {
+        rival::input_path(self.id, self.held.get(name).map_or(name, String::as_str))
+    }
+}
+
+fn borrows(paths: &RivalPaths, b: &Block, rivals: &rival::Rivals) -> bool {
     let abinit = rival::Rival::Abinit;
-    let (path, base) = (
-        rival::input_path(id, b.input),
-        rival::base_path(id, b.input),
-    );
+    let (path, base) = (paths.own(b.input), paths.keyed(b.input));
     (rival::Cell::parse(&b.table))
         .and_then(|cell| rivals.calibrated(abinit, &base, &cell, rivals.cutoff(abinit, &cell)?))
         .is_ok_and(|row| row.is_some_and(|(_, from)| from != path))
 }
 
 fn accuracies(
-    id: &str,
+    paths: &RivalPaths,
     blocks: &[Block],
     timed: &mut [speed::Timed],
     rivals: &rival::Rivals,
@@ -790,11 +802,11 @@ fn accuracies(
     let abinit = rival::Rival::Abinit;
     let target = rivals.settings.target.energy_difference_ha_per_atom;
     let target_p = rivals.settings.target.pressure_gpa;
-    let path = |b: &Block| rival::input_path(id, b.input);
+    let path = |b: &Block| paths.own(b.input);
     let calibrated = |code: rival::Rival, b: &Block| {
         rival::Cell::parse(&b.table).and_then(|cell| {
             let cutoff = rivals.cutoff(code, &cell)?;
-            rivals.calibrated(code, &rival::base_path(id, b.input), &cell, cutoff)
+            rivals.calibrated(code, &paths.keyed(b.input), &cell, cutoff)
         })
     };
     let basis = |b: &Block, from: &str| match from == path(b) {
@@ -941,7 +953,7 @@ pub enum Outcome {
 
 struct HeldOut {
     inputs: Vec<(String, String)>,
-    held: BTreeSet<String>,
+    held: BTreeMap<String, String>,
     tuned: Vec<String>,
 }
 
@@ -1217,6 +1229,7 @@ impl Session {
             Err(e) => return vec![trace.failed("held-out", engine::Failure::Harness(e))],
         };
         trace.tuned = tuned;
+        let paths = RivalPaths { id, held: &held };
         let timeout = Duration::from_secs(case.timeout_s());
         let policy = self.tier.policy();
         let mut tables = Vec::new();
@@ -1292,7 +1305,7 @@ impl Session {
                 };
                 for (&code, rivals) in case.rivals().iter().zip(std::iter::repeat(&rivals)) {
                     let Some(rivals) = rivals else { break };
-                    if let Some(reason) = rivals.settings.skips(code, &rival::base_path(id, name)) {
+                    if let Some(reason) = rivals.settings.skips(code, &paths.keyed(name)) {
                         if threads == sweep[0] {
                             let code = code.adapter().name();
                             trace
@@ -1328,7 +1341,7 @@ impl Session {
                     (_, None) => false,
                     (None, Some(_)) => true,
                     (Some(job), Some(rivals)) => {
-                        job.code == rival::Rival::Abinit && borrows(id, b, rivals)
+                        job.code == rival::Rival::Abinit && borrows(&paths, b, rivals)
                     }
                 };
                 let run = |b: &Block, stop: f64, pass: speed::Pass| {
@@ -1383,7 +1396,7 @@ impl Session {
                             }
                         }
                         failures.extend(accuracies(
-                            id,
+                            &paths,
                             &blocks,
                             &mut timed,
                             rivals,
@@ -1455,7 +1468,7 @@ impl Session {
             for (i, (name, _)) in inputs
                 .iter()
                 .enumerate()
-                .filter(|(_, (n, _))| !held.contains(n))
+                .filter(|(_, (n, _))| !held.contains_key(n))
             {
                 let b = match Block::new(name, i, sweep[0], tables[i].clone(), &files[i], atoms[i])
                 {
@@ -1475,12 +1488,12 @@ impl Session {
             true => blocks
                 .iter()
                 .zip(ran.iter().map(|(stdout, _)| stdout))
-                .filter(|(b, _)| !held.contains(b.input))
+                .filter(|(b, _)| !held.contains_key(b.input))
                 .collect(),
             false => own.iter().map(|(b, stdout)| (b, stdout)).collect(),
         };
         let measured_inputs: Vec<String> = (trace.inputs.iter())
-            .filter(|n| !held.contains(*n))
+            .filter(|n| !held.contains_key(*n))
             .cloned()
             .collect();
         let mut worst = engine::Change::default();
@@ -1550,7 +1563,7 @@ impl Session {
         mut inputs: Vec<(String, String)>,
         trace: &mut Trace,
     ) -> Result<HeldOut, String> {
-        let mut held = BTreeSet::new();
+        let mut held = BTreeMap::new();
         if self.tier != Tier::Claim || case.rivals().is_empty() {
             return Ok(HeldOut {
                 inputs,
@@ -1628,10 +1641,24 @@ impl Session {
                     path.display()
                 ));
             }
+            let base = (inputs.iter())
+                .find(|(n, _)| *n == stem && !held.contains_key(n))
+                .ok_or_else(|| {
+                    format!(
+                        "{}: a held-out variant takes the stem of the {id} input that it varies, and {id} has no input {stem}",
+                        path.display()
+                    )
+                })?;
+            same_identity(&base.1, &text).map_err(|e| {
+                format!(
+                    "{}: not a variant of {id}'s input {stem}: {e}",
+                    path.display()
+                )
+            })?;
             trace
                 .held_out
-                .push(json!({ "input": name, "sha256": hash }));
-            held.insert(name.clone());
+                .push(json!({ "input": name, "base": stem, "sha256": hash }));
+            held.insert(name.clone(), stem);
             inputs.push((name, text));
         }
         Ok(HeldOut {
@@ -1712,16 +1739,54 @@ fn readouts(metrics: &Metrics, tolerance: &BTreeMap<String, f64>) -> Vec<String>
         .collect()
 }
 
+const VARIANT_IDENTITY: [(&str, Option<&str>); 4] = [
+    ("structure", Some("species")),
+    ("kpoints", None),
+    ("spin", None),
+    ("occupations", None),
+];
+
+fn same_identity(base: &str, variant: &str) -> Result<(), String> {
+    let parse = |text: &str| toml::from_str::<toml::Table>(text).map_err(|e| e.to_string());
+    let (base, variant) = (parse(base)?, parse(variant)?);
+    let shape = |t: &toml::Table| -> BTreeMap<String, BTreeSet<String>> {
+        (t.iter())
+            .map(|(k, v)| {
+                let keys = v.as_table().map(|t| t.keys().cloned().collect());
+                (k.clone(), keys.unwrap_or_default())
+            })
+            .collect()
+    };
+    if shape(&base) != shape(&variant) {
+        return Err(format!(
+            "its tables and keys {:?} differ from {:?}",
+            shape(&variant),
+            shape(&base)
+        ));
+    }
+    for (table, key) in VARIANT_IDENTITY {
+        let at = |t: &toml::Table| {
+            let v = t.get(table);
+            key.map_or(v, |key| v.and_then(|v| v.get(key))).cloned()
+        };
+        if at(&base) != at(&variant) {
+            let key = key.map_or_else(String::new, |k| format!(".{k}"));
+            return Err(format!("its {table}{key} differs"));
+        }
+    }
+    Ok(())
+}
+
 fn preflight(
     dir: &Path,
     inputs: &[(String, String)],
     tables: &[toml::Table],
-    held: &BTreeSet<String>,
+    held: &BTreeMap<String, String>,
     measure: Measure,
 ) -> Option<String> {
     let mut missing = BTreeSet::new();
     for ((name, _), table) in
-        (inputs.iter().zip(tables)).filter(|((name, _), _)| !held.contains(name))
+        (inputs.iter().zip(tables)).filter(|((name, _), _)| !held.contains_key(name))
     {
         let evidence = Evidence::new(
             dir,
