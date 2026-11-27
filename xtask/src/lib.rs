@@ -1,7 +1,13 @@
 pub mod harness;
 
+pub use release::mac::{
+    Build, Built, Installed, PYTHON, Steps, about_config, about_pin, about_plan, ase_verdict,
+    c_flags, data_plan, floor_plan, maturin_pin, maturin_plan, maturin_requirement, metadata_plan,
+    one_wheel, pair_verdict, proof, python_plan, readme_plan, remaps, tools_plan, tracked,
+};
 pub use release::{
-    Image, Install, PAW_SCAN, PAW_SCAN_BYTES, baked, image_verdict, install, install_verdict,
+    Image, Install, Invocation, Machine, PAW_SCAN, PAW_SCAN_BYTES, Program, Wheels, baked, clear,
+    host_paths, image_verdict, in_venv, install, install_plan, install_verdict, machine,
     readme_lines,
 };
 pub use reproduce::stamp;
@@ -93,10 +99,12 @@ enum Cli {
         #[arg(long)]
         reason: String,
     },
-    /// wheel [--check <file>]: build orbitar's and orbitar-jth's wheels, check each, install both in a new venv, run README
+    /// wheel [--check <file>] [--target <Mac>]: build orbitar's and orbitar-jth's wheels (in manylinux_2_28 or on a Mac), check each, install both, run README
     Wheel {
         #[arg(long)]
         check: Option<PathBuf>,
+        #[arg(long)]
+        target: Option<String>,
     },
     /// image [--scan <file>]: build the runtime and bench images; each runs case 1's input as user 1000, read-only
     Image {
@@ -325,7 +333,9 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
         Cli::Bench { tier } => bench::tier(root, &tier, env),
         Cli::NewCase { slug, reference } => layout::new_case(root, &slug, &reference),
         Cli::Lock { reviewer, reason } => lock::write(root, &reviewer, &reason),
-        Cli::Wheel { check } => release::wheel(root, check.as_deref(), env),
+        Cli::Wheel { check, target } => {
+            release::wheel(root, check.as_deref(), target.as_deref(), env)
+        }
         Cli::Image { scan } => release::image(root, scan.as_deref()),
         Cli::Reproduce { check } => reproduce::check(root, check.as_deref(), env),
         Cli::Layout => layout::check(root),

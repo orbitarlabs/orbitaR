@@ -47,9 +47,7 @@ RUN --mount=type=secret,id=ca,required=false --mount=type=bind,source=container/
     --mount=type=bind,source=packages/orbitar-jth,target=/tmp/jth \
     uv pip install --system --no-cache --no-deps /tmp/wheel/*.whl \
  && cp -R /tmp/jth /src \
- && /with-ca python -I -m orbitar.datasets fetch --family jth-2.0 /tmp/fetched \
- && find /tmp/fetched -maxdepth 1 -name '*.toml' ! -name jth-2.0.toml -delete \
- && cp -R /tmp/fetched/. /src/orbitar_jth/ \
+ && /with-ca python -I /src/stage.py /tmp/fetched \
  && cd /src && uv build --offline --no-cache --wheel --out-dir /dist
 
 FROM scratch AS jth-wheel

@@ -1,5 +1,12 @@
+mod mac;
+
 use crate::{has, lever, tree, write};
-use std::{path::Path, process::Command};
+use sha2::Digest;
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 const CARGO: &str =
     "[package]\nname = \"orbitar\"\nversion = \"0.1.0\"\nlicense = \"LicenseRef-x\"\n";
@@ -7,9 +14,64 @@ const LICENSE: &str = "the license text\n";
 const NOTICES: &str = "Third-party notices\nused by: notice 1.2.3\n";
 const PYLOCK: &str = "[[packages]]\nname = \"ase\"\nversion = \"3.29.0\"\n";
 const NAME: &str = "orbitar-0.1.0-py3-none-manylinux_2_28_x86_64.whl";
+const MAC: &str = "orbitar-0.1.0-py3-none-macosx_12_0_arm64.whl";
+const EM_X86_64: u8 = 62;
+const EM_AARCH64: u8 = 183;
+const CPU_ARM64: u32 = 0x0100_000c;
+const CPU_X86_64: u32 = 0x0100_0007;
 const METADATA: &str = "Metadata-Version: 2.4\nName: orbitar\nVersion: 0.1.0\nAuthor: The orbitaR developers\n\
      License-Expression: LicenseRef-x\nRequires-Dist: ase==3.29.0\nRequires-Dist: orbitar-jth==2.0.0\n";
 const JTH_PROJECT: &str = "[project]\nname = \"orbitar-jth\"\nversion = \"2.0.0\"\n";
+
+fn elf(machine: u8) -> String {
+    let mut bytes = b"\x7fELF\x02\x01\x01".to_vec();
+    bytes.resize(16, 0);
+    bytes.extend([2, 0, machine, 0]);
+    bytes.into_iter().map(char::from).collect()
+}
+
+const MH_EXECUTE: u32 = 2;
+const MH_DYLIB: u32 = 6;
+const PLATFORM_MACOS: u32 = 1;
+const PLATFORM_IOS: u32 = 2;
+const LC_BUILD_VERSION: u32 = 0x32;
+
+fn build_version(platform: u32, (major, minor, patch): (u8, u8, u8)) -> (u32, u32, Vec<u8>) {
+    let mut body = platform.to_le_bytes().to_vec();
+    body.extend([patch, minor, major, 0, 0, 0, 15, 0, 0, 0, 0, 0]);
+    (LC_BUILD_VERSION, 24, body)
+}
+
+fn macho_bytes(cpu: u32, filetype: u32, commands: &[(u32, u32, Vec<u8>)]) -> Vec<u8> {
+    let size: usize = commands.iter().map(|(_, _, body)| 8 + body.len()).sum();
+    let count = u32::try_from(commands.len()).unwrap();
+    let words = [
+        0xfeed_facf,
+        cpu,
+        0,
+        filetype,
+        count,
+        u32::try_from(size).unwrap(),
+        0,
+        0,
+    ];
+    let mut bytes: Vec<u8> = words.iter().flat_map(|w: &u32| w.to_le_bytes()).collect();
+    for (command, declared, body) in commands {
+        bytes.extend(command.to_le_bytes());
+        bytes.extend(declared.to_le_bytes());
+        bytes.extend(body);
+    }
+    bytes
+}
+
+fn latin(bytes: Vec<u8>) -> String {
+    bytes.into_iter().map(char::from).collect()
+}
+
+fn macho(cpu: u32, major: u8) -> String {
+    let command = build_version(PLATFORM_MACOS, (major, 0, 0));
+    latin(macho_bytes(cpu, MH_EXECUTE, &[command]))
+}
 
 fn wheel(root: &Path, name: &str, members: &[(&str, String)], listed: &[&str]) {
     let pairs: Vec<[&str; 2]> = members.iter().map(|(p, t)| [*p, t.as_str()]).collect();
@@ -19,7 +81,8 @@ fn wheel(root: &Path, name: &str, members: &[(&str, String)], listed: &[&str]) {
             "-c",
             "import json, sys, zipfile\nlisted = json.loads(sys.argv[3])\n\
              with zipfile.ZipFile(sys.argv[1], 'w') as z:\n    \
-             [z.writestr(p, t) for p, t in json.loads(sys.argv[2])]\n    \
+             [z.writestr(p, t.encode('latin-1') if p.endswith('/scripts/orbitar') else t) \
+             for p, t in json.loads(sys.argv[2])]\n    \
              z.filelist.sort(key=lambda i: listed.index(i.filename) if listed else 0)",
         ])
         .arg(root.join(name))
@@ -66,7 +129,7 @@ fn checked_stored(
         ("orbitar/ase.py", ""),
         ("orbitar/datasets.py", ""),
         ("orbitar/families/jth-2.0.toml", FAMILY),
-        ("orbitar-0.1.0.data/scripts/orbitar", ""),
+        ("orbitar-0.1.0.data/scripts/orbitar", &elf(EM_X86_64)),
         ("orbitar-0.1.0.dist-info/METADATA", METADATA),
         ("orbitar-0.1.0.dist-info/licenses/LICENSE", LICENSE),
         (
@@ -76,6 +139,9 @@ fn checked_stored(
     ]
     .map(|(p, t)| (p, t.to_owned()))
     .into();
+    if file.contains("macosx") {
+        members[4].1 = macho(CPU_ARM64, 12);
+    }
     change(&mut members);
     let listed: Vec<&str> = members.iter().map(|(p, _)| *p).collect();
     store(&mut members);
@@ -268,6 +334,12 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
     }
 }
 
+fn engine_holding(name: &str, word: &str) -> Vec<String> {
+    checked(name, NAME, |m| {
+        m[4].1 = elf(EM_X86_64) + &format!("\0{word}\0\x03");
+    })
+}
+
 #[test]
 fn a_wheel_that_requires_a_part_of_the_locked_closure_passes() {
     let closure = "[[packages]]\nname = \"ase\"\nversion = \"3.29.0\"\n\n\
@@ -277,57 +349,230 @@ fn a_wheel_that_requires_a_part_of_the_locked_closure_passes() {
 }
 
 #[test]
-fn a_wheel_member_that_names_a_person_an_account_or_a_home_fails() {
+fn a_linux_engine_that_names_a_person_or_an_account_fails() {
     let at = '@';
-    for (i, (word, finding)) in [
-        (
-            format!("someone{at}example.org"),
-            "names a person, an account",
-        ),
-        (
-            format!("https://github.com/{}/orbitar", "someone"),
-            "names a person, an account",
-        ),
-        (
-            format!("/{}/someone/.cargo/registry/src/x.rs", "home"),
-            "holds a home directory",
-        ),
-        (
-            format!("/{}/someone/src/main.rs", "Users"),
-            "holds a home directory",
-        ),
+    for (i, word) in [
+        format!("someone{at}example.org"),
+        format!("https://github.com/{}/orbitar", "someone"),
     ]
     .into_iter()
     .enumerate()
     {
-        let found = checked(&format!("member-{i}"), NAME, |m| {
-            m[4].1 = format!("\0\x7fELF\x01\x02{word}\0\x03");
-        });
-        let engine = "wheel orbitar-0.1.0.data/scripts/orbitar: ";
-        assert!(
-            found
-                .iter()
-                .any(|f| f.starts_with(engine) && f.contains(finding)),
-            "{word}: {found:?}"
+        let found = engine_holding(&format!("identity-{i}"), &word);
+        let want = format!(
+            "wheel orbitar-0.1.0.data/scripts/orbitar: `{word}` names a person, an account, or a host's account path"
         );
+        assert_eq!(found, [want]);
     }
+}
+
+#[test]
+fn a_linux_engine_that_holds_a_home_directory_fails() {
+    for (i, word) in [
+        format!("/{}/someone/.cargo/registry/src/x.rs", "home"),
+        format!("/{}/someone/src/main.rs", "Users"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let found = engine_holding(&format!("home-{i}"), &word);
+        let want = format!(
+            "wheel orbitar-0.1.0.data/scripts/orbitar: `{word}` holds a home directory; build the wheel with `cargo xtask wheel`"
+        );
+        assert_eq!(found, [want]);
+    }
+}
+
+#[test]
+fn an_install_whose_venv_cannot_be_removed_fails_before_any_process() {
+    let root = tree(
+        "install-venv",
+        &[("target/wheel/venv", "a file where the venv goes")],
+    );
+    let found = xtask::install(&root, "abc").err().unwrap();
+    let venv = root.join("target/wheel/venv").display().to_string();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].starts_with(&format!("{venv}: ")), "{found:?}");
+    assert!(root.join("target/wheel/venv").is_file());
+}
+
+#[test]
+fn the_linux_install_plan_resolves_orbitar_offline_from_the_wheelhouse_and_the_local_wheels() {
+    let dirs = [
+        PathBuf::from("/r/target/wheel/house"),
+        PathBuf::from("/r/target/wheel/wheel"),
+        PathBuf::from("/r/target/wheel/jth-wheel"),
+    ];
+    let wheels = xtask::Wheels::Pylock {
+        interpreter: OsStr::new("3.12"),
+        dirs: &dirs,
+    };
+    let readme = [
+        "pip install orbitar".to_owned(),
+        "orbitar --version".to_owned(),
+    ];
+    let plan = xtask::install_plan(
+        Path::new("/r"),
+        Path::new("/r/target/wheel/venv"),
+        &wheels,
+        &readme,
+    );
+    let words: Vec<(&str, Vec<String>)> = plan
+        .iter()
+        .map(|(what, step)| (what.as_str(), step.words()))
+        .collect();
+    let py = "/r/target/wheel/venv/bin/python";
+    let pip = |rest: &[&str]| {
+        [
+            "pip",
+            "install",
+            "--quiet",
+            "--no-cache",
+            "--offline",
+            "--no-config",
+            "--python",
+            py,
+        ]
+        .iter()
+        .chain(rest)
+        .map(|w| (*w).to_owned())
+        .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        words,
+        [
+            (
+                "uv venv",
+                [
+                    "venv",
+                    "--quiet",
+                    "--python",
+                    "3.12",
+                    "/r/target/wheel/venv"
+                ]
+                .map(String::from)
+                .to_vec()
+            ),
+            (
+                "pip install orbitar",
+                pip(&[
+                    "--no-index",
+                    "--no-build",
+                    "--find-links",
+                    "/r/target/wheel/house",
+                    "--find-links",
+                    "/r/target/wheel/wheel",
+                    "--find-links",
+                    "/r/target/wheel/jth-wheel",
+                    "orbitar",
+                ])
+            ),
+            (
+                "orbitar --version",
+                [
+                    "run",
+                    "--no-project",
+                    "--quiet",
+                    "--offline",
+                    "--no-config",
+                    "--python",
+                    py,
+                    "--",
+                    "sh",
+                    "-c",
+                    "orbitar --version"
+                ]
+                .map(String::from)
+                .to_vec()
+            ),
+        ]
+    );
+    assert!(
+        plan.iter()
+            .all(|(_, step)| step.program == xtask::Program::Uv)
+    );
+    assert!(
+        plan[1..]
+            .iter()
+            .all(|(_, step)| step.dir.as_deref() == Some(Path::new("/r")))
+    );
+}
+
+#[test]
+fn the_files_install_plan_takes_the_two_files_by_path_wheels_only() {
+    let files = [
+        PathBuf::from("/d/orbitar-0.1.0-py3-none-macosx_12_0_arm64.whl"),
+        PathBuf::from("/d/orbitar_jth-2.0.0-py3-none-any.whl"),
+    ];
+    let wheels = xtask::Wheels::Files {
+        interpreter: OsStr::new("/py/bin/python3.12"),
+        files: &files,
+    };
+    let plan = xtask::install_plan(
+        Path::new("/r"),
+        Path::new("/w/venv"),
+        &wheels,
+        &["pip install orbitar".to_owned()],
+    );
+    let words: Vec<Vec<String>> = plan.iter().map(|(_, step)| step.words()).collect();
+    assert_eq!(words.len(), 2);
+    assert_eq!(
+        words[0],
+        [
+            "venv",
+            "--quiet",
+            "--python",
+            "/py/bin/python3.12",
+            "/w/venv"
+        ]
+    );
+    assert_eq!(
+        words[1],
+        [
+            "pip",
+            "install",
+            "--quiet",
+            "--python",
+            "/w/venv/bin/python",
+            "--only-binary",
+            ":all:",
+            "/d/orbitar-0.1.0-py3-none-macosx_12_0_arm64.whl",
+            "/d/orbitar_jth-2.0.0-py3-none-any.whl",
+        ]
+    );
 }
 
 #[test]
 fn a_wheel_member_with_build_paths_of_the_container_and_no_home_passes() {
     let found = checked("container-paths", NAME, |m| {
-        m[4].1 = "\0/opt/cargo/registry/src/index.crates.io-1/faer-0.24.4/src/lib.rs\0\x01/rustc/0a1b/library/std/src/io.rs\0\
-                  /home/\0/Users//x\0src/main.rs\0"
-            .to_owned();
+        m[4].1 = elf(EM_X86_64)
+            + "\0/opt/cargo/registry/src/index.crates.io-1/faer-0.24.4/src/lib.rs\0\x01/rustc/0a1b/library/std/src/io.rs\0\
+                  /home/\0/Users//x\0src/main.rs\0";
     });
     assert_eq!(found, Vec::<String>::new());
 }
 
 #[test]
-fn a_wheel_for_another_platform_fails() {
+fn a_wheel_of_an_unknown_platform_tag_fails() {
     let other = "orbitar-0.1.0-py3-none-manylinux_2_39_x86_64.whl";
     let found = checked("platform", other, |_| {});
-    assert!(has(&found, &format!("{other} is not {NAME}")), "{found:?}");
+    assert!(
+        has(
+            &found,
+            &format!("{other} is not orbitar-<version>-py3-none-<tag>.whl")
+        ),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_wheel_of_another_version_than_cargo_toml_fails() {
+    let found = checked(
+        "version",
+        "orbitar-0.2.0-py3-none-macosx_12_0_arm64.whl",
+        |_| {},
+    );
+    assert!(has(&found, &format!("is not {MAC}")), "{found:?}");
 }
 
 #[test]
@@ -375,7 +620,7 @@ fn only_the_engine_binary_reads_the_scp_form_at_a_domain_host_alone() {
         let found = checked(&format!("scp-{}", word.len()), NAME, |m| {
             for (path, text) in m.iter_mut() {
                 match *path {
-                    p if p == engine => *text = format!("\x7fELF\x01\x02\0{word}\0\x03"),
+                    p if p == engine => *text = elf(EM_X86_64) + &format!("\0{word}\0\x03"),
                     p if p == module => *text = format!("HOST = \"{word}\"\n"),
                     p if p == metadata => text.push_str(&format!("Summary: {word}\n")),
                     _ => {}
@@ -399,7 +644,7 @@ fn a_script_without_the_elf_magic_or_machine_code_outside_scripts_keeps_the_scp_
             for (path, text) in m.iter_mut() {
                 match *path {
                     p if p == engine => *text = format!("#!/bin/sh\n# {word}\n"),
-                    p if p == module => *text = format!("\x7fELF\x01\x02\0{word}\0\x03"),
+                    p if p == module => *text = elf(EM_X86_64) + &format!("\0{word}\0\x03"),
                     _ => {}
                 }
             }
@@ -491,6 +736,18 @@ fn the_readme_lines_of_a_section_are_its_first_block_without_comments() {
         ["cargo xtask image"]
     );
     assert_eq!(xtask::readme_lines(&root, "Missing"), Vec::<String>::new());
+}
+
+#[test]
+fn the_readme_install_is_the_one_pip_line_that_the_install_proof_runs() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let install = "\
+pip install orbitar
+";
+    assert_eq!(
+        xtask::readme_lines(repo, "Install"),
+        install.lines().collect::<Vec<_>>()
+    );
 }
 
 fn engine() -> Vec<u8> {
@@ -1301,13 +1558,116 @@ fn pip_install_orbitar_without_the_local_data_wheel_fails_and_never_asks_an_inde
 }
 
 #[test]
-fn the_readme_install_is_the_one_pip_line_that_the_install_proof_runs() {
+fn an_elf_engine_of_another_class_or_byte_order_fails() {
+    for (name, class, order) in [("elf32", 1, 1), ("big-endian", 2, 2)] {
+        let mut bytes = b"\x7fELF".to_vec();
+        bytes.extend([class, order, 1]);
+        bytes.resize(16, 0);
+        bytes.extend([2, 0, EM_X86_64, 0]);
+        assert_eq!(xtask::machine(&bytes), None, "{name}");
+        let header = latin(bytes);
+        let found = checked(name, NAME, |m| m[4].1.clone_from(&header));
+        assert!(
+            has(&found, "orbitar-0.1.0.data/scripts/orbitar is no"),
+            "{name}: {found:?}"
+        );
+    }
+}
+
+fn files_under(dir: &Path, below: &Path) -> Vec<String> {
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(dir.join(below)).unwrap().flatten() {
+        let path = below.join(entry.file_name());
+        if entry.path().is_dir() {
+            found.extend(files_under(dir, &path));
+        } else {
+            found.push(path.display().to_string());
+        }
+    }
+    found.sort();
+    found
+}
+
+fn stage_command(root: &Path, rows: &str) -> Command {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
-    let install = "\
-pip install orbitar
-";
-    assert_eq!(
-        xtask::readme_lines(repo, "Install"),
-        install.lines().collect::<Vec<_>>()
+    let package = root.join("package");
+    std::fs::create_dir_all(package.join("orbitar_jth")).unwrap();
+    for file in ["pyproject.toml", "stage.py", "orbitar_jth/__init__.py"] {
+        std::fs::copy(
+            repo.join("packages/orbitar-jth").join(file),
+            package.join(file),
+        )
+        .unwrap();
+    }
+    std::fs::write(root.join("rows.json"), rows).unwrap();
+    let fake = root.join("orbitar");
+    std::fs::write(
+        &fake,
+        format!(
+            "#!/bin/sh\necho \"$*\" >> {0}/args\nexec cat {0}/rows.json\n",
+            root.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        &fake,
+        <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o755),
+    )
+    .unwrap();
+    let run = format!(
+        "import runpy, sys; sys.path.insert(0, {:?}); sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')",
+        repo.join("python").display().to_string()
     );
+    let mut command = Command::new("python3");
+    command
+        .args(["-I", "-B", "-c", &run])
+        .arg(package.join("stage.py"))
+        .arg(root.join("fetched"))
+        .arg("--orbitar")
+        .arg(&fake)
+        .current_dir(root);
+    command
+}
+
+#[test]
+fn stage_puts_the_family_files_and_its_table_alone_into_the_data_package() {
+    let root = tree("stage", &[("source/JTH-PBE-v2.0/Si/Si.xml", "si")]);
+    let url = format!(
+        "file://{}",
+        root.join("source/JTH-PBE-v2.0/Si/Si.xml").display()
+    );
+    let sha: String = sha2::Sha256::digest(b"si")
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let rows = format!(
+        "[{{\"element\": \"Si\", \"functional\": \"pbe\", \"path\": \"JTH-PBE-v2.0/Si/Si.xml\", \"url\": \"{url}\", \"sha256\": \"{sha}\"}}]"
+    );
+    let out = stage_command(&root, &rows).output().unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let module = root.join("package/orbitar_jth");
+    let got = files_under(&module, Path::new(""));
+    assert_eq!(
+        got,
+        ["JTH-PBE-v2.0/Si/Si.xml", "__init__.py", "jth-2.0.toml"]
+    );
+    let args = std::fs::read_to_string(root.join("args")).unwrap();
+    assert!(args.contains("--family jth-2.0"), "{args}");
+}
+
+#[test]
+fn stage_refuses_a_fetch_directory_that_exists() {
+    let root = tree("stage-exists", &[("fetched/stale.xml", "old")]);
+    let out = stage_command(&root, "[]").output().unwrap();
+    assert!(!out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("FileExistsError"),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!root.join("package/orbitar_jth/stale.xml").exists());
 }
