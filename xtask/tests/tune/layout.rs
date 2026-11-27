@@ -39,7 +39,7 @@ fn layout_freezes_the_fastest_layout_per_thread_count_and_logs_every_one_tried()
         .clone();
     assert_eq!(layout("qe", "8"), want, "{tuned}");
     let want: toml::Value = toml::from_str::<toml::Table>(
-        "x = { ranks = 2, threads = 4, args = [], input = [\"paral_kgb 1\", \"autoparal 1\", \"istwfk *1\"] }",
+        "x = { ranks = 2, threads = 4, args = [], input = [\"paral_kgb 1\", \"autoparal 1\"] }",
     )
     .unwrap()["x"]
         .clone();
@@ -83,6 +83,24 @@ fn abinits_band_split_keeps_the_default_istwfk_and_rounds_abinits_band_count_up_
     .unwrap()["x"]
         .clone();
     assert_eq!(tuned["abinit"]["layout"]["8"], want, "{tuned}");
+}
+
+#[test]
+fn no_abinit_layout_sets_istwfk_so_abinit_keeps_real_wavefunctions_at_gamma() {
+    let log = std::env::temp_dir().join(format!("xtask-tune-istwfk-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let abinit = format!(
+        "echo run >> '{0}'; grep istwfk run.abi >> '{0}'\n{ABINIT}",
+        log.display()
+    );
+    let root = rivals_tree("tune-istwfk", INPUT, TUNED, PW, &abinit);
+    let (findings, tuned) = rivals(&root, "layout");
+    let seen = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert!(findings.is_empty(), "{findings:?}");
+    let searched = tuned["abinit"]["searched"]["8"].as_array().unwrap().len();
+    assert!(seen.lines().count() >= searched, "{seen}");
+    assert!(seen.lines().all(|l| l == "run"), "{seen}");
 }
 
 fn split_bands(name: &str, input: &str) -> String {
