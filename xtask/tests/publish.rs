@@ -363,7 +363,7 @@ fn publish_at(root: &Path, head: &str) -> Vec<String> {
 }
 
 #[test]
-fn a_branch_commit_by_anyone_passes_but_the_claude_identity_a_borrowed_identity_or_a_named_message_fails()
+fn a_branch_commit_by_anyone_passes_but_the_claude_identity_a_borrowed_identity_or_a_named_message_fails_outside_a_github_merge()
  {
     let root = tree(
         "publish-commits",
@@ -396,6 +396,21 @@ fn a_branch_commit_by_anyone_passes_but_the_claude_identity_a_borrowed_identity_
         (MAINTAINER, person, "a step", false, vec![]),
         (person, GITHUB, "an edit on the web", false, vec![]),
         (person, GITHUB, "Merge side into base", true, vec![]),
+        (person, GITHUB, &home, true, vec![]),
+        (
+            person,
+            person,
+            &home,
+            true,
+            vec!["holds a home directory; reword the commit"],
+        ),
+        (
+            person,
+            GITHUB,
+            &home,
+            false,
+            vec!["holds a home directory; reword the commit"],
+        ),
         (
             MAINTAINER,
             MAINTAINER,
