@@ -82,6 +82,14 @@ pub(crate) struct BlockRecord {
     pub(crate) failed_peak_bytes: Vec<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) gamma: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) e_v2_ha: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) p_ref_gpa: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) reuse_key: Option<super::reuse::Key>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) reused: Option<super::reuse::Source>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -410,6 +418,10 @@ pub(crate) fn time(
                 refused: refusal,
                 failed_peak_bytes: failed.borrow().get(&owned(b)).cloned().unwrap_or_default(),
                 gamma: b.gamma(),
+                e_v2_ha: None,
+                p_ref_gpa: None,
+                reuse_key: None,
+                reused: None,
                 noisy,
                 t_delta_s: t,
             };

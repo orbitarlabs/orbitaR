@@ -535,3 +535,106 @@ fn science_s11_derives_each_claim_row_again_from_its_pinned_record() {
         );
     }
 }
+
+const REUSED: &str = "benchmarks/REUSED.jsonl";
+const STARTED: u64 = 1_764_000_000_000;
+
+fn reuse_key() -> Value {
+    json!({
+        "schema": 4, "pilot": false, "repeats": 5, "timeout_s": 600, "input_sha256": "ab".repeat(32),
+        "variant": "a case input", "frozen": { "ranks": 1, "threads": 8 }, "layout_policy": "cd".repeat(32),
+        "cutoff_ha": 10.0, "mixing": [], "thread_env": { "OMP_NUM_THREADS": "8", "OPENBLAS_NUM_THREADS": "1" },
+        "mpiexec": [], "datasets": { "Si.UPF": "ef".repeat(32) }, "stop_floor_ha": null, "density_ratio": 8.0,
+        "volume_scale": 0.94, "package": { "qe": "7.5 h19104ac_2 sha256:00" },
+    })
+}
+
+fn reusing(root: &Path, head: &str) -> (String, Value) {
+    let mut source = measured_record(head, &cells());
+    source["started_unix_ms"] = json!(STARTED);
+    for b in source["speed"].as_array_mut().unwrap() {
+        if b["code"] != "orbitar" {
+            b["reuse_key"] = reuse_key();
+        }
+    }
+    let source = summed(root, source);
+    let text = source.to_string();
+    let sha = crate::harness::hex(&<sha2::Sha256 as sha2::Digest>::digest(&text));
+    let mut record = source;
+    for b in record["speed"].as_array_mut().unwrap() {
+        if b["code"] != "orbitar" {
+            b["reused"] =
+                json!({ "commit": head, "record_sha256": sha, "started_unix_ms": STARTED });
+        }
+    }
+    record["rival_reuse"] = json!({ "drift": { "held": true } });
+    (text, record)
+}
+
+fn collected_beside(root: &Tree, record: &Value, earlier: &Path) -> Vec<String> {
+    write(root, RECORD, &record.to_string());
+    let env = xtask::Env {
+        rival_records: Some(earlier.to_owned()),
+        ..crate::env(false)
+    };
+    xtask::run(&["results", "collect"], root, &env)
+}
+
+#[test]
+fn a_reused_rival_block_counts_beside_its_pinned_source_and_science_replays_it() {
+    let root = claim_cases("claim-reused", &cells(), Claims::Speed);
+    let head = commit(&root, "head");
+    let (source, record) = reusing(&root, &head);
+    let earlier = Tree(
+        std::env::temp_dir().join(format!("xtask-claim-reused-earlier-{}", std::process::id())),
+    );
+    write(&earlier, "5_e.json", &source);
+    let missing = collected(&root, &record);
+    assert!(has(&missing, "is not available"), "{missing:?}");
+    assert_eq!(
+        collected_beside(&root, &record, &earlier),
+        Vec::<String>::new()
+    );
+    assert_eq!(read(&root, REUSED), format!("{source}\n"));
+    assert!(read(&root, "benchmarks/RESULTS.toml").contains("[[case.claim.versus.pair]]"));
+    assert!(lever(&["results", "render"], &root).is_empty());
+    assert_eq!(s11(&root), Vec::<String>::new());
+    write(&root, REUSED, &format!("{source}\n{{\"case\": \"5_e\"}}\n"));
+    let found = s11(&root);
+    assert!(
+        has(
+            &found,
+            "whose rival blocks no record in benchmarks/RECORDS.jsonl reuses"
+        ),
+        "{found:?}"
+    );
+    std::fs::remove_file(root.join(REUSED)).unwrap();
+    let found = s11(&root);
+    assert!(has(&found, "is not available"), "{found:?}");
+}
+
+#[test]
+fn a_reused_block_must_equal_its_source_and_carry_a_drift_check_that_held() {
+    let root = claim_cases("claim-reused-tampered", &cells(), Claims::Speed);
+    let head = commit(&root, "head");
+    let (source, record) = reusing(&root, &head);
+    let earlier = Tree(std::env::temp_dir().join(format!(
+        "xtask-claim-reused-tampered-{}",
+        std::process::id()
+    )));
+    write(&earlier, "5_e.json", &source);
+    let mut tampered = record.clone();
+    speed_block(&mut tampered, "qe", "b")["t_delta_s"][0] = json!(7.0);
+    let found = collected_beside(&root, &tampered, &earlier);
+    assert!(
+        has(
+            &found,
+            "its samples, key or E_ref differ from its source's block"
+        ),
+        "{found:?}"
+    );
+    let mut unchecked = record;
+    unchecked["rival_reuse"] = Value::Null;
+    let found = collected_beside(&root, &unchecked, &earlier);
+    assert!(has(&found, "without a drift check that held"), "{found:?}");
+}

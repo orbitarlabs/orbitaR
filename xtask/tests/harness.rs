@@ -7,6 +7,7 @@ mod eos;
 mod load;
 mod record;
 mod relax;
+mod reuse;
 pub mod rival;
 pub(crate) mod speed;
 
@@ -720,7 +721,7 @@ fn a_record_that_the_harness_writes_passes_verify() {
     let since = SystemTime::now();
     let outcome = Session::new(&root, &bin, Tier::Push, &records).evaluate("1_a", honest);
     assert_eq!(outcome, Outcome::Pass);
-    let findings = xtask::harness::verify(&root, Tier::Push, &records, since, None);
+    let findings = xtask::harness::verify(&root, Tier::Push, &records, since, None, None);
     assert!(findings.is_empty(), "{findings:?}");
     let record: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(records.join("1_a.json")).unwrap()).unwrap();

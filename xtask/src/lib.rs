@@ -56,6 +56,7 @@ pub struct Env {
     pub case_filter: bool,
     pub atompaw: Option<PathBuf>,
     pub path: Option<OsString>,
+    pub rival_records: Option<PathBuf>,
 }
 
 impl Env {
@@ -71,6 +72,7 @@ impl Env {
             case_filter: std::env::var_os("ORBITAR_CASE_FILTER").is_some(),
             atompaw: std::env::var_os("ORBITAR_ATOMPAW").map(PathBuf::from),
             path: std::env::var_os("PATH"),
+            rival_records: std::env::var_os("ORBITAR_RIVAL_RECORDS").map(PathBuf::from),
         }
     }
 }
@@ -91,6 +93,9 @@ enum Cli {
     /// Prove It Works: build the release engine, run the push cases, check their records
     Smoke,
     /// bench <tier> [case]: the same for one tier, or for one case of it; `cargo xtask help` lists the tiers
+    ///
+    /// A claim or pilot run with ORBITAR_RIVAL_RECORDS=<dir of earlier records> reuses each rival block whose key
+    /// matches exactly (harness/reuse.rs `Key`), after one drift check re-times the smallest reused cell.
     Bench { tier: String, case: Option<String> },
     /// new-case <slug> <reference>: scaffold the next <N>_<slug>; regenerate the case table
     NewCase { slug: String, reference: String },
@@ -193,7 +198,9 @@ enum Cli {
     /// benchmarks/README.md and assets/benchmarks/results-{light,dark}.svg from RESULTS.toml alone, and
     /// assets/benchmarks/card-{speed,memory,scaling,verification}-{light,dark}.svg: speed, memory and scaling only from a
     /// claim row, verification only while each case it shows passes; it removes a card that no row backs. Science S11
-    /// derives each row again from its pinned record (results.rs, results/claim.rs, results/card.rs).
+    /// derives each row again from its pinned record (results.rs, results/claim.rs, results/card.rs). A reused rival
+    /// block counts only beside its source record: collect reads it from ORBITAR_RIVAL_RECORDS=<dir> and pins it as one
+    /// line of benchmarks/REUSED.jsonl.
     Results {
         #[command(subcommand)]
         step: Step,
@@ -381,7 +388,12 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
         Cli::Records { tier } => bench::records(root, &tier),
         Cli::Results {
             step: Step::Collect { tier, records },
-        } => results::collect(root, &tier, records.as_deref()),
+        } => results::collect(
+            root,
+            &tier,
+            records.as_deref(),
+            env.rival_records.as_deref(),
+        ),
         Cli::Results { step: Step::Render } => results::render(root),
         Cli::Strain {
             centre,

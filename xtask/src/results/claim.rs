@@ -115,8 +115,14 @@ impl Claim {
     }
 }
 
-pub(super) fn read(root: &Path, id: &str, case: &Case, record: &Value) -> Result<Claim, String> {
-    let proof = record::proves(root, Tier::Claim, id, case, record);
+pub(super) fn read(
+    root: &Path,
+    id: &str,
+    case: &Case,
+    record: &Value,
+    sources: &crate::harness::reuse::Sources,
+) -> Result<Claim, String> {
+    let proof = record::proves(root, Tier::Claim, id, case, record, sources);
     if let Some(first) = proof.first() {
         return Err(format!(
             "the harness's claim proof refuses it ({} finding(s)): {first}",

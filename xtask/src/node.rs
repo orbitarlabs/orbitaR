@@ -173,17 +173,35 @@ pub(crate) fn check(
     rivals: Option<&Path>,
 ) -> Result<(), String> {
     let here = block(root, rivals);
+    let tables: Vec<&str> = here.keys().map(String::as_str).collect();
+    let differ = differences(&here, declared, &tables);
+    match differ.is_empty() {
+        true => Ok(()),
+        false => Err(format!(
+            "claim: this host is not the declared node: {}; on the node, run `cargo xtask node`",
+            differ.join("; ")
+        )),
+    }
+}
+
+pub(crate) fn differences(
+    here: &toml::Table,
+    declared: &toml::Table,
+    tables: &[&str],
+) -> Vec<String> {
     let mut differ = Vec::new();
-    for (table, keys) in &here {
-        let ours = keys.as_table().cloned().unwrap_or_default();
-        let theirs = (declared.get(table).and_then(toml::Value::as_table))
-            .cloned()
-            .unwrap_or_default();
+    for &table in tables {
+        let of = |t: &toml::Table| {
+            (t.get(table).and_then(toml::Value::as_table))
+                .cloned()
+                .unwrap_or_default()
+        };
+        let (ours, theirs) = (of(here), of(declared));
         let names: BTreeSet<&String> = ours.keys().chain(theirs.keys()).collect();
         for key in names {
             let (value, shown) = (ours.get(key), theirs.get(key));
             let int = |v: Option<&toml::Value>| v.and_then(toml::Value::as_integer);
-            let apart = match (table.as_str(), key.as_str(), int(value), int(shown)) {
+            let apart = match (table, key.as_str(), int(value), int(shown)) {
                 ("host", "memory_bytes", Some(a), Some(b)) => Some(a.abs_diff(b)),
                 _ => None,
             };
@@ -202,13 +220,7 @@ pub(crate) fn check(
             }
         }
     }
-    match differ.is_empty() {
-        true => Ok(()),
-        false => Err(format!(
-            "claim: this host is not the declared node: {}; on the node, run `cargo xtask node`",
-            differ.join("; ")
-        )),
-    }
+    differ
 }
 
 fn cpulist(key: &str, value: Option<&toml::Value>) -> Result<BTreeSet<u32>, String> {

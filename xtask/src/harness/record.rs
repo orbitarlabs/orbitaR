@@ -1,4 +1,4 @@
-use super::{Metrics, rival, speed};
+use super::{Metrics, reuse, rival, speed};
 use crate::{
     Findings,
     case::{self, Bound, Case, Status, Tier},
@@ -59,7 +59,12 @@ pub fn verify(
     dir: &Path,
     since: SystemTime,
     case: Option<&str>,
+    rival_records: Option<&Path>,
 ) -> Findings {
+    let sources = match rival_records.map(reuse::sources).transpose() {
+        Ok(sources) => sources.unwrap_or_default(),
+        Err(e) => return vec![format!("{}: {e}", tier.name())],
+    };
     let since_ms = since
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.as_millis()) as f64;
@@ -108,7 +113,7 @@ pub fn verify(
             ));
         }
         proved += usize::from(record["outcome"].as_str() == Some("shard"));
-        findings.extend(proves(root, tier, id, &case, &record));
+        findings.extend(proves(root, tier, id, &case, &record, &sources));
     }
     if active + proved == 0 {
         findings.push(format!(
@@ -127,8 +132,17 @@ pub fn verify(
     findings
 }
 
-pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Findings {
-    let mut findings = Vec::new();
+pub(crate) fn proves(
+    root: &Path,
+    tier: Tier,
+    id: &str,
+    case: &Case,
+    record: &Value,
+    sources: &reuse::Sources,
+) -> Findings {
+    let mut findings: Findings = (reuse::proven(id, record, sources).into_iter())
+        .map(|f| format!("{}: {f}", tier.name()))
+        .collect();
     let times = |key: &str| -> Vec<f64> {
         record[key]
             .as_array()
@@ -577,7 +591,7 @@ pub fn union(root: &Path, id: &str, dir: &Path) -> Findings {
         );
         judged.extend(bounds.into_keys());
         findings.extend(
-            proves(root, tier, id, &case, &record)
+            proves(root, tier, id, &case, &record, &reuse::Sources::new())
                 .into_iter()
                 .map(|f| format!("shards: {at}: {f}")),
         );
@@ -781,6 +795,7 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
         field("pilot")
     );
     println!("skipped {} spent_s {}", field("skipped"), field("spent_s"));
+    println!("rival reuse {}", field("rival_reuse"));
     for failure in record["failures"].as_array().into_iter().flatten() {
         println!("failure: {}", text(failure));
     }
@@ -841,7 +856,7 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
         println!(
             "block {} {} p={}: timed runs {} losses {}; medians of the runs alone: T(δ) {} s, wall {} s, peak Pss {} \
              bytes; noisy {} E_ref {} accuracy {}; SCF steps {:?}, E_ref's {:?}, cap {:?}; a quiet node before {} of {} \
-             runs, the warm-up first: {:?}; no other load through {} of them: {:?}",
+             runs, the warm-up first: {:?}; no other load through {} of them: {:?}; reused from {}",
             b.code,
             b.input,
             b.threads,
@@ -867,7 +882,14 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
             b.load.len(),
             b.load,
             b.during.iter().filter(|d| d.quiet()).count(),
-            b.during
+            b.during,
+            b.reused.as_ref().map_or_else(
+                || "none: timed in this run".to_owned(),
+                |s| format!(
+                    "record {} at {}, started {} ms",
+                    s.record_sha256, s.commit, s.started_unix_ms
+                )
+            )
         );
     }
     let mut lost: Vec<&str> = (blocks.iter())

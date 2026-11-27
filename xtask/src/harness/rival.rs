@@ -301,6 +301,8 @@ pub(crate) struct Job {
     pub(crate) claim: Option<ClaimPart>,
 }
 
+type Dataset = (String, String, Vec<u8>);
+
 pub(crate) struct ClaimPart {
     pub(crate) files: BTreeMap<String, String>,
     pub(crate) floor_ha: Option<f64>,
@@ -1055,13 +1057,11 @@ impl Rivals {
         timeout: Duration,
     ) -> Result<Run, Failure> {
         let (code, adapter) = (job.code, job.code.adapter());
-        let datasets = (adapter.datasets(&self.root, &self.prefix, &job.cell, jth))
+        let (datasets, text) = self
+            .input(job, jth, stop_ha, mode)
             .map_err(Failure::Harness)?;
         same_valence(code, &job.cell, &datasets, jth)?;
-        let ratio = self.settings.setup(code).density_ratio;
         let (name, _) = adapter.input_file();
-        let text =
-            (adapter.input(job, ratio, stop_ha, mode, &datasets)).map_err(Failure::Harness)?;
         let files: Vec<(String, &[u8])> = std::iter::once((name.to_owned(), text.as_bytes()))
             .chain((datasets.iter()).map(|(_, path, bytes)| (path.clone(), bytes.as_slice())))
             .collect();
@@ -1074,6 +1074,30 @@ impl Rivals {
             timeout,
         )
         .and_then(|run| agreed(code, run, clocks, job.cell.steps))
+    }
+
+    pub(crate) fn input_text(
+        &self,
+        job: &Job,
+        jth: &[(String, Vec<u8>)],
+        stop_ha: f64,
+    ) -> Result<String, String> {
+        self.input(job, jth, stop_ha, Mode::Energy)
+            .map(|(_, text)| text)
+    }
+
+    fn input(
+        &self,
+        job: &Job,
+        jth: &[(String, Vec<u8>)],
+        stop_ha: f64,
+        mode: Mode,
+    ) -> Result<(Vec<Dataset>, String), String> {
+        let adapter = job.code.adapter();
+        let datasets = adapter.datasets(&self.root, &self.prefix, &job.cell, jth)?;
+        let ratio = self.settings.setup(job.code).density_ratio;
+        let text = adapter.input(job, ratio, stop_ha, mode, &datasets)?;
+        Ok((datasets, text))
     }
 
     pub(crate) fn pins(

@@ -106,6 +106,7 @@ pub fn cargo_stub_read_by_shell(root: &Path, ci: bool, body: &str) -> Env {
         case_filter: false,
         atompaw: None,
         path: None,
+        rival_records: None,
     }
 }
 
@@ -120,6 +121,7 @@ pub fn env(ci: bool) -> Env {
         rivals: None,
         case_filter: false,
         atompaw: None,
+        rival_records: None,
         ..Env::from_process()
     }
 }
