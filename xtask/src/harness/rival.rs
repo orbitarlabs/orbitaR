@@ -77,6 +77,12 @@ pub(crate) fn input_path(id: &str, name: &str) -> String {
     }
 }
 
+pub(crate) const HELD_OUT: &str = "held-out-";
+
+pub(crate) fn base_path(id: &str, name: &str) -> String {
+    input_path(id, name.strip_prefix(HELD_OUT).unwrap_or(name))
+}
+
 pub(crate) fn settings(root: &Path) -> Result<Settings, String> {
     let text = fs::read_to_string(root.join(SETTINGS)).map_err(|e| format!("{SETTINGS}: {e}"))?;
     let settings: Settings = toml::from_str(&text).map_err(|e| format!("{SETTINGS}: {e}"))?;

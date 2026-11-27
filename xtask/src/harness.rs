@@ -758,9 +758,12 @@ fn compressed(table: &toml::Table, volume_scale: f64) -> Result<toml::Table, Str
 
 fn borrows(id: &str, b: &Block, rivals: &rival::Rivals) -> bool {
     let abinit = rival::Rival::Abinit;
-    let path = rival::input_path(id, b.input);
+    let (path, base) = (
+        rival::input_path(id, b.input),
+        rival::base_path(id, b.input),
+    );
     (rival::Cell::parse(&b.table))
-        .and_then(|cell| rivals.calibrated(abinit, &path, &cell, rivals.cutoff(abinit, &cell)?))
+        .and_then(|cell| rivals.calibrated(abinit, &base, &cell, rivals.cutoff(abinit, &cell)?))
         .is_ok_and(|row| row.is_some_and(|(_, from)| from != path))
 }
 
@@ -780,7 +783,7 @@ fn accuracies(
     let calibrated = |code: rival::Rival, b: &Block| {
         rival::Cell::parse(&b.table).and_then(|cell| {
             let cutoff = rivals.cutoff(code, &cell)?;
-            rivals.calibrated(code, &path(b), &cell, cutoff)
+            rivals.calibrated(code, &rival::base_path(id, b.input), &cell, cutoff)
         })
     };
     let basis = |b: &Block, from: &str| match from == path(b) {
@@ -1277,8 +1280,7 @@ impl Session {
                 };
                 for (&code, rivals) in case.rivals().iter().zip(std::iter::repeat(&rivals)) {
                     let Some(rivals) = rivals else { break };
-                    if let Some(reason) = rivals.settings.skips(code, &rival::input_path(id, name))
-                    {
+                    if let Some(reason) = rivals.settings.skips(code, &rival::base_path(id, name)) {
                         if threads == sweep[0] {
                             let code = code.adapter().name();
                             trace
@@ -1596,7 +1598,7 @@ impl Session {
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_default();
             let text = fs::read_to_string(&path).map_err(|e| named(&path, e))?;
-            let name = format!("held-out-{stem}");
+            let name = format!("{}{stem}", rival::HELD_OUT);
             if inputs.iter().any(|(n, _)| *n == name) {
                 return Err(format!(
                     "{}: the case already holds an input {name}",

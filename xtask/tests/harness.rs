@@ -1218,6 +1218,56 @@ fn a_claim_beside_rivals_runs_each_held_out_variant_and_names_its_hash_and_the_t
 }
 
 #[test]
+fn a_held_out_variant_inherits_each_rival_skip_of_the_input_whose_stem_it_holds() {
+    use rival::{ABINIT, INPUT, RIVALS, TUNED, rivals_tree};
+    let root = rivals_tree("held-out-skip", INPUT, TUNED, "exit 7", ABINIT);
+    crate::write(
+        &root,
+        "benchmarks/RIVALS.toml",
+        &RIVALS.replace(
+            "density_ratio = 8.0\n",
+            "density_ratio = 8.0\nskip_cells = [{ cell = \"benchmarks/1_a/input.toml\", reason = \"no dataset\" }]\n",
+        ),
+    );
+    crate::write(&root, "benchmarks/1_a/reference/input.json", "{}");
+    let held = std::env::temp_dir().join(format!("xtask-variants-skip-{}", std::process::id()));
+    crate::write(
+        &held,
+        "1_a/input.toml",
+        &INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 1.5"),
+    );
+    let bin = speed::fake(&root, "step -2");
+    let session = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_rivals(&root.join("rivals"))
+        .with_held_out(&held);
+    let outcome = session.evaluate("1_a", no_held_out);
+    let _ = std::fs::remove_dir_all(&held);
+    let text = std::fs::read_to_string(root.join("records/1_a.json")).unwrap();
+    let record: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert!(
+        !record["failures"].to_string().contains("qe"),
+        "{outcome:?}: {record}"
+    );
+    let timed = |code: &str| -> Vec<&str> {
+        (record["speed"].as_array().unwrap().iter())
+            .filter(|b| b["code"] == code)
+            .map(|b| b["input"].as_str().unwrap())
+            .collect()
+    };
+    assert_eq!(timed("qe"), Vec::<&str>::new(), "{record}");
+    assert_eq!(timed("abinit"), ["input", "held-out-input"], "{record}");
+    assert_eq!(timed("orbitar"), ["input", "held-out-input"], "{record}");
+    assert_eq!(
+        record["skipped"],
+        serde_json::json!([
+            { "code": "qe", "input": "input", "reason": "no dataset" },
+            { "code": "qe", "input": "held-out-input", "reason": "no dataset" }
+        ]),
+        "{record}"
+    );
+}
+
+#[test]
 fn a_held_out_variant_with_the_bytes_of_a_case_input_or_a_tuning_cell_is_refused() {
     use rival::{ABINIT, INPUT, PW, RIVALS, TUNED, rivals_tree};
     let cell = INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 2.5");

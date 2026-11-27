@@ -198,7 +198,7 @@ fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Fin
                     let due: usize = (record["inputs"].as_array().into_iter().flatten())
                         .filter_map(Value::as_str)
                         .map(|name| {
-                            let path = rival::input_path(id, name);
+                            let path = rival::base_path(id, name);
                             let theirs = (case.rivals().iter())
                                 .filter(|&&code| {
                                     !settings
