@@ -29,9 +29,9 @@ you write
 ```
 
 - `reference/SOURCE.toml` names the kind, citation, locator, convention, and license of the reference.
-- `cargo xtask science` checks SOURCE.toml (S8) and the lock (S5, S9).
+- `cargo xtask science` checks SOURCE.toml (S8) and the lock (S5); `--base <rev>` checks each lock change since it (S9).
 - `cargo xtask lock --reviewer <name> --reason <text>` writes a lock file per hashed file: sha256, reviewer, reason.
-- A changed hash in `benchmarks/locks/<block>/<file>.lock` needs a full review: see `## Pull requests`.
+- A new or changed entry needs a new full review. A removed file keeps its entry: sha256 = "removed", with that review.
 
 ## Pull requests
 

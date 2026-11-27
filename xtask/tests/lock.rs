@@ -615,18 +615,36 @@ fn the_move_from_the_old_lock_keeps_every_review_verbatim_and_deletes_the_old_fi
     assert_eq!(lock_files(&root).len(), 4);
     let f = lever(&["science"], &root);
     assert!(!has(&f, "S5"), "{f:?}");
+    let moved = lock_files(&root);
     write(&root, "benchmarks/LOCK", &old);
+    assert!(has(
+        &lever(&["science"], &root),
+        "S5 benchmarks/LOCK is the old one-file lock"
+    ));
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "again"],
+        &root,
+    );
+    assert!(
+        f.is_empty(),
+        "a move whose old file was left behind finishes: {f:?}"
+    );
+    assert!(!root.join("benchmarks/LOCK").exists());
+    assert_eq!(lock_files(&root), moved);
+    write(
+        &root,
+        "benchmarks/LOCK",
+        &old.replace("reason=round 2", "reason=round 3"),
+    );
     assert!(has(
         &lever(
             &["lock", "--reviewer", "PENDING", "--reason", "again"],
             &root
         ),
-        "lock: benchmarks/LOCK and benchmarks/locks both exist"
+        "lock: benchmarks/LOCK and benchmarks/locks both exist and benchmarks/locks lacks a review"
     ));
-    assert!(has(
-        &lever(&["science"], &root),
-        "S5 benchmarks/LOCK is the old one-file lock"
-    ));
+    assert!(root.join("benchmarks/LOCK").exists());
+    assert_eq!(lock_files(&root), moved);
 }
 
 #[test]
@@ -762,4 +780,65 @@ fn two_branches_that_change_different_files_merge_cleanly_and_two_that_change_on
         conflicted.contains(&"benchmarks/locks/1_a/benchmarks/1_a/input.toml.lock".to_owned()),
         "{conflicted:?}"
     );
+}
+
+#[test]
+fn a_move_that_fails_partway_leaves_the_old_lock_alone_and_a_retry_finishes_it() {
+    let long = format!("xtask/src/{}.rs", "l".repeat(251));
+    let header = "harness reviewer=first reason=kept";
+    let old = format!("# {header}\n{}  xtask/src/harness.rs\n", sha("// judge\n"));
+    let root = tree(
+        "lock-move-partway",
+        &[
+            ("benchmarks/.keep", ""),
+            ("xtask/src/harness.rs", "// judge\n"),
+            (&long, "// long\n"),
+            ("benchmarks/LOCK", &old),
+        ],
+    );
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(has(&f, "lock: benchmarks/locks.partial/harness/"), "{f:?}");
+    assert_eq!(
+        fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
+        old
+    );
+    assert!(!root.join("benchmarks/locks").exists());
+    assert!(!root.join("benchmarks/locks.partial").exists());
+    fs::remove_file(root.join(&long)).unwrap();
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(f.is_empty(), "{f:?}");
+    assert!(!root.join("benchmarks/LOCK").exists());
+    let kept = lock_entry(&root, "harness", "xtask/src/harness.rs");
+    assert_eq!(kept["reviewer"].as_str(), Some("first"));
+    assert_eq!(kept["reason"].as_str(), Some("kept"));
+    assert_eq!(lock_files(&root).len(), 1);
+    assert!(!has(&lever(&["science"], &root), "S5"));
+}
+
+#[test]
+fn a_hashed_path_with_a_control_character_is_refused_and_odd_names_survive_the_base() {
+    let root = locked("lock-control");
+    write(&root, "xtask/src/a\nb.rs", "// two lines\n");
+    let f = lever(&["lock", "--reviewer", "owner", "--reason", "again"], &root);
+    assert!(has(&f, "holds a control character"), "{f:?}");
+    assert!(has(
+        &lever(&["science"], &root),
+        "holds a control character"
+    ));
+    fs::remove_file(root.join("xtask/src/a\nb.rs")).unwrap();
+    write(&root, "xtask/src/a b\"c'd.rs", "// odd\n");
+    assert!(lever(&["lock", "--reviewer", "owner", "--reason", "odd"], &root).is_empty());
+    let f = lever(&["science"], &root);
+    assert!(!has(&f, "S5"), "{f:?}");
+    git(&root, &["init", "-q"]);
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-qm", "base"]);
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(!has(&f, "S9") && !has(&f, "S5"), "{f:?}");
 }

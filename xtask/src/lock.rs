@@ -2,7 +2,7 @@ use crate::{Findings, case, harness::datasets::regular_in, walk};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     io::Write as _,
     path::Path,
@@ -11,6 +11,7 @@ use std::{
 
 pub(crate) const DIR: &str = "benchmarks/locks";
 pub(crate) const LEGACY: &str = "benchmarks/LOCK";
+pub(crate) const STAGED: &str = "benchmarks/locks.partial";
 pub(crate) const HARNESS: &str = "harness";
 const SUFFIX: &str = ".lock";
 const REMOVED: &str = "removed";
@@ -54,8 +55,9 @@ impl Entry {
         self.sha256 == REMOVED
     }
 
-    fn review(&self) -> (&str, &str) {
-        (&self.reviewer, &self.reason)
+    fn review(&self) -> (String, String) {
+        let plain = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+        (plain(&self.reviewer), plain(&self.reason))
     }
 
     fn parse(stored: &str, text: &str) -> Result<Self, String> {
@@ -86,12 +88,20 @@ fn stored_at(block: &str, file: &str) -> String {
     format!("{DIR}/{block}/{file}{SUFFIX}")
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Move {
+    Done,
+    Start,
+    Finish,
+}
+
 fn place(stored: &str) -> Result<(String, String), String> {
     (stored.strip_prefix(DIR))
         .and_then(|rest| rest.strip_prefix('/'))
         .and_then(|rest| rest.split_once('/'))
         .and_then(|(block, file)| Some((block, file.strip_suffix(SUFFIX)?)))
         .filter(|(block, file)| !block.is_empty() && !file.is_empty())
+        .filter(|_| !stored.chars().any(char::is_control))
         .map(|(block, file)| (block.to_owned(), file.to_owned()))
         .ok_or_else(|| format!("{stored} is no {DIR}/<block>/<file>{SUFFIX} entry"))
 }
@@ -170,20 +180,30 @@ pub(crate) fn read(root: &Path) -> Result<Lock, String> {
     on_disk(root)
 }
 
-fn stored(root: &Path) -> Result<(Lock, bool), String> {
+fn stored(root: &Path) -> Result<(Lock, Move), String> {
     if !present(root, LEGACY) {
-        return on_disk(root).map(|lock| (lock, false));
-    }
-    if !on_disk(root)?.is_empty() {
-        return Err(format!(
-            "{LEGACY} and {DIR} both exist; delete {LEGACY}, as {DIR} replaces it"
-        ));
+        return on_disk(root).map(|lock| (lock, Move::Done));
     }
     let text =
         String::from_utf8(regular_in(root, LEGACY)?).map_err(|e| format!("{LEGACY}: {e}"))?;
-    legacy(&text).map(|lock| (lock, true))
+    let old = legacy(&text)?;
+    let now = on_disk(root)?;
+    if now.is_empty() {
+        return Ok((old, Move::Start));
+    }
+    let moved = old.iter().all(|(block, files)| {
+        files.iter().all(|(file, was)| {
+            (now.get(block).and_then(|n| n.get(file)))
+                .is_some_and(|is| is.sha256 != was.sha256 || is == was)
+        })
+    });
+    match moved {
+        true => Ok((now, Move::Finish)),
+        false => Err(format!(
+            "{LEGACY} and {DIR} both exist and {DIR} lacks a review that {LEGACY} holds; keep the one to trust and delete the other"
+        )),
+    }
 }
-
 pub(crate) fn at(root: &Path, base: &str, listed: &[String]) -> Result<Option<Lock>, String> {
     let prefix = format!("{DIR}/");
     let stored: Vec<String> = (listed.iter())
@@ -205,14 +225,14 @@ pub(crate) fn at(root: &Path, base: &str, listed: &[String]) -> Result<Option<Lo
 fn blobs(root: &Path, base: &str, paths: &[String]) -> Result<Vec<Vec<u8>>, String> {
     let fail = |e: &dyn std::fmt::Display| format!("git cat-file at {base}: {e}");
     let mut child = Command::new("git")
-        .args(["cat-file", "--batch"])
+        .args(["cat-file", "-z", "--batch=%(objecttype) %(objectsize)"])
         .current_dir(root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
         .map_err(|e| fail(&e))?;
-    let asked: String = paths.iter().map(|p| format!("{base}:{p}\n")).collect();
+    let asked: String = paths.iter().map(|p| format!("{base}:{p}\0")).collect();
     let mut stdin = child.stdin.take().ok_or_else(|| fail(&"no stdin"))?;
     let writer = std::thread::spawn(move || stdin.write_all(asked.as_bytes()));
     let out = child.wait_with_output().map_err(|e| fail(&e))?;
@@ -225,7 +245,7 @@ fn blobs(root: &Path, base: &str, paths: &[String]) -> Result<Vec<Vec<u8>>, Stri
         let end = (rest.iter().position(|b| *b == b'\n')).ok_or_else(|| fail(&path))?;
         let header = String::from_utf8_lossy(&rest[..end]).into_owned();
         let size: usize = match header.split(' ').collect::<Vec<_>>().as_slice() {
-            [_, "blob", size] => size.parse().map_err(|_| fail(&header))?,
+            ["blob", size] => size.parse().map_err(|_| fail(&header))?,
             _ => return Err(fail(&format!("{path}: {header}"))),
         };
         let body = (rest.get(end + 1..end + 1 + size)).ok_or_else(|| fail(&path))?;
@@ -235,16 +255,29 @@ fn blobs(root: &Path, base: &str, paths: &[String]) -> Result<Vec<Vec<u8>>, Stri
     Ok(blobs)
 }
 
+fn approved(old: &Lock) -> BTreeSet<(String, String)> {
+    old.values()
+        .flat_map(BTreeMap::values)
+        .map(Entry::review)
+        .collect()
+}
+
 pub(crate) fn unreviewed(old: &Lock, new: &Lock) -> BTreeMap<String, Vec<String>> {
+    let approved = approved(old);
+    let was = |block: &str, file: &str| old.get(block).and_then(|files| files.get(file));
     let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (block, files) in new {
+        for (file, is) in files {
+            let changed = was(block, file).is_none_or(|was| was.sha256 != is.sha256);
+            if changed && approved.contains(&is.review()) {
+                out.entry(block.clone()).or_default().push(file.clone());
+            }
+        }
+    }
     for (block, files) in old {
-        let now = new.get(block);
         for (file, was) in files {
-            let silent = match now.and_then(|n| n.get(file)) {
-                Some(is) => is.sha256 != was.sha256 && is.review() == was.review(),
-                None => !was.removed(),
-            };
-            if silent {
+            let dropped = new.get(block).is_none_or(|files| !files.contains_key(file));
+            if dropped && !was.removed() {
                 out.entry(block.clone()).or_default().push(file.clone());
             }
         }
@@ -253,9 +286,8 @@ pub(crate) fn unreviewed(old: &Lock, new: &Lock) -> BTreeMap<String, Vec<String>
 }
 
 pub(crate) fn kept_review(old: &Lock, new: &Lock, block: &str, file: &str) -> bool {
-    let was = old.get(block).and_then(|files| files.get(file));
     let is = new.get(block).and_then(|files| files.get(file));
-    was.is_some_and(|was| is.is_none_or(|is| is.review() == was.review()))
+    is.is_none_or(|is| approved(old).contains(&is.review()))
 }
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
@@ -300,6 +332,11 @@ fn hashes(root: &Path, id: &str) -> Result<Vec<String>, String> {
     files
         .into_iter()
         .map(|file| {
+            if file.chars().any(char::is_control) {
+                return Err(format!(
+                    "{file:?} holds a control character, which no lock entry may name"
+                ));
+            }
             let mut bytes = regular_in(root, &file)?;
             if file == crate::layout::RUNNER {
                 bytes = without_case_table(&bytes);
@@ -431,7 +468,7 @@ pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
     if reviewer.trim().is_empty() || reason.trim().is_empty() {
         return vec!["usage: cargo xtask lock --reviewer <name> --reason <text>".into()];
     }
-    let (locked, legacy) = match stored(root) {
+    let (locked, moved) = match stored(root) {
         Ok(stored) => stored,
         Err(e) => return vec![format!("lock: {e}")],
     };
@@ -486,26 +523,48 @@ pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
             block.insert(file, entry);
         }
     }
-    let written = if legacy { Lock::new() } else { locked };
+    let (written, into) = match moved {
+        Move::Start => (Lock::new(), STAGED),
+        Move::Done | Move::Finish => (locked, DIR),
+    };
+    if moved == Move::Start
+        && let Err(e) = clear(root, STAGED)
+    {
+        return vec![format!("lock: {STAGED}: {e}")];
+    }
     for (block, files) in &next {
         for (file, entry) in files {
             if written.get(block).and_then(|w| w.get(file)) == Some(entry) {
                 continue;
             }
-            let path = root.join(stored_at(block, file));
+            let at = stored_at(block, file).replacen(DIR, into, 1);
+            let path = root.join(&at);
             let wrote = (path.parent().map_or(Ok(()), std::fs::create_dir_all))
                 .and_then(|()| toml::to_string(entry).map_err(std::io::Error::other))
                 .and_then(|text| std::fs::write(&path, text));
             if let Err(e) = wrote {
-                return vec![format!("lock: {}: {e}", stored_at(block, file))];
+                let _ = clear(root, STAGED);
+                return vec![format!("lock: {at}: {e}")];
             }
         }
     }
-    match legacy {
-        true => match std::fs::remove_file(root.join(LEGACY)) {
-            Ok(()) => Vec::new(),
-            Err(e) => vec![format!("lock: {LEGACY}: {e}")],
-        },
-        false => Vec::new(),
+    let published = match moved {
+        Move::Start => std::fs::rename(root.join(STAGED), root.join(DIR))
+            .map_err(|e| format!("lock: {STAGED} → {DIR}: {e}")),
+        Move::Done | Move::Finish => Ok(()),
+    };
+    let finished = published.and_then(|()| match moved {
+        Move::Done => Ok(()),
+        Move::Start | Move::Finish => std::fs::remove_file(root.join(LEGACY)).map_err(|e| {
+            format!("lock: {LEGACY}: {e}; run `cargo xtask lock` again to finish the move")
+        }),
+    });
+    finished.err().into_iter().collect()
+}
+
+fn clear(root: &Path, dir: &str) -> std::io::Result<()> {
+    match std::fs::remove_dir_all(root.join(dir)) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+        _ => Ok(()),
     }
 }

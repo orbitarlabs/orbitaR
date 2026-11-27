@@ -769,9 +769,8 @@ fn s9_catches_a_rewritten_measure_that_keeps_the_old_review_line() {
     assert!(!has(&f, "S9 the harness changed"), "{f:?}");
 }
 
-#[test]
-fn s9_reads_an_old_one_file_lock_at_the_base() {
-    let root = base("s9-legacy");
+fn legacy_base(name: &str) -> Tree {
+    let root = base(name);
     let mut old = String::new();
     for (block, files) in [
         ("harness", vec!["xtask/src/harness.rs"]),
@@ -801,6 +800,31 @@ fn s9_reads_an_old_one_file_lock_at_the_base() {
     for (path, text) in &moved {
         write(&root, path, text);
     }
+    root
+}
+
+fn both_bases(name: &str) -> [Tree; 2] {
+    [
+        base(&format!("{name}-split")),
+        legacy_base(&format!("{name}-legacy")),
+    ]
+}
+
+fn review(root: &Tree, block: &str, file: &str, reviewer: &str, reason: &str) {
+    let path = format!("benchmarks/locks/{block}/{file}.lock");
+    let mut entry: toml::Table = std::fs::read_to_string(root.join(&path))
+        .unwrap()
+        .parse()
+        .unwrap();
+    entry.insert("reviewer".into(), reviewer.into());
+    entry.insert("reason".into(), reason.into());
+    write(root, &path, &toml::to_string(&entry).unwrap());
+}
+
+#[test]
+fn s9_reads_an_old_one_file_lock_at_the_base() {
+    let root = legacy_base("s9-legacy");
+    let moved = crate::lock_files(&root);
     let f = lever(&["science", "--base", "HEAD"], &root);
     assert!(!has(&f, "S9") && !has(&f, "S5"), "{f:?}");
     let f = forge(&root, &moved);
@@ -813,6 +837,71 @@ fn s9_reads_an_old_one_file_lock_at_the_base() {
         ),
         "{f:?}"
     );
+}
+
+#[test]
+fn s9_needs_a_new_review_for_a_new_entry_whatever_base_review_it_copies() {
+    for root in both_bases("s9-added") {
+        write(&root, "xtask/src/probe.rs", "// probe\n");
+        assert!(lever(&["lock", "--reviewer", "self", "--reason", "probe"], &root).is_empty());
+        review(&root, "harness", "xtask/src/probe.rs", "owner", "base");
+        let f = lever(&["science", "--base", "HEAD"], &root);
+        assert!(
+            has(
+                &f,
+                "S9 the harness changed without a new lock review: xtask/src/probe.rs"
+            ),
+            "{f:?}"
+        );
+        review(&root, "harness", "xtask/src/probe.rs", "second", "a probe");
+        let f = lever(&["science", "--base", "HEAD"], &root);
+        assert!(!has(&f, "S9") && !has(&f, "S5"), "{f:?}");
+    }
+}
+
+#[test]
+fn s9_needs_a_new_review_for_a_file_that_moves_between_cases_and_reads_a_review_without_its_spacing()
+ {
+    for root in both_bases("s9-moved") {
+        std::fs::remove_file(root.join("tests/benchmarks/1_a/case.rs")).unwrap();
+        write(&root, "tests/benchmarks/2_b/case.rs", "// measure\n");
+        assert!(lever(&["lock", "--reviewer", "mover", "--reason", "moved"], &root).is_empty());
+        let f = lever(&["science", "--base", "HEAD"], &root);
+        assert!(!has(&f, "S9") && !has(&f, "S5"), "{f:?}");
+        review(
+            &root,
+            "2_b",
+            "tests/benchmarks/2_b/case.rs",
+            "owner",
+            "base",
+        );
+        let f = lever(&["science", "--base", "HEAD"], &root);
+        assert!(
+            has(
+                &f,
+                "S9 2_b changed without a new lock review: tests/benchmarks/2_b/case.rs"
+            ),
+            "{f:?}"
+        );
+        assert!(!has(&f, "S9 1_a"), "{f:?}");
+        write(&root, "xtask/src/harness.rs", "// a kinder judge\n");
+        assert!(lever(&["lock", "--reviewer", "self", "--reason", "rehash"], &root).is_empty());
+        review(
+            &root,
+            "harness",
+            "xtask/src/harness.rs",
+            " owner",
+            "base \n",
+        );
+        let f = lever(&["science", "--base", "HEAD"], &root);
+        assert!(
+            has(
+                &f,
+                "S9 the harness changed without a new lock review: xtask/src/harness.rs"
+            ),
+            "{f:?}"
+        );
+    }
 }
 
 #[test]
