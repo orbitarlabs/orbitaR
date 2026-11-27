@@ -2,11 +2,12 @@ use crate::{Findings, git, release, walk};
 use std::path::Path;
 use yaml_rust2::{Yaml, YamlLoader};
 
-const ACTIONS: [&str; 7] = [
+const ACTIONS: [&str; 8] = [
     "actions/checkout",
     "actions/cache/restore",
     "actions/cache/save",
     "actions/upload-artifact",
+    "actions/download-artifact",
     "astral-sh/setup-uv",
     "taiki-e/install-action",
     "EmbarkStudios/cargo-deny-action",
@@ -135,7 +136,7 @@ fn steps(file: &str, lines: &[&str]) -> Findings {
     findings
 }
 
-const HOSTED: [&str; 11] = [
+const HOSTED: [&str; 12] = [
     "ubuntu-latest",
     "ubuntu-24.04",
     "ubuntu-26.04",
@@ -144,6 +145,7 @@ const HOSTED: [&str; 11] = [
     "macos-latest",
     "macos-15",
     "macos-26",
+    "xcode-27",
     "windows-latest",
     "windows-2025",
     "windows-11-arm",

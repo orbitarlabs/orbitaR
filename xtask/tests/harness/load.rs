@@ -363,3 +363,61 @@ fn a_rival_run_that_fails_while_another_task_takes_cpus_is_refused_and_never_sco
         "{record}"
     );
 }
+
+fn pilot(root: &Tree, bin: &std::path::Path) -> Session {
+    use std::ffi::OsString;
+    let (bin, records): (OsString, OsString) = (bin.into(), root.join("records").into());
+    let vars = move |key: &str| match key {
+        "ORBITAR_BIN" => Some(bin.clone()),
+        "ORBITAR_TIER" => Some("claim".into()),
+        "ORBITAR_PILOT" => Some("1".into()),
+        "ORBITAR_RECORD_DIR" => Some(records.clone()),
+        _ => None,
+    };
+    Session::from_vars(root, vars).unwrap().unwrap()
+}
+
+#[test]
+fn a_timed_runs_other_cpu_time_is_the_nodes_busy_time_less_its_own_children_and_the_harness_over_its_wall_time()
+ {
+    let root = one_si_tree("load-contention");
+    let proc = procfs(&root, 1);
+    let (stat, own) = (proc.join("stat"), proc.join("self/stat"));
+    let bump = format!(
+        "awk '/^cpu /{{printf \"cpu  %d %d %d %d %d %d %d %d 0 0\\n\", $2 + 700, $3 + 11, $4 + 200, $5 + 5000, $6 + 3, $7 + 13, $8 + 17, $9 + 19}}' '{0}' > '{0}.next'; mv '{0}.next' '{0}'\n\
+         awk '{{$15 += 23; $16 += 29; $17 += 310; $18 += 130; print}}' '{1}' > '{1}.next'; mv '{1}.next' '{1}'\nstep -2",
+        stat.display(),
+        own.display()
+    );
+    let bin = fake(&root, &bump);
+    let (_, record) = evaluated(&root, &pilot(&root, &bin).with_load(&proc));
+    let log = record["load"].as_array().unwrap();
+    let count = |key: &str| log.iter().filter(|r| r.get(key).is_some()).count();
+    assert!(count("during") >= 2, "{record}");
+    assert_eq!(count("before"), count("during"), "{record}");
+    let close = |a: &Value, b: f64| (a.as_f64().unwrap() - b).abs() < 1e-9;
+    for r in log.iter().filter_map(|r| r.get("during")) {
+        let c = &r["loaded"]["contention"];
+        assert!(close(&c["busy_cpu_s"], 9.6), "{c}");
+        assert!(close(&c["harness_cpu_s"], 0.52), "{c}");
+        assert!(close(&c["child_cpu_s"], 4.4), "{c}");
+        assert!(close(&c["others_cpu_s"], 4.68), "{c}");
+        let wall = c["wall_s"].as_f64().unwrap();
+        assert!(close(&c["share"], 4.68 / (wall * 8.0)), "{c}");
+    }
+}
+
+#[test]
+fn an_unreadable_load_file_stops_a_claim_with_its_path_and_its_text() {
+    let root = one_si_tree("load-garbled");
+    let proc = procfs(&root, 1);
+    crate::write(&root, "proc/loadavg", "garbled\n");
+    let bin = root.join("fake-engine");
+    let session = Session::new(&root, &bin, Tier::Claim, &root.join("records")).with_load(&proc);
+    let (outcome, _) = evaluated(&root, &session);
+    let named = format!("{}: cannot read `garbled`", proc.join("loadavg").display());
+    assert!(
+        matches!(&outcome, Outcome::Fail(f) if f.contains(&named)),
+        "{outcome:?}"
+    );
+}

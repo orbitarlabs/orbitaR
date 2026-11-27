@@ -100,6 +100,15 @@ fn a_push_an_upload_a_login_a_publish_or_a_release_fails_wherever_it_runs() {
 }
 
 #[test]
+fn a_job_that_keeps_or_fetches_an_artifact_of_its_run_passes() {
+    for action in ["actions/upload-artifact", "actions/download-artifact"] {
+        let body = format!("{WORKFLOW}      - uses: {action}@0123 # v8\n");
+        let found = published("artifact", &[(".github/workflows/keep.yml", &body)]);
+        assert_eq!(found, Vec::<String>::new(), "{action}");
+    }
+}
+
+#[test]
 fn an_action_outside_the_list_or_a_script_call_fails() {
     let release = format!("{WORKFLOW}      - uses: ncipollo/release-action@0123\n");
     let found = published("action", &[(".github/workflows/out.yml", &release)]);
@@ -241,6 +250,7 @@ fn a_job_runs_on_one_hosted_label_and_anything_else_fails_by_file_and_job() {
         " [ubuntu-latest]",
         " \"windows-2025\"",
         " macos-15 # hosted",
+        " xcode-27",
     ] {
         let hosted = published("hosted", &[(".github/workflows/node.yml", &job(runs_on))]);
         assert_eq!(hosted, Vec::<String>::new(), "{runs_on}");

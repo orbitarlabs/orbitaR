@@ -441,3 +441,58 @@ fn a_record_that_names_no_pilot_flag_false_or_an_unread_schema_is_refused() {
         assert!(has(&lever(&["results", "collect"], &root), why), "{why}");
     }
 }
+
+#[test]
+fn a_passing_record_that_measures_fewer_bounds_than_its_case_is_refused_and_a_failing_one_is_kept()
+{
+    let root = cases("missing-bound");
+    let head = commit(&root, "records");
+    for (outcome, refused) in [("pass", true), ("fail", false)] {
+        let one = record("1_a", "push", &head, false, outcome, r#"{"x_error":5e-13}"#)
+            .replace(r#""share_min":0.1,"#, "");
+        write(&root, "target/benchmarks/push/1_a.json", &one);
+        let found = lever(&["results", "collect"], &root);
+        let named = "1_a passes without a measure of each bound of its case's [tolerance]";
+        assert_eq!(has(&found, named), refused, "{outcome}: {found:?}");
+    }
+}
+
+#[test]
+fn science_s11_names_a_kept_row_whose_record_its_case_now_refuses() {
+    let root = cases("refused-row");
+    let head = commit(&root, "records");
+    push_records(&root, &head);
+    assert!(lever(&["results", "collect"], &root).is_empty());
+    write(
+        &root,
+        "benchmarks/1_a/case.toml",
+        &PUSH.replace("x_error_max = 1e-12", "x_error_max = 1e-11"),
+    );
+    let found = s11(&root);
+    assert!(
+        has(
+            &found,
+            "1_a: its record in benchmarks/RECORDS.jsonl is refused: "
+        ),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_control_character_in_a_results_string_is_written_as_its_escape() {
+    let root = cases("control");
+    write(
+        &root,
+        "benchmarks/results-what.toml",
+        &WHAT.replace("what = \"x vs analytic\"", "what = \"x vs\\u0007analytic\""),
+    );
+    let head = commit(&root, "records");
+    push_records(&root, &head);
+    assert!(lever(&["results", "collect"], &root).is_empty());
+    let results = read(&root, "benchmarks/RESULTS.toml");
+    assert!(
+        results.contains("what = \"x vs\\u0007analytic\""),
+        "{results}"
+    );
+    assert!(!results.contains('\u{7}'), "{results}");
+}
