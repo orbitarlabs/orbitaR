@@ -239,6 +239,7 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
     for row in kept.iter().filter(|r| r.record_sha256.is_some()) {
         match evidence.get(&row.id) {
             Some(line) => {
+                findings.extend(reused_evidence(&row.id, line));
                 lines.push_str(line);
                 lines.push('\n');
             }
@@ -493,6 +494,12 @@ fn derived(root: &Path, rows: &[Row]) -> Findings {
         }
     }
     findings
+}
+
+fn reused_evidence(id: &str, line: &str) -> Option<String> {
+    let record: Value = serde_json::from_str(line).unwrap_or_default();
+    crate::harness::reuse::refused_in(id, &record)
+        .map(|why| format!("results: {RECORDS} pins a record that no row may keep: {why}"))
 }
 
 fn sha256(text: &str) -> String {
@@ -790,7 +797,15 @@ pub(crate) fn render(root: &Path) -> Findings {
         }
         Err(e) => return vec![e],
     };
-    let mut findings = Vec::new();
+    let mut findings: Findings = match pinned(root) {
+        Ok(lines) => (lines.iter())
+            .flat_map(|(id, line)| reused_evidence(id, line))
+            .collect(),
+        Err(e) => vec![e],
+    };
+    if !findings.is_empty() {
+        return findings;
+    }
     for (path, body) in rendered(&rows) {
         let path = root.join(path);
         let done = match body {

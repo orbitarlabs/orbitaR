@@ -343,11 +343,38 @@ fn loaded(program: &Path, env: &[(OsString, OsString)]) -> Result<Vec<PathBuf>, 
     Ok(out)
 }
 
-fn interpreter(program: &Path) -> Option<PathBuf> {
-    let head = fs::read(program).ok()?;
-    let line = head.strip_prefix(b"#!")?.split(|&b| b == b'\n').next()?;
-    let line = String::from_utf8_lossy(line);
-    line.split_whitespace().next().map(PathBuf::from)
+fn interpreters(program: &Path, env: &[(OsString, OsString)]) -> Result<Vec<PathBuf>, String> {
+    let head = fs::read(program).map_err(|e| format!("{}: {e}", program.display()))?;
+    let Some(line) = head.strip_prefix(b"#!") else {
+        return Ok(Vec::new());
+    };
+    let line = String::from_utf8_lossy(line.split(|&b| b == b'\n').next().unwrap_or_default())
+        .into_owned();
+    let mut words = line.split_whitespace();
+    let Some(first) = words.next().map(PathBuf::from) else {
+        return Err(format!("{}: an empty #! line", program.display()));
+    };
+    if first.file_name().is_none_or(|n| n != "env") {
+        return Ok(vec![first]);
+    }
+    let unresolved = || {
+        format!(
+            "{}: `#!{line}` names no interpreter on the rival's own PATH",
+            program.display()
+        )
+    };
+    let name = words
+        .next()
+        .filter(|w| !w.starts_with('-'))
+        .ok_or_else(unresolved)?;
+    let path = (env.iter())
+        .find(|(key, _)| key == "PATH")
+        .map(|(_, path)| std::env::split_paths(path).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let found = (path.iter().map(|dir| dir.join(name)))
+        .find(|candidate| candidate.is_file())
+        .ok_or_else(unresolved)?;
+    Ok(vec![first, found])
 }
 
 pub(crate) struct ClaimPart {
@@ -1158,7 +1185,7 @@ impl Rivals {
                 .map(|dir| dir.join(&program))
                 .find(|path| path.is_file())
                 .ok_or_else(|| format!("{}: {program:?} is on no PATH entry", adapter.name()))?;
-            files.extend(interpreter(&found));
+            files.extend(interpreters(&found, &env)?);
             files.push(found);
         }
         let mut out = BTreeMap::new();

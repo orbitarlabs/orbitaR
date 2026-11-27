@@ -455,6 +455,42 @@ fn a_replaced_library_that_the_rivals_own_loader_resolves_runs_that_rival_again(
 }
 
 #[test]
+fn a_script_interpreter_found_through_env_on_the_rivals_path_is_in_the_key() {
+    let (root, earlier) = reusable("reuse-env-interpreter");
+    let bin = root.join("rivals/qe/bin/pw.x");
+    let body = std::fs::read_to_string(&bin).unwrap();
+    let body = body.replacen("#!/bin/sh\n", "#!/usr/bin/env review-sh\n", 1);
+    std::fs::write(&bin, body).unwrap();
+    script(&root.join("rivals/qe/bin/review-sh"), "exec /bin/sh \"$@\"");
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-q", "-m", "an env interpreter"]);
+    let (_, first) = claim(&root, None);
+    let runtime = &of(&first, "qe")["reuse_key"]["runtime"];
+    assert!(
+        runtime
+            .as_object()
+            .unwrap()
+            .keys()
+            .any(|k| k.ends_with("qe/bin/review-sh")),
+        "{runtime}"
+    );
+    kept(&root, &earlier, "1_a.json");
+    script(
+        &root.join("rivals/qe/bin/review-sh"),
+        "exec /bin/sh \"$@\" # rebuilt",
+    );
+    let (_, second) = claim(&root, Some(&earlier));
+    assert!(of(&second, "qe")["reused"].is_null(), "{second}");
+    assert!(!of(&second, "abinit")["reused"].is_null(), "{second}");
+    let why = why_of(&second, "qe");
+    assert!(
+        why.iter()
+            .any(|w| w.ends_with("its key differs in runtime")),
+        "{why:?}"
+    );
+}
+
+#[test]
 fn a_rival_whose_libraries_cannot_be_listed_is_never_reused() {
     let (root, earlier) = reusable("reuse-unlisted");
     claim(&root, None);

@@ -1,4 +1,4 @@
-use super::{WHAT, cases, commit, read, s11};
+use super::{WHAT, cases, commit, push_records, read, s11};
 use crate::{Tree, has, lever, write};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -553,5 +553,41 @@ fn a_record_with_a_reused_rival_block_backs_no_row_whatever_its_outcome() {
             ),
             "{outcome}: {found:?}"
         );
+    }
+}
+
+#[test]
+fn a_carried_forward_row_whose_pinned_record_reuses_a_rival_block_stops_collect_and_render() {
+    for outcome in ["pass", "fail"] {
+        let root = claim_cases(&format!("claim-carried-{outcome}"), &cells(), Claims::Speed);
+        let head = commit(&root, "head");
+        let mut record = claim_record(&root, &head, &cells());
+        record["outcome"] = json!(outcome);
+        assert!(collected(&root, &record).is_empty(), "{outcome}");
+        let pinned = read(&root, "benchmarks/RECORDS.jsonl");
+        let line = pinned.lines().find(|l| l.contains("\"5_e\"")).unwrap();
+        let mut old: Value = serde_json::from_str(line).unwrap();
+        speed_block(&mut old, "qe", "b")["reused"] =
+            json!({ "commit": head, "record_sha256": "ab".repeat(32), "started_unix_ms": 1 });
+        let sha = |text: &str| crate::harness::hex(&<sha2::Sha256 as sha2::Digest>::digest(text));
+        let edited = old.to_string();
+        write(
+            &root,
+            "benchmarks/RECORDS.jsonl",
+            &pinned.replace(line, &edited),
+        );
+        let results = read(&root, "benchmarks/RESULTS.toml");
+        write(
+            &root,
+            "benchmarks/RESULTS.toml",
+            &results.replace(&sha(line), &sha(&edited)),
+        );
+        std::fs::remove_file(root.join(RECORD)).unwrap();
+        push_records(&root, &head);
+        let why = "pins a record that no row may keep: 5_e holds rival blocks reused";
+        let found = lever(&["results", "collect", "--tier", "push"], &root);
+        assert!(has(&found, why), "{outcome}: {found:?}");
+        let found = lever(&["results", "render"], &root);
+        assert!(has(&found, why), "{outcome}: {found:?}");
     }
 }
