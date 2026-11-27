@@ -268,6 +268,8 @@ pub(crate) struct Containment {
 
 const SCOPE_ENV: [&str; 2] = ["XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"];
 
+const EXEC_DEFAULT_PATH: &str = "/usr/bin:/bin";
+
 impl Containment {
     pub(crate) fn probe(
         var: &dyn Fn(&str) -> Option<OsString>,
@@ -293,9 +295,7 @@ impl Containment {
                 max_bytes,
                 env,
             };
-            let mut check = containment.wrap(&Command::new("true"));
-            check.env_clear().envs(containment.env.iter().cloned());
-            let works = check
+            let works = (containment.wrap(&Command::new("true")))
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .status()
@@ -321,8 +321,12 @@ impl Containment {
     }
 
     fn wrap(&self, built: &Command) -> Command {
-        let mut command = Command::new(&self.program);
+        let mut command = match self.limit {
+            Limit::Scope => Command::new("systemd-run"),
+            Limit::Prlimit => Command::new("prlimit"),
+        };
         command
+            .env_clear()
             .args(self.flags())
             .arg(built.get_program())
             .args(built.get_args());
@@ -332,8 +336,24 @@ impl Containment {
                 None => command.env_remove(key),
             };
         }
-        command.envs(self.env.iter().cloned());
         command
+            .env("PATH", self.search_path(built))
+            .envs(self.env.iter().cloned());
+        command
+    }
+
+    fn search_path(&self, built: &Command) -> OsString {
+        let own = (built.get_envs()).find_map(|(key, value)| value.filter(|_| key == "PATH"));
+        let dirs = own
+            .into_iter()
+            .chain(self.program.parent().map(Path::as_os_str));
+        let mut path = OsString::new();
+        for dir in dirs {
+            path.push(dir);
+            path.push(":");
+        }
+        path.push(EXEC_DEFAULT_PATH);
+        path
     }
 
     pub(crate) fn tree_wide(&self) -> bool {

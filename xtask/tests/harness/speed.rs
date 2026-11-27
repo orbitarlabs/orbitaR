@@ -1501,7 +1501,7 @@ fn a_timed_out_orbitar_run_keeps_the_peak_it_reached_before_the_kill() {
     );
 }
 
-fn contained_vars(
+pub(crate) fn contained_vars(
     root: &Tree,
     bin: &std::path::Path,
     path: &std::path::Path,

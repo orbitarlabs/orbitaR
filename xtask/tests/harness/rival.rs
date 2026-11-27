@@ -168,6 +168,42 @@ fn each_rival_is_timed_beside_orbitar_at_the_claims_8_threads_against_its_own_re
     assert_eq!(qe["rival"]["mpiexec"], json!([]), "{qe}");
 }
 
+#[test]
+fn a_rival_in_a_memory_scope_runs_its_own_programs_before_any_beside_the_scope_tool() {
+    let root = rivals_tree("rival-scope", INPUT, TUNED, PW, ABINIT);
+    let bin = fake(&root, "step -2");
+    let tools = root.join("tools");
+    let log = root.join("scope.log");
+    script(
+        &tools.join("systemd-run"),
+        &format!(
+            "echo \"$@\" >> '{}'\nwhile [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"",
+            log.display()
+        ),
+    );
+    for decoy in ["pw.x", "abinit"] {
+        script(&tools.join(decoy), "exit 9");
+    }
+    let vars = super::speed::contained_vars(&root, &bin, &tools, false);
+    let session = Session::from_vars(&root, vars)
+        .unwrap()
+        .unwrap()
+        .with_rivals(&root.join("rivals"))
+        .with_load(&super::speed::procfs(&root, 1));
+    assert!(session.contained().is_ok());
+    let outcome = session.evaluate("1_a", both);
+    let text = std::fs::read_to_string(root.join("records/1_a.json")).unwrap();
+    let record: Value = serde_json::from_str(&text).unwrap();
+    assert!(passed(&outcome), "{outcome:?}: {record}");
+    let scopes = std::fs::read_to_string(&log).unwrap_or_default();
+    for (code, run) in [("qe", "-- pw.x -in pw.in"), ("abinit", "-- abinit run.abi")] {
+        assert!(scopes.lines().any(|l| l.ends_with(run)), "{scopes}");
+        for b in blocks(&record, code) {
+            assert!(b["losses"].as_array().unwrap().is_empty(), "{b}");
+        }
+    }
+}
+
 fn first_inputs(name: &str, input: &str) -> [String; 4] {
     first_inputs_in(name, input, |_| {})
 }
