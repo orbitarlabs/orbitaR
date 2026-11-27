@@ -27,7 +27,7 @@ RUN --mount=type=bind,source=.,target=/context \
 WORKDIR /src
 COPY --from=about /opt/about/bin/cargo-about /usr/local/bin/cargo-about
 RUN --mount=type=secret,id=ca,required=false --mount=type=bind,source=container/with-ca.sh,target=/with-ca \
-    echo "maturin==1.9.6 --hash=sha256:0246202377c49449315305209f45c8ecef6e2d6bd27a04b5b6f1ab3e4ea47238" > /tmp/maturin.txt \
+    echo "maturin==1.11.5 --hash=sha256:ffe7418834ff3b4a6c987187b7abb85ba033f4733e089d77d84e2de87057b4e7" > /tmp/maturin.txt \
  && /with-ca python -m pip install -q --no-deps --require-hashes --only-binary :all: -r /tmp/maturin.txt \
  && /with-ca cargo about generate --locked --fail --config container/about.toml --output-file THIRD-PARTY-NOTICES \
       container/about.hbs \

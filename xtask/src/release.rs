@@ -214,6 +214,7 @@ fn contents(root: &Path, file: &str, listing: &Listing, crates: &BTreeSet<String
         );
     }
     findings.extend(duplicates(file, &listing.names));
+    findings.extend(order(file, &listing.names));
     for name in &listing.paw {
         findings.push(format!(
             "wheel: {name} opens with a PAW-XML root; datasets never enter the wheel"
@@ -377,6 +378,26 @@ fn duplicates(file: &str, names: &[String]) -> Findings {
         .map(|(name, count)| {
             format!("wheel {file}: {name} is a member {count} times; a wheel holds each path once")
         })
+        .collect()
+}
+
+fn order(file: &str, names: &[String]) -> Findings {
+    fn place(name: &str) -> (u8, Vec<&str>) {
+        let parts: Vec<&str> = name.split('/').collect();
+        let info = parts[0].ends_with(".dist-info");
+        let last = info && parts[1..] == ["RECORD"];
+        (u8::from(info) + u8::from(last), parts)
+    }
+    let mut want = names.to_vec();
+    want.sort_by(|a, b| place(a).cmp(&place(b)));
+    (names.iter().zip(&want).find(|(got, want)| got != want))
+        .map(|(got, want)| {
+            format!(
+                "wheel {file}: {got} stands where {want} belongs; a wheel lists its members by path, \
+                 .dist-info after the rest and RECORD last, so that each host builds the same bytes"
+            )
+        })
+        .into_iter()
         .collect()
 }
 
