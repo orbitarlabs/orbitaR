@@ -1,12 +1,16 @@
-use super::{Install, JTH, JTH_MODULE, Platform, Wheels, install_verdict, run, venv_run};
+use super::{
+    Install, Invocation, JTH, JTH_MODULE, Platform, Program, Wheels, clear, execute, in_venv,
+    install_verdict, mac_platform,
+};
 use crate::{Env, Findings, bench, git};
 use std::{
     collections::BTreeMap,
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fs,
     path::{Path, PathBuf},
-    process::Command,
 };
+
+pub const PYTHON: &str = "3.12.16";
 
 const MATURIN_MACOS: [&str; 2] = [
     "5263dda3f71feef2e4122baf5c4620e4b3710dbb7f2121f85a337182de214369",
@@ -159,6 +163,8 @@ pub(super) fn prove(root: &Path, platform: &Platform, env: &Env) -> Findings {
         dir,
         platform,
         env,
+        interpreter: PathBuf::new(),
+        roots: Vec::new(),
         python: PathBuf::new(),
     };
     let findings = proof(std::env::consts::OS, platform.target, &mut host);
@@ -176,13 +182,79 @@ struct Host<'a> {
     dir: PathBuf,
     platform: &'a Platform,
     env: &'a Env,
+    interpreter: PathBuf,
+    roots: Vec<String>,
     python: PathBuf,
+}
+
+impl Host<'_> {
+    fn run(&self, plan: Vec<(String, Invocation)>) -> Result<String, String> {
+        let mut out = String::new();
+        for (what, step) in plan {
+            let done = execute(&step, Some(self.env), &what)?;
+            out = String::from_utf8_lossy(&done.stdout).trim().to_owned();
+        }
+        Ok(out)
+    }
 }
 
 impl Steps for Host<'_> {
     fn build(&mut self) -> Result<Built, String> {
-        let (orbitar, commit) = build(self.root, &self.dir, self.platform, self.env)?;
-        let data = data_wheel(&self.dir, &orbitar)?;
+        self.interpreter = PathBuf::from(self.run(python_plan())?);
+        let commit = super::commit(self.root)?;
+        let (src, dist) = (self.dir.join("src"), self.dir.join("dist"));
+        for old in [&src, &dist, &self.dir.join("tools")] {
+            clear(old)?;
+        }
+        tracked(self.root, &src)?;
+        let requirement = self.dir.join("maturin.txt");
+        fs::write(&requirement, maturin_requirement(self.root)?)
+            .map_err(|e| format!("{}: {e}", requirement.display()))?;
+        let version = about_pin(self.root)?;
+        self.run(tools_plan(
+            &self.dir,
+            &self.interpreter,
+            &requirement,
+            &version,
+        ))?;
+        let path = tool_path(&self.dir)?;
+        let config = about_config(self.root, &src, self.platform.target)?;
+        self.run(vec![(
+            "cargo-about generate".into(),
+            about_plan(&config, &path, &src),
+        )])?;
+        let home = |var: &str, default: &str| {
+            std::env::var_os(var).map_or_else(
+                || PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(default),
+                PathBuf::from,
+            )
+        };
+        let pairs = remaps(&[
+            (self.dir.clone(), BUILD_MAP),
+            (src.clone(), SOURCE_MAP),
+            (home("CARGO_HOME", ".cargo"), CARGO_HOME_MAP),
+            (home("RUSTUP_HOME", ".rustup"), RUSTUP_HOME_MAP),
+        ]);
+        self.roots = (pairs.iter())
+            .map(|(from, _)| from.display().to_string())
+            .collect();
+        let maturin = Build {
+            target: self.platform.target,
+            src: &src,
+            dist: &dist,
+            cargo_dir: &self.dir.join("cargo"),
+            commit: &commit,
+            cargo: &self.env.cargo,
+            path: &path,
+            pairs: &pairs,
+        };
+        self.run(vec![("maturin build".into(), maturin_plan(&maturin)?)])?;
+        let orbitar = one_wheel(&dist, "orbitar-")?;
+        for old in [self.dir.join("fetch"), self.dir.join("fetched")] {
+            clear(&old)?;
+        }
+        self.run(data_plan(&self.dir, &self.interpreter, &orbitar))?;
+        let data = one_wheel(&dist, &format!("{JTH_MODULE}-"))?;
         Ok(Built {
             orbitar,
             data,
@@ -191,63 +263,42 @@ impl Steps for Host<'_> {
     }
 
     fn check(&mut self, wheel: &Path) -> Findings {
-        super::check_file(self.root, wheel, self.env)
+        let python = self.dir.join("tools/bin/python");
+        let scan = super::Scan {
+            python: Some(&python),
+            build_roots: &self.roots,
+        };
+        super::check_file_with(self.root, wheel, self.env, &scan)
     }
 
     fn floor(&mut self, built: &Built) -> Findings {
-        let Some(deployment) = self.platform.deployment_target() else {
-            return Vec::new();
-        };
         let wheels = format!("{}\n{}\n", built.orbitar.display(), built.data.display());
         let input = self.dir.join("floor.txt");
         if let Err(e) = fs::write(&input, wheels) {
             return vec![format!("{}: {e}", input.display())];
         }
-        let resolve = Command::new("uv")
-            .args([
-                "pip",
-                "compile",
-                "--quiet",
-                "--no-header",
-                "--only-binary",
-                ":all:",
-            ])
-            .args([
-                "--python-version",
-                "3.12",
-                "--python-platform",
-                self.platform.target,
-            ])
-            .arg(&input)
-            .env("MACOSX_DEPLOYMENT_TARGET", &deployment)
-            .output();
-        match resolve {
-            Ok(out) if out.status.success() => Vec::new(),
-            Ok(out) => vec![format!(
-                "wheel: the wheels do not resolve wheels-only on {} at macOS {deployment}: {}",
-                self.platform.target,
-                String::from_utf8_lossy(&out.stderr).trim()
-            )],
-            Err(e) => vec![format!("uv pip compile: {e}")],
+        match floor_plan(self.platform.target, &input) {
+            Ok(step) => match execute(&step, Some(self.env), "uv pip compile") {
+                Ok(_) => Vec::new(),
+                Err(e) => vec![format!(
+                    "wheel: the wheels do not resolve wheels-only on {} at its macOS floor: {e}",
+                    self.platform.target
+                )],
+            },
+            Err(e) => vec![e],
         }
     }
 
     fn install(&mut self, built: &Built) -> Result<(Install, Installed), Findings> {
         let files = [built.orbitar.clone(), built.data.clone()];
-        let venv = self.dir.join("venv");
+        let wheels = Wheels::Files {
+            interpreter: self.interpreter.as_os_str(),
+            files: &files,
+        };
         let (install, python) =
-            super::fill(self.root, &venv, &Wheels::Files(&files), &built.commit)?;
-        let script = "import json, sys, importlib.metadata as m\nout = {}\nfor n in json.loads(sys.argv[1]):\n    \
-            try:\n        d = m.distribution(n)\n    except m.PackageNotFoundError:\n        continue\n    \
-            url = json.loads(d.read_text('direct_url.json') or 'null')\n    \
-            out[n] = [d.version, url and url.get('url')]\nprint(json.dumps(out))";
-        let names = serde_json::to_string(&PAIR).unwrap_or_default();
-        let printed = run(
-            &mut venv_run(&python, &["python", "-I", "-c", script, &names]),
-            "importlib.metadata",
-        )
-        .map_err(|e| vec![e])?;
-        let installed: Installed = serde_json::from_slice(&printed.stdout)
+            super::fill(self.root, &self.dir.join("venv"), &wheels, &built.commit)?;
+        let printed = self.run(vec![("importlib.metadata".into(), metadata_plan(&python))]);
+        let installed: Installed = serde_json::from_str(&printed.map_err(|e| vec![e])?)
             .map_err(|e| vec![format!("importlib.metadata: {e}")])?;
         self.python = python;
         Ok((install, installed))
@@ -258,11 +309,10 @@ impl Steps for Host<'_> {
         clear(&work)?;
         fs::create_dir_all(&work).map_err(|e| format!("{}: {e}", work.display()))?;
         let block = super::readme_block(self.root, "ASE");
-        let ase = ["python", "-I", "-c", block.as_str()];
-        run(
-            venv_run(&self.python, &ase).current_dir(&work),
-            "README ## ASE",
-        )?;
+        self.run(vec![(
+            "README ## ASE".into(),
+            readme_plan(&self.python, &block, &work),
+        )])?;
         Ok(fs::read_to_string(work.join("outcome.json")).unwrap_or_default())
     }
 
@@ -271,78 +321,178 @@ impl Steps for Host<'_> {
     }
 }
 
-fn build(
-    root: &Path,
-    dir: &Path,
-    platform: &Platform,
-    env: &Env,
-) -> Result<(PathBuf, String), String> {
-    let commit = super::commit(root)?;
-    let (src, dist, cargo) = (dir.join("src"), dir.join("dist"), dir.join("cargo"));
-    for old in [&src, &dist] {
-        clear(old)?;
-    }
-    tracked(root, &src)?;
-    let path = tools(root, dir, env)?;
-    let config = about_config(root, &src, platform.target)?;
-    run(
-        Command::new("cargo-about")
-            .env("PATH", &path)
-            .args(["generate", "--locked", "--fail", "--config"])
-            .arg(&config)
-            .args([
-                "--output-file",
-                "THIRD-PARTY-NOTICES",
-                "container/about.hbs",
-            ])
-            .current_dir(&src),
-        "cargo-about generate",
-    )?;
-    let home = |var: &str, default: &str| {
-        std::env::var_os(var).map_or_else(
-            || PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(default),
-            PathBuf::from,
-        )
-    };
-    let pairs = remaps(&[
-        (dir.to_owned(), BUILD_MAP),
-        (src.clone(), SOURCE_MAP),
-        (home("CARGO_HOME", ".cargo"), CARGO_HOME_MAP),
-        (home("RUSTUP_HOME", ".rustup"), RUSTUP_HOME_MAP),
+pub fn python_plan() -> Vec<(String, Invocation)> {
+    let install = Invocation::new(Program::Uv).args(["python", "install", PYTHON]);
+    let find = Invocation::new(Program::Uv).args([
+        "python",
+        "find",
+        "--no-project",
+        "--python-preference",
+        "only-managed",
+        PYTHON,
     ]);
-    let rust: Vec<String> = (pairs.iter())
+    vec![
+        (format!("uv python install {PYTHON}"), install),
+        (format!("uv python find {PYTHON}"), find),
+    ]
+}
+
+pub fn tools_plan(
+    dir: &Path,
+    interpreter: &Path,
+    requirement: &Path,
+    about_version: &str,
+) -> Vec<(String, Invocation)> {
+    let venv = dir.join("tools");
+    let create = Invocation::new(Program::Uv)
+        .args(["venv", "--quiet", "--python"])
+        .arg(interpreter)
+        .arg(&venv);
+    let maturin = Invocation::new(Program::Uv)
+        .args(["pip", "install", "--quiet", "--no-deps", "--require-hashes"])
+        .args(["--only-binary", ":all:", "--python"])
+        .arg(venv.join("bin/python"))
+        .arg("-r")
+        .arg(requirement);
+    let about = Invocation::new(Program::Cargo)
+        .args(["install", "--quiet", "--locked", "--version", about_version])
+        .args(["--features", "cli", "--root"])
+        .arg(dir.join("about"))
+        .arg("cargo-about");
+    vec![
+        ("uv venv tools".into(), create),
+        ("uv pip install maturin".into(), maturin),
+        ("cargo install cargo-about".into(), about),
+    ]
+}
+
+fn tool_path(dir: &Path) -> Result<OsString, String> {
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let dirs = [dir.join("tools/bin"), dir.join("about/bin")];
+    std::env::join_paths(dirs.into_iter().chain(std::env::split_paths(&path)))
+        .map_err(|e| format!("PATH: {e}"))
+}
+
+pub fn about_plan(config: &Path, path: &OsStr, src: &Path) -> Invocation {
+    Invocation::new(Program::CargoAbout)
+        .env("PATH", path)
+        .args(["generate", "--locked", "--fail", "--config"])
+        .arg(config)
+        .args([
+            "--output-file",
+            "THIRD-PARTY-NOTICES",
+            "container/about.hbs",
+        ])
+        .dir(src)
+}
+
+pub struct Build<'a> {
+    pub target: &'a str,
+    pub src: &'a Path,
+    pub dist: &'a Path,
+    pub cargo_dir: &'a Path,
+    pub commit: &'a str,
+    pub cargo: &'a OsStr,
+    pub path: &'a OsStr,
+    pub pairs: &'a [(PathBuf, &'a str)],
+}
+
+pub fn maturin_plan(build: &Build) -> Result<Invocation, String> {
+    let platform = mac_platform(build.target)?;
+    let deployment = platform.deployment_target().unwrap_or_default();
+    let rust: Vec<String> = (build.pairs.iter())
         .map(|(from, to)| format!("--remap-path-prefix={}={to}", from.display()))
         .chain([NO_DEBUG_MAP.to_owned()])
         .collect();
-    let mut command = Command::new("maturin");
-    command
-        .env("PATH", &path)
+    Ok(Invocation::new(Program::Maturin)
+        .env("PATH", build.path)
         .args([
             "build",
             "--release",
             "--locked",
             "--target",
-            platform.target,
+            build.target,
             "--out",
         ])
-        .arg(&dist)
-        .env("ORBITAR_COMMIT", &commit)
+        .arg(build.dist)
+        .env("ORBITAR_COMMIT", build.commit)
         .env("SOURCE_DATE_EPOCH", bench::SOURCE_DATE_EPOCH)
-        .env("CARGO", &env.cargo)
-        .env("CARGO_TARGET_DIR", &cargo)
+        .env("CARGO", build.cargo)
+        .env("CARGO_TARGET_DIR", build.cargo_dir)
         .env("CARGO_ENCODED_RUSTFLAGS", rust.join("\x1f"))
         .env(
-            format!("CFLAGS_{}", platform.target.replace('-', "_")),
-            c_flags(&pairs),
+            format!("CFLAGS_{}", build.target.replace('-', "_")),
+            c_flags(build.pairs),
         )
         .env("CC_SHELL_ESCAPED_FLAGS", "1")
-        .env_remove("RUSTFLAGS")
-        .current_dir(&src);
-    if let Some(deployment) = platform.deployment_target() {
-        command.env("MACOSX_DEPLOYMENT_TARGET", deployment);
-    }
-    run(&mut command, "maturin build")?;
-    Ok((one_wheel(&dist, "orbitar-")?, commit))
+        .env("MACOSX_DEPLOYMENT_TARGET", deployment)
+        .unset("RUSTFLAGS")
+        .dir(build.src))
+}
+
+pub fn data_plan(dir: &Path, interpreter: &Path, wheel: &Path) -> Vec<(String, Invocation)> {
+    let venv = dir.join("fetch");
+    let python = venv.join("bin/python");
+    let package = dir.join("src").join(JTH);
+    let stage = package.join("stage.py").to_string_lossy().into_owned();
+    let fetched = dir.join("fetched").to_string_lossy().into_owned();
+    let create = Invocation::new(Program::Uv)
+        .args(["venv", "--quiet", "--python"])
+        .arg(interpreter)
+        .arg(&venv);
+    let engine = Invocation::new(Program::Uv)
+        .args(["pip", "install", "--quiet", "--no-deps", "--python"])
+        .arg(&python)
+        .arg(wheel);
+    let staged = in_venv(&python, &["python", "-I", stage.as_str(), fetched.as_str()]);
+    let built = Invocation::new(Program::Uv)
+        .args([
+            "build",
+            "--quiet",
+            "--offline",
+            "--no-cache",
+            "--wheel",
+            "--out-dir",
+        ])
+        .arg(dir.join("dist"))
+        .dir(&package);
+    vec![
+        ("uv venv fetch".into(), create),
+        ("uv pip install orbitar --no-deps".into(), engine),
+        ("packages/orbitar-jth/stage.py".into(), staged),
+        ("uv build orbitar-jth".into(), built),
+    ]
+}
+
+pub fn floor_plan(target: &str, input: &Path) -> Result<Invocation, String> {
+    let deployment = mac_platform(target)?
+        .deployment_target()
+        .unwrap_or_default();
+    Ok(Invocation::new(Program::Uv)
+        .args([
+            "pip",
+            "compile",
+            "--quiet",
+            "--no-header",
+            "--only-binary",
+            ":all:",
+        ])
+        .args(["--python-version", PYTHON, "--python-platform", target])
+        .arg(input)
+        .env("MACOSX_DEPLOYMENT_TARGET", deployment))
+}
+
+pub fn metadata_plan(python: &Path) -> Invocation {
+    let script = "import json, sys, importlib.metadata as m\nout = {}\nfor n in json.loads(sys.argv[1]):\n    \
+        try:\n        d = m.distribution(n)\n    except m.PackageNotFoundError:\n        continue\n    \
+        url = json.loads(d.read_text('direct_url.json') or 'null')\n    \
+        out[n] = [d.version, url and url.get('url')]\nprint(json.dumps(out))";
+    let names = serde_json::to_string(&PAIR).unwrap_or_default();
+    in_venv(python, &["python", "-I", "-c", script, &names])
+}
+
+pub fn readme_plan(python: &Path, block: &str, work: &Path) -> Invocation {
+    in_venv(python, &["python", "-I", "-c", block]).dir(work)
 }
 
 pub fn one_wheel(dist: &Path, prefix: &str) -> Result<PathBuf, String> {
@@ -368,55 +518,6 @@ fn wheels(dist: &Path, prefix: &str) -> Result<Vec<PathBuf>, String> {
     )
 }
 
-fn data_wheel(dir: &Path, wheel: &Path) -> Result<PathBuf, String> {
-    let (venv, fetched) = (dir.join("fetch"), dir.join("fetched"));
-    let python = venv.join("bin/python");
-    for old in [&venv, &fetched] {
-        clear(old)?;
-    }
-    run(
-        Command::new("uv")
-            .args(["venv", "--quiet", "--python", "3.12"])
-            .arg(&venv),
-        "uv venv fetch",
-    )?;
-    run(
-        Command::new("uv")
-            .args(["pip", "install", "--quiet", "--no-deps", "--python"])
-            .arg(&python)
-            .arg(wheel),
-        "uv pip install orbitar --no-deps",
-    )?;
-    let package = dir.join("src").join(JTH);
-    let stage = package.join("stage.py").to_string_lossy().into_owned();
-    let mut command = venv_run(&python, &["python", "-I", stage.as_str()]);
-    run(command.arg(&fetched), "packages/orbitar-jth/stage.py")?;
-    run(
-        Command::new("uv")
-            .args([
-                "build",
-                "--quiet",
-                "--offline",
-                "--no-cache",
-                "--wheel",
-                "--out-dir",
-            ])
-            .arg(dir.join("dist"))
-            .current_dir(&package),
-        "uv build orbitar-jth",
-    )?;
-    one_wheel(&dir.join("dist"), &format!("{JTH_MODULE}-"))
-}
-
-pub fn clear(dir: &Path) -> Result<(), String> {
-    match fs::remove_dir_all(dir) {
-        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
-            Err(format!("{}: {e}", dir.display()))
-        }
-        _ => Ok(()),
-    }
-}
-
 pub fn c_flags(pairs: &[(PathBuf, &str)]) -> String {
     let quoted = |word: String| format!("'{}'", word.replace('\'', r"'\''"));
     (pairs.iter())
@@ -440,45 +541,11 @@ pub fn tracked(root: &Path, src: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn tools(root: &Path, dir: &Path, env: &Env) -> Result<OsString, String> {
-    let venv = dir.join("tools");
-    if !venv.join("bin/python").exists() {
-        run(
-            Command::new("uv")
-                .args(["venv", "--quiet", "--python", "3.12"])
-                .arg(&venv),
-            "uv venv tools",
-        )?;
-    }
+pub fn maturin_requirement(root: &Path) -> Result<String, String> {
     let hashes: Vec<String> = (MATURIN_MACOS.iter())
         .map(|h| format!("--hash=sha256:{h}"))
         .collect();
-    let requirement = dir.join("maturin.txt");
-    let line = format!("{} {}\n", maturin_pin(root)?, hashes.join(" "));
-    fs::write(&requirement, line).map_err(|e| format!("{}: {e}", requirement.display()))?;
-    run(
-        Command::new("uv")
-            .args(["pip", "install", "--quiet", "--no-deps", "--require-hashes"])
-            .args(["--only-binary", ":all:", "--python"])
-            .arg(venv.join("bin/python"))
-            .arg("-r")
-            .arg(&requirement),
-        "uv pip install maturin",
-    )?;
-    let about = dir.join("about");
-    run(
-        Command::new(&env.cargo)
-            .args(["install", "--quiet", "--locked", "--version"])
-            .arg(about_pin(root)?)
-            .args(["--features", "cli", "--root"])
-            .arg(&about)
-            .arg("cargo-about"),
-        "cargo install cargo-about",
-    )?;
-    let path = std::env::var_os("PATH").unwrap_or_default();
-    let dirs = [venv.join("bin"), about.join("bin")];
-    std::env::join_paths(dirs.into_iter().chain(std::env::split_paths(&path)))
-        .map_err(|e| format!("PATH: {e}"))
+    Ok(format!("{} {}\n", maturin_pin(root)?, hashes.join(" ")))
 }
 
 pub fn maturin_pin(root: &Path) -> Result<String, String> {

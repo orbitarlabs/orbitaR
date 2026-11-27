@@ -2,7 +2,11 @@ mod mac;
 
 use crate::{has, lever, tree, write};
 use sha2::Digest;
-use std::{path::Path, process::Command};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 const CARGO: &str =
     "[package]\nname = \"orbitar\"\nversion = \"0.1.0\"\nlicense = \"LicenseRef-x\"\n";
@@ -259,40 +263,196 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
     }
 }
 
+/// The findings of the Linux wheel check when the engine holds `word` after a valid header.
+fn engine_holding(name: &str, word: &str) -> Vec<String> {
+    checked(name, NAME, |m| {
+        m[3].1 = elf(EM_X86_64) + &format!("\0{word}\0\x03");
+    })
+}
+
 #[test]
-fn a_wheel_member_that_names_a_person_an_account_or_a_home_fails() {
+fn a_linux_engine_that_names_a_person_or_an_account_fails() {
     let at = '@';
-    for (i, (word, finding)) in [
-        (
-            format!("someone{at}example.org"),
-            "names a person, an account",
-        ),
-        (
-            format!("https://github.com/{}/orbitar", "someone"),
-            "names a person, an account",
-        ),
-        (
-            format!("/{}/someone/.cargo/registry/src/x.rs", "home"),
-            "holds a home directory",
-        ),
-        (
-            format!("/{}/someone/src/main.rs", "Users"),
-            "holds a home directory",
-        ),
+    for (i, word) in [
+        format!("someone{at}example.org"),
+        format!("https://github.com/{}/orbitar", "someone"),
     ]
     .into_iter()
     .enumerate()
     {
-        let found = checked(&format!("member-{i}"), NAME, |m| {
-            m[3].1 = elf(EM_X86_64) + &format!("\0{word}\0\x03");
-        });
-        let engine = "wheel orbitar-0.1.0.data/scripts/orbitar: ";
-        assert_eq!(found.len(), 1, "{word}: {found:?}");
-        assert!(
-            found[0].starts_with(engine) && found[0].contains(finding),
-            "{word}: {found:?}"
+        let found = engine_holding(&format!("identity-{i}"), &word);
+        let want = format!(
+            "wheel orbitar-0.1.0.data/scripts/orbitar: `{word}` names a person, an account, or a host's account path"
         );
+        assert_eq!(found, [want]);
     }
+}
+
+#[test]
+fn a_linux_engine_that_holds_a_home_directory_fails() {
+    for (i, word) in [
+        format!("/{}/someone/.cargo/registry/src/x.rs", "home"),
+        format!("/{}/someone/src/main.rs", "Users"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let found = engine_holding(&format!("home-{i}"), &word);
+        let want = format!(
+            "wheel orbitar-0.1.0.data/scripts/orbitar: `{word}` holds a home directory; build the wheel with `cargo xtask wheel`"
+        );
+        assert_eq!(found, [want]);
+    }
+}
+
+#[test]
+fn an_install_whose_venv_cannot_be_removed_fails_before_any_process() {
+    let root = tree(
+        "install-venv",
+        &[("target/wheel/venv", "a file where the venv goes")],
+    );
+    let found = xtask::install(&root, "abc").err().unwrap();
+    let venv = root.join("target/wheel/venv").display().to_string();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].starts_with(&format!("{venv}: ")), "{found:?}");
+    assert!(root.join("target/wheel/venv").is_file());
+}
+
+#[test]
+fn the_linux_install_plan_takes_pylock_first_then_the_local_wheels_alone() {
+    let dirs = [
+        PathBuf::from("/r/target/wheel/wheel"),
+        PathBuf::from("/r/target/wheel/jth-wheel"),
+    ];
+    let wheels = xtask::Wheels::Pylock {
+        interpreter: OsStr::new("3.12"),
+        dirs: &dirs,
+    };
+    let readme = [
+        "pip install orbitar".to_owned(),
+        "orbitar --version".to_owned(),
+    ];
+    let plan = xtask::install_plan(
+        Path::new("/r"),
+        Path::new("/r/target/wheel/venv"),
+        &wheels,
+        &readme,
+    );
+    let words: Vec<(&str, Vec<String>)> = plan
+        .iter()
+        .map(|(what, step)| (what.as_str(), step.words()))
+        .collect();
+    let py = "/r/target/wheel/venv/bin/python";
+    let pip = |rest: &[&str]| {
+        ["pip", "install", "--quiet", "--python", py]
+            .iter()
+            .chain(rest)
+            .map(|w| (*w).to_owned())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        words,
+        [
+            (
+                "uv venv",
+                [
+                    "venv",
+                    "--quiet",
+                    "--python",
+                    "3.12",
+                    "/r/target/wheel/venv"
+                ]
+                .map(String::from)
+                .to_vec()
+            ),
+            (
+                "python/pylock.toml",
+                pip(&["--no-build", "-r", "python/pylock.toml"])
+            ),
+            (
+                "pip install orbitar",
+                pip(&[
+                    "--no-index",
+                    "--no-deps",
+                    "--find-links",
+                    "/r/target/wheel/wheel",
+                    "--find-links",
+                    "/r/target/wheel/jth-wheel",
+                    "orbitar",
+                    "orbitar-jth",
+                ])
+            ),
+            (
+                "orbitar --version",
+                [
+                    "run",
+                    "--no-project",
+                    "--quiet",
+                    "--python",
+                    py,
+                    "--",
+                    "sh",
+                    "-c",
+                    "orbitar --version"
+                ]
+                .map(String::from)
+                .to_vec()
+            ),
+        ]
+    );
+    assert!(
+        plan.iter()
+            .all(|(_, step)| step.program == xtask::Program::Uv)
+    );
+    assert!(
+        plan[1..]
+            .iter()
+            .all(|(_, step)| step.dir.as_deref() == Some(Path::new("/r")))
+    );
+}
+
+#[test]
+fn the_files_install_plan_takes_the_two_files_by_path_wheels_only() {
+    let files = [
+        PathBuf::from("/d/orbitar-0.1.0-py3-none-macosx_12_0_arm64.whl"),
+        PathBuf::from("/d/orbitar_jth-2.0.0-py3-none-any.whl"),
+    ];
+    let wheels = xtask::Wheels::Files {
+        interpreter: OsStr::new("/py/bin/python3.12"),
+        files: &files,
+    };
+    let plan = xtask::install_plan(
+        Path::new("/r"),
+        Path::new("/w/venv"),
+        &wheels,
+        &["pip install orbitar".to_owned()],
+    );
+    let words: Vec<Vec<String>> = plan.iter().map(|(_, step)| step.words()).collect();
+    assert_eq!(words.len(), 2);
+    assert_eq!(
+        words[0],
+        [
+            "venv",
+            "--quiet",
+            "--python",
+            "/py/bin/python3.12",
+            "/w/venv"
+        ]
+    );
+    assert_eq!(
+        words[1],
+        [
+            "pip",
+            "install",
+            "--quiet",
+            "--python",
+            "/w/venv/bin/python",
+            "--only-binary",
+            ":all:",
+            "/d/orbitar-0.1.0-py3-none-macosx_12_0_arm64.whl",
+            "/d/orbitar_jth-2.0.0-py3-none-any.whl",
+        ]
+    );
 }
 
 #[test]

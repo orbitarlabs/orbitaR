@@ -5,7 +5,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fs,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
@@ -118,50 +118,45 @@ const MH_MAGIC_64: [u8; 4] = [0xcf, 0xfa, 0xed, 0xfe];
 const MACH_HEADER_64: usize = 32;
 
 pub fn machine(bytes: &[u8]) -> Option<Machine> {
-    let u16_at = |i: usize| {
-        Some(u16::from_le_bytes(
-            bytes.get(i..i.checked_add(2)?)?.try_into().ok()?,
-        ))
-    };
-    let u32_at = |i: usize| {
+    let u32_in = |slice: &[u8], i: usize| {
         Some(u32::from_le_bytes(
-            bytes.get(i..i.checked_add(4)?)?.try_into().ok()?,
+            slice.get(i..i.checked_add(4)?)?.try_into().ok()?,
         ))
     };
     if bytes.starts_with(b"\x7fELF") && bytes.get(4..6) == Some(&[2, 1]) {
-        return Some(Machine::Elf {
-            machine: u16_at(18)?,
-        });
+        let machine = u16::from_le_bytes(bytes.get(18..20)?.try_into().ok()?);
+        return Some(Machine::Elf { machine });
     }
     if !bytes.starts_with(&MH_MAGIC_64) {
         return None;
     }
-    let (cpu, filetype, commands) = (u32_at(4)?, u32_at(12)?, u32_at(16)?);
-    let end = MACH_HEADER_64.checked_add(usize::try_from(u32_at(20)?).ok()?)?;
-    if end > bytes.len() {
-        return None;
-    }
-    let mut at = MACH_HEADER_64;
+    let header = bytes.get(..MACH_HEADER_64)?;
+    let (cpu, filetype, commands) = (u32_in(header, 4)?, u32_in(header, 12)?, u32_in(header, 16)?);
+    let size = usize::try_from(u32_in(header, 20)?).ok()?;
+    let mut rest = bytes.get(MACH_HEADER_64..MACH_HEADER_64.checked_add(size)?)?;
     let mut build = None;
     for _ in 0..commands {
-        let (command, size) = (u32_at(at)?, usize::try_from(u32_at(at + 4)?).ok()?);
-        let next = at
-            .checked_add(size)
-            .filter(|n| size >= 8 && size % COMMAND_ALIGN == 0 && *n <= end)?;
+        let head = rest.get(..8)?;
+        let (command, length) = (u32_in(head, 0)?, usize::try_from(u32_in(head, 4)?).ok()?);
+        if length < 8 || length % COMMAND_ALIGN != 0 {
+            return None;
+        }
+        let (body, after) = (rest.get(..length)?, rest.get(length..)?);
         if command == LC_BUILD_VERSION {
-            let tools = usize::try_from(u32_at(at + 20)?).ok()?;
+            let fields = body.get(..BUILD_VERSION_SIZE)?;
+            let tools = usize::try_from(u32_in(fields, 20)?).ok()?;
             let extent = BUILD_TOOL_SIZE
                 .checked_mul(tools)?
                 .checked_add(BUILD_VERSION_SIZE)?;
-            if size != extent || build.is_some() {
+            if length != extent || build.is_some() {
                 return None;
             }
-            let v = u32_at(at + 12)?;
-            build = Some((u32_at(at + 8)?, (v >> 16, (v >> 8) & 0xff, v & 0xff)));
+            let v = u32_in(fields, 12)?;
+            build = Some((u32_in(fields, 8)?, (v >> 16, (v >> 8) & 0xff, v & 0xff)));
         }
-        at = next;
+        rest = after;
     }
-    let (platform, minos) = build.filter(|_| at == end)?;
+    let (platform, minos) = build.filter(|_| rest.is_empty())?;
     Some(Machine::MachO {
         cpu,
         filetype,
@@ -343,6 +338,7 @@ fn contents(
     (file, platform): (&str, &Platform),
     listing: &Listing,
     crates: &BTreeSet<String>,
+    build_roots: &[String],
 ) -> Findings {
     let mut findings = Vec::new();
     let version = match version(root) {
@@ -485,14 +481,15 @@ fn contents(
         let what = format!("wheel {member}");
         let binary = member.contains(".data/scripts/") && listing.machine_code.contains(member);
         findings.extend(named_in(&what, runs, binary));
-        findings.extend(homes(
-            &what,
-            runs,
-            "build the wheel with `cargo xtask wheel`",
-        ));
         if binary && platform.deployment_target().is_some() {
             let spans = listing.spans.get(member).unwrap_or(runs);
-            findings.extend(host_paths(&what, spans));
+            findings.extend(host_paths(&what, spans, build_roots));
+        } else {
+            findings.extend(homes(
+                &what,
+                runs,
+                "build the wheel with `cargo xtask wheel`",
+            ));
         }
     }
     findings
@@ -507,21 +504,34 @@ const HOST_ROOTS: [(&str, bool); 6] = [
     ("/tmp/", false),
 ];
 
-fn host_paths(what: &str, text: &str) -> Findings {
-    let segment = |c: char| c.is_ascii_alphanumeric() || "._-+@".contains(c);
-    let under = |word: &str| {
-        HOST_ROOTS.iter().any(|(root, anywhere)| {
-            (word.match_indices(root)).any(|(i, _)| {
-                let next = word[i + root.len()..].split('/').next().unwrap_or_default();
-                let starts = *anywhere || !word[..i].chars().next_back().is_some_and(segment);
-                starts && !next.is_empty()
+pub fn host_paths(what: &str, spans: &str, build_roots: &[String]) -> Findings {
+    let segment = |c: &u8| c.is_ascii_alphanumeric() || b"._-+@".contains(c);
+    let roots: Vec<(String, bool)> = (HOST_ROOTS.iter())
+        .map(|(r, anywhere)| (r.to_ascii_lowercase(), *anywhere))
+        .chain(build_roots.iter().map(|r| {
+            let root = format!("{}/", r.trim_end_matches('/'));
+            (root.to_ascii_lowercase(), true)
+        }))
+        .collect();
+    let mut paths = BTreeSet::new();
+    for span in spans.lines() {
+        let lower = span.to_ascii_lowercase();
+        let first = (roots.iter())
+            .flat_map(|(root, anywhere)| {
+                (lower.match_indices(root.as_str())).filter_map(move |(i, _)| {
+                    let starts = *anywhere || !span.as_bytes()[..i].last().is_some_and(segment);
+                    let component = span[i + root.len()..].split('/').next().unwrap_or_default();
+                    (starts && !component.is_empty()).then(|| (i, i + root.len() + component.len()))
+                })
             })
-        })
-    };
-    let held: BTreeSet<&str> = words(text).filter(|w| under(w)).collect();
-    (held.into_iter())
-        .map(|w| {
-            format!("{what}: `{w}` is a path on the build host; remap its root (release/mac.rs)")
+            .min();
+        if let Some((start, end)) = first {
+            paths.insert(&span[start..end]);
+        }
+    }
+    (paths.into_iter())
+        .map(|p| {
+            format!("{what}: `{p}` is a path on the build host; remap its root (release/mac.rs)")
         })
         .collect()
 }
@@ -532,7 +542,7 @@ macro_rules! paw_root {
     };
 }
 
-fn listing(wheel: &Path) -> Result<Listing, String> {
+fn listing(wheel: &Path, python: Option<&Path>) -> Result<Listing, String> {
     let script = concat!(
         "import hashlib, json, re, sys, zipfile\n\
         paw = re.compile(",
@@ -553,22 +563,38 @@ fn listing(wheel: &Path) -> Result<Listing, String> {
         'entry_points': read('.dist-info/entry_points.txt'), \
         'paw': [n for n in names if paw.match(z.read(n))]}))"
     );
-    let out = run(
-        Command::new("python3")
-            .args(["-I", "-c", script])
-            .arg(wheel),
-        "python3 zipfile",
-    )?;
+    let out = match python {
+        None => run(
+            Command::new("python3")
+                .args(["-I", "-c", script])
+                .arg(wheel),
+            "python3 zipfile",
+        )?,
+        Some(python) => run(
+            venv_run(python, &["python", "-I", "-c", script]).arg(wheel),
+            "python zipfile",
+        )?,
+    };
     serde_json::from_slice(&out.stdout).map_err(|e| format!("{}: {e}", wheel.display()))
 }
 
 fn check_file(root: &Path, wheel: &Path, env: &Env) -> Findings {
+    check_file_with(root, wheel, env, &Scan::default())
+}
+
+#[derive(Default)]
+pub(crate) struct Scan<'a> {
+    pub(crate) python: Option<&'a Path>,
+    pub(crate) build_roots: &'a [String],
+}
+
+pub(crate) fn check_file_with(root: &Path, wheel: &Path, env: &Env, scan: &Scan) -> Findings {
     let file = wheel
         .file_name()
         .map(|f| f.to_string_lossy().into_owned())
         .unwrap_or_default();
     if file.starts_with(&format!("{JTH_MODULE}-")) {
-        return match listing(wheel) {
+        return match listing(wheel, scan.python) {
             Ok(listing) => jth_contents(root, &file, &listing),
             Err(e) => vec![e],
         };
@@ -579,8 +605,13 @@ fn check_file(root: &Path, wheel: &Path, env: &Env) -> Findings {
             "wheel: {file} is not orbitar-<version>-py3-none-<tag>.whl of a tag in {tags:?}"
         )];
     };
-    match (listing(wheel), linked(root, env, platform.target)) {
-        (Ok(listing), Ok(crates)) => contents(root, (&file, platform), &listing, &crates),
+    match (
+        listing(wheel, scan.python),
+        linked(root, env, platform.target),
+    ) {
+        (Ok(listing), Ok(crates)) => {
+            contents(root, (&file, platform), &listing, &crates, scan.build_roots)
+        }
         (Err(e), _) | (_, Err(e)) => vec![e],
     }
 }
@@ -817,14 +848,176 @@ pub fn install(root: &Path, commit: &str) -> Result<(Install, PathBuf), Findings
     fill(
         root,
         &root.join("target/wheel/venv"),
-        &Wheels::Pylock(&dirs),
+        &Wheels::Pylock {
+            interpreter: OsStr::new("3.12"),
+            dirs: &dirs,
+        },
         commit,
     )
 }
 
-pub(crate) enum Wheels<'a> {
-    Pylock(&'a [PathBuf]),
-    Files(&'a [PathBuf]),
+pub enum Wheels<'a> {
+    Pylock {
+        interpreter: &'a OsStr,
+        dirs: &'a [PathBuf],
+    },
+    Files {
+        interpreter: &'a OsStr,
+        files: &'a [PathBuf],
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Program {
+    Uv,
+    Maturin,
+    CargoAbout,
+    Cargo,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Invocation {
+    pub program: Program,
+    pub args: Vec<OsString>,
+    pub env: Vec<(OsString, OsString)>,
+    pub unset: Vec<OsString>,
+    pub dir: Option<PathBuf>,
+}
+
+impl Invocation {
+    pub fn new(program: Program) -> Self {
+        Self {
+            program,
+            args: Vec::new(),
+            env: Vec::new(),
+            unset: Vec::new(),
+            dir: None,
+        }
+    }
+
+    pub fn arg(mut self, arg: impl AsRef<OsStr>) -> Self {
+        self.args.push(arg.as_ref().to_owned());
+        self
+    }
+
+    pub fn args<I: IntoIterator<Item = S>, S: AsRef<OsStr>>(mut self, args: I) -> Self {
+        self.args
+            .extend(args.into_iter().map(|a| a.as_ref().to_owned()));
+        self
+    }
+
+    pub fn env(mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) -> Self {
+        self.env
+            .push((key.as_ref().to_owned(), value.as_ref().to_owned()));
+        self
+    }
+
+    pub fn unset(mut self, key: impl AsRef<OsStr>) -> Self {
+        self.unset.push(key.as_ref().to_owned());
+        self
+    }
+
+    pub fn dir(mut self, dir: &Path) -> Self {
+        self.dir = Some(dir.to_owned());
+        self
+    }
+
+    pub fn words(&self) -> Vec<String> {
+        (self.args.iter())
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    pub fn var(&self, key: &str) -> Option<String> {
+        (self.env.iter().rev())
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.to_string_lossy().into_owned())
+    }
+}
+
+pub(crate) fn execute(step: &Invocation, env: Option<&Env>, what: &str) -> Result<Output, String> {
+    let mut command = match (step.program, env) {
+        (Program::Uv, _) => Command::new("uv"),
+        (Program::Maturin, _) => Command::new("maturin"),
+        (Program::CargoAbout, _) => Command::new("cargo-about"),
+        (Program::Cargo, Some(env)) => Command::new(&env.cargo),
+        (Program::Cargo, None) => return Err(format!("{what}: no cargo to run")),
+    };
+    command.args(&step.args);
+    for (key, value) in &step.env {
+        command.env(key, value);
+    }
+    for key in &step.unset {
+        command.env_remove(key);
+    }
+    if let Some(dir) = &step.dir {
+        command.current_dir(dir);
+    }
+    run(&mut command, what)
+}
+
+pub fn in_venv(python: &Path, args: &[&str]) -> Invocation {
+    Invocation::new(Program::Uv)
+        .args(["run", "--no-project", "--quiet", "--python"])
+        .arg(python)
+        .arg("--")
+        .args(args)
+}
+
+pub fn clear(dir: &Path) -> Result<(), String> {
+    match fs::remove_dir_all(dir) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            Err(format!("{}: {e}", dir.display()))
+        }
+        _ => Ok(()),
+    }
+}
+
+pub fn install_plan(
+    root: &Path,
+    venv: &Path,
+    wheels: &Wheels,
+    readme: &[String],
+) -> Vec<(String, Invocation)> {
+    let python = venv.join("bin/python");
+    let interpreter = match wheels {
+        Wheels::Pylock { interpreter, .. } | Wheels::Files { interpreter, .. } => interpreter,
+    };
+    let create = Invocation::new(Program::Uv)
+        .args(["venv", "--quiet", "--python"])
+        .arg(interpreter)
+        .arg(venv);
+    let pip = || {
+        Invocation::new(Program::Uv)
+            .args(["pip", "install", "--quiet", "--python"])
+            .arg(&python)
+            .dir(root)
+    };
+    let mut plan = vec![("uv venv".to_owned(), create)];
+    match wheels {
+        Wheels::Pylock { dirs, .. } => {
+            plan.push((PYLOCK.to_owned(), pip().args(["--no-build", "-r", PYLOCK])));
+            let data = JTH.rsplit('/').next().unwrap_or(JTH);
+            for line in readme {
+                let step = match line.strip_prefix("pip install ") {
+                    Some(args) => {
+                        let mut step = pip().args(["--no-index", "--no-deps"]);
+                        for dir in *dirs {
+                            step = step.arg("--find-links").arg(dir);
+                        }
+                        step.args(args.split_whitespace()).arg(data)
+                    }
+                    None => in_venv(&python, &["sh", "-c", line.as_str()]).dir(root),
+                };
+                plan.push((line.clone(), step));
+            }
+        }
+        Wheels::Files { files, .. } => {
+            let step = pip().args(["--only-binary", ":all:"]).args(files.iter());
+            plan.push(("uv pip install the wheel files".to_owned(), step));
+        }
+    }
+    plan
 }
 
 pub(crate) fn fill(
@@ -834,62 +1027,10 @@ pub(crate) fn fill(
     commit: &str,
 ) -> Result<(Install, PathBuf), Findings> {
     let one = |e: String| vec![e];
-    let _ = fs::remove_dir_all(venv);
+    clear(venv).map_err(one)?;
     let python = venv.join("bin/python");
-    run(
-        Command::new("uv")
-            .args(["venv", "--quiet", "--python", "3.12"])
-            .arg(venv),
-        "uv venv",
-    )
-    .map_err(one)?;
-    let uv_install = |args: &[OsString]| {
-        let mut command = Command::new("uv");
-        command
-            .args(["pip", "install", "--quiet", "--python"])
-            .arg(&python)
-            .args(args)
-            .current_dir(root);
-        command
-    };
-    match wheels {
-        Wheels::Pylock(dirs) => {
-            let mut local: Vec<OsString> = Vec::new();
-            let mut links =
-                |dir: &Path| local.extend(["--find-links".into(), dir.as_os_str().to_owned()]);
-            run(
-                &mut uv_install(&["--no-build".into(), "-r".into(), PYLOCK.into()]),
-                PYLOCK,
-            )
-            .map_err(one)?;
-            dirs.iter().for_each(|d| links(d));
-            local.splice(0..0, ["--no-index".into(), "--no-deps".into()]);
-            let data = JTH.rsplit('/').next().unwrap_or(JTH);
-            for line in readme_lines(root, "Install") {
-                match line.strip_prefix("pip install ") {
-                    Some(args) => {
-                        let words: Vec<OsString> = (local.iter().cloned())
-                            .chain(args.split_whitespace().map(OsString::from))
-                            .chain(std::iter::once(data.into()))
-                            .collect();
-                        run(&mut uv_install(&words), &line)
-                    }
-                    None => run(
-                        venv_run(&python, &["sh", "-c", line.as_str()]).current_dir(root),
-                        &line,
-                    ),
-                }
-                .map_err(one)?;
-            }
-        }
-        Wheels::Files(files) => {
-            let words: Vec<OsString> = ["--only-binary", ":all:"]
-                .into_iter()
-                .map(OsString::from)
-                .chain(files.iter().map(|f| f.as_os_str().to_owned()))
-                .collect();
-            run(&mut uv_install(&words), "uv pip install the wheel files").map_err(one)?;
-        }
+    for (what, step) in install_plan(root, venv, wheels, &readme_lines(root, "Install")) {
+        execute(&step, None, &what).map_err(one)?;
     }
     let version_printed = run(
         &mut venv_run(&python, &["orbitar", "--version"]),

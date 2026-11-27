@@ -3,7 +3,10 @@ use super::{
     PLATFORM_MACOS, build_version, checked, elf, install, latin, macho, macho_bytes,
 };
 use crate::{has, lever, tree};
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 use xtask::{Built, Installed, Steps};
 
 const ENGINE: &str = "orbitar-0.1.0.data/scripts/orbitar is no";
@@ -79,6 +82,10 @@ fn a_mac_engine_whose_load_commands_are_malformed_fails() {
         ("under-its-head", vec![under_its_head, build()]),
         ("two-build-versions", vec![build(), build()]),
         ("unaligned-command", vec![unaligned, build()]),
+        (
+            "short-build-version-before-a-command",
+            vec![(cmd, 16, build().2[..8].to_vec()), (0x19, 8, Vec::new())],
+        ),
         ("a-tool-without-its-record", vec![tool_missing]),
     ] {
         let bytes = macho_bytes(CPU_ARM64, MH_EXECUTE, &commands);
@@ -125,36 +132,95 @@ fn a_mac_engine_under_the_linux_tag_fails() {
     }
 }
 
+/// The findings of the Mac wheel check when the engine holds `path` after a valid header.
+fn mac_engine_holding(name: &str, path: &str) -> Vec<String> {
+    let header = macho(CPU_ARM64, 12) + "\0" + path + "\0";
+    checked(name, MAC, |m| m[3].1.clone_from(&header))
+}
+
+/// The one finding of the Mac host-path scan for `held`.
+fn host_finding(held: &str) -> Vec<String> {
+    vec![format!(
+        "wheel orbitar-0.1.0.data/scripts/orbitar: `{held}` is a path on the build host; remap its root (release/mac.rs)"
+    )]
+}
+
 #[test]
-fn a_mac_engine_that_holds_a_path_under_a_host_root_fails() {
+fn a_mac_engine_that_holds_a_path_under_a_host_root_fails_with_one_finding() {
     let home = format!("/{}/someone/src/main.rs", "Users");
-    for path in [
-        home.as_str(),
-        "/Volumes/disk/build/src/main.rs",
-        "/private/var/build/src/main.rs",
-        "/var/folders/xy/T/build/src/main.rs",
-        "/tmp/build/src/main.rs",
+    let user = format!("/{}/someone", "Users");
+    for (path, held) in [
+        (home.as_str(), user.as_str()),
+        ("/Volumes/disk/build/src/main.rs", "/Volumes/disk"),
+        (
+            "/private/var/folders/xy/T/build/src/main.rs",
+            "/private/var",
+        ),
+        ("/var/folders/xy/T/build/src/main.rs", "/var/folders/xy"),
+        ("/tmp/build/src/main.rs", "/tmp/build"),
     ] {
-        let header = macho(CPU_ARM64, 12) + "\0" + path + "\0";
-        let found = checked("host-path", MAC, |m| m[3].1.clone_from(&header));
-        assert!(
-            has(&found, &format!("`{path}` is a path on the build host")),
-            "{path}: {found:?}"
+        assert_eq!(
+            mac_engine_holding("host-path", path),
+            host_finding(held),
+            "{path}"
         );
     }
 }
 
 #[test]
 fn a_mac_engine_that_holds_a_host_path_with_a_non_ascii_component_fails() {
-    let path = "/Volumes/\u{c3}\u{a9}tude/src/main.rs";
-    let header = macho(CPU_ARM64, 12) + "\0" + path + "\0";
-    let found = checked("host-utf8", MAC, |m| m[3].1.clone_from(&header));
-    assert!(
-        has(
-            &found,
-            "`/Volumes/\u{e9}tude/src/main.rs` is a path on the build host"
+    let found = mac_engine_holding("host-utf8", "/Volumes/\u{c3}\u{a9}tude/src/main.rs");
+    assert_eq!(found, host_finding("/Volumes/\u{e9}tude"));
+}
+
+#[test]
+fn a_mac_engine_whose_host_path_component_starts_with_a_delimiter_fails() {
+    for (path, held) in [
+        (
+            "/Volumes/ \u{c3}\u{a9}tude/src/main.rs",
+            "/Volumes/ \u{e9}tude",
         ),
-        "{found:?}"
+        ("/Volumes/\"disk\"/src/main.rs", "/Volumes/\"disk\""),
+        ("/Volumes/'disk'/src/main.rs", "/Volumes/'disk'"),
+    ] {
+        assert_eq!(
+            mac_engine_holding("host-delimiter", path),
+            host_finding(held),
+            "{path}"
+        );
+    }
+}
+
+#[test]
+fn a_mac_engine_whose_host_root_is_spelled_in_another_case_fails() {
+    let user = format!("/{}/someone/src/main.rs", "users");
+    for (path, held) in [
+        (user.as_str(), format!("/{}/someone", "users")),
+        ("/VOLUMES/disk/src/main.rs", "/VOLUMES/disk".to_owned()),
+        ("/Private/var/src/main.rs", "/Private/var".to_owned()),
+    ] {
+        assert_eq!(
+            mac_engine_holding("host-case", path),
+            host_finding(&held),
+            "{path}"
+        );
+    }
+}
+
+#[test]
+fn a_configured_build_root_in_the_engine_is_a_host_path_in_any_case() {
+    let roots = ["/opt/ci/job 7/target/wheel".to_owned()];
+    let spans = "x\n/OPT/CI/Job 7/target/wheel/src/src/main.rs\n/build/src/main.rs";
+    let found = xtask::host_paths("engine", spans, &roots);
+    assert_eq!(
+        found,
+        [
+            "engine: `/OPT/CI/Job 7/target/wheel/src` is a path on the build host; remap its root (release/mac.rs)"
+        ]
+    );
+    assert_eq!(
+        xtask::host_paths("engine", "/build/src/main.rs", &roots),
+        Vec::<String>::new()
     );
 }
 
@@ -660,4 +726,340 @@ fn c_flags_keep_a_path_with_a_space_or_a_quote_one_shell_word() {
             "-ffile-prefix-map=/w/it's=/src"
         ]
     );
+}
+
+#[test]
+fn a_mac_header_with_more_commands_than_its_region_holds_is_malformed() {
+    let mut bytes = macho_bytes(
+        CPU_ARM64,
+        MH_EXECUTE,
+        &[build_version(PLATFORM_MACOS, (12, 0, 0))],
+    );
+    bytes[16] = 2;
+    bytes.extend([0x19, 0, 0, 0, 8, 0, 0, 0]);
+    assert_eq!(xtask::machine(&bytes), None);
+}
+
+fn words(step: &xtask::Invocation) -> Vec<String> {
+    step.words()
+}
+
+#[test]
+fn the_interpreter_plan_installs_and_finds_the_exact_managed_python() {
+    let plan = xtask::python_plan();
+    let got: Vec<Vec<String>> = plan.iter().map(|(_, s)| words(s)).collect();
+    assert_eq!(
+        got,
+        [
+            vec!["python", "install", "3.12.16"],
+            vec![
+                "python",
+                "find",
+                "--no-project",
+                "--python-preference",
+                "only-managed",
+                "3.12.16"
+            ]
+        ]
+    );
+    assert_eq!(xtask::PYTHON, "3.12.16");
+}
+
+#[test]
+fn the_tools_plan_takes_the_exact_interpreter_maturin_by_hash_and_cargo_about_locked() {
+    let plan = xtask::tools_plan(
+        Path::new("/w"),
+        Path::new("/py/bin/python3.12"),
+        Path::new("/w/maturin.txt"),
+        "0.9.3",
+    );
+    let got: Vec<(xtask::Program, Vec<String>)> =
+        plan.iter().map(|(_, s)| (s.program, words(s))).collect();
+    assert_eq!(
+        got,
+        [
+            (
+                xtask::Program::Uv,
+                [
+                    "venv",
+                    "--quiet",
+                    "--python",
+                    "/py/bin/python3.12",
+                    "/w/tools"
+                ]
+                .map(String::from)
+                .to_vec()
+            ),
+            (
+                xtask::Program::Uv,
+                [
+                    "pip",
+                    "install",
+                    "--quiet",
+                    "--no-deps",
+                    "--require-hashes",
+                    "--only-binary",
+                    ":all:",
+                    "--python",
+                    "/w/tools/bin/python",
+                    "-r",
+                    "/w/maturin.txt"
+                ]
+                .map(String::from)
+                .to_vec()
+            ),
+            (
+                xtask::Program::Cargo,
+                [
+                    "install",
+                    "--quiet",
+                    "--locked",
+                    "--version",
+                    "0.9.3",
+                    "--features",
+                    "cli",
+                    "--root",
+                    "/w/about",
+                    "cargo-about"
+                ]
+                .map(String::from)
+                .to_vec()
+            ),
+        ]
+    );
+}
+
+#[test]
+fn the_maturin_requirement_pins_pyproject_maturin_by_both_mac_hashes() {
+    let root = tree(
+        "maturin-requirement",
+        &[(
+            "pyproject.toml",
+            "[build-system]\nrequires = [\"maturin==1.9.6\"]\n",
+        )],
+    );
+    let line = xtask::maturin_requirement(&root).unwrap();
+    assert_eq!(
+        line,
+        "maturin==1.9.6 --hash=sha256:5263dda3f71feef2e4122baf5c4620e4b3710dbb7f2121f85a337182de214369 \
+         --hash=sha256:fe78262c2800c92f67d1ce3c0f6463f958a692cc67bfb572e5dbf5b4b696a8ba\n"
+    );
+}
+
+#[test]
+fn the_about_plan_generates_the_notices_with_its_config_in_the_source() {
+    let step = xtask::about_plan(
+        Path::new("/w/src/target-about.toml"),
+        OsStr::new("/w/about/bin"),
+        Path::new("/w/src"),
+    );
+    assert_eq!(step.program, xtask::Program::CargoAbout);
+    assert_eq!(
+        words(&step),
+        [
+            "generate",
+            "--locked",
+            "--fail",
+            "--config",
+            "/w/src/target-about.toml",
+            "--output-file",
+            "THIRD-PARTY-NOTICES",
+            "container/about.hbs"
+        ]
+    );
+    assert_eq!(step.var("PATH").as_deref(), Some("/w/about/bin"));
+    assert_eq!(step.dir.as_deref(), Some(Path::new("/w/src")));
+}
+
+/// A maturin build of `target` with fixed paths.
+fn maturin(target: &str) -> Result<xtask::Invocation, String> {
+    let pairs = [(PathBuf::from("/w/my src"), "/src")];
+    xtask::maturin_plan(&xtask::Build {
+        target,
+        src: Path::new("/w/src"),
+        dist: Path::new("/w/dist"),
+        cargo_dir: Path::new("/w/cargo"),
+        commit: "abc",
+        cargo: OsStr::new("/bin/cargo"),
+        path: OsStr::new("/w/tools/bin"),
+        pairs: &pairs,
+    })
+}
+
+#[test]
+fn the_maturin_plan_builds_the_mac_target_locked_at_its_deployment_floor() {
+    let step = maturin("aarch64-apple-darwin").unwrap();
+    assert_eq!(step.program, xtask::Program::Maturin);
+    assert_eq!(
+        words(&step),
+        [
+            "build",
+            "--release",
+            "--locked",
+            "--target",
+            "aarch64-apple-darwin",
+            "--out",
+            "/w/dist"
+        ]
+    );
+    for (key, value) in [
+        ("MACOSX_DEPLOYMENT_TARGET", "12.0"),
+        ("ORBITAR_COMMIT", "abc"),
+        ("SOURCE_DATE_EPOCH", "1767225600"),
+        ("CARGO", "/bin/cargo"),
+        ("CARGO_TARGET_DIR", "/w/cargo"),
+        (
+            "CARGO_ENCODED_RUSTFLAGS",
+            "--remap-path-prefix=/w/my src=/src\x1f-Clink-arg=-Wl,-S",
+        ),
+        (
+            "CFLAGS_aarch64_apple_darwin",
+            "'-ffile-prefix-map=/w/my src=/src'",
+        ),
+        ("CC_SHELL_ESCAPED_FLAGS", "1"),
+        ("PATH", "/w/tools/bin"),
+    ] {
+        assert_eq!(step.var(key).as_deref(), Some(value), "{key}");
+    }
+    assert_eq!(step.unset, [OsStr::new("RUSTFLAGS")]);
+    assert_eq!(step.dir.as_deref(), Some(Path::new("/w/src")));
+}
+
+#[test]
+fn the_maturin_plan_refuses_a_target_that_is_no_mac_platform() {
+    let refused = maturin("x86_64-unknown-linux-gnu").unwrap_err();
+    assert!(refused.contains("no Mac platform"), "{refused}");
+}
+
+#[test]
+fn the_data_plan_installs_the_engine_alone_stages_and_builds_offline() {
+    let plan = xtask::data_plan(
+        Path::new("/w"),
+        Path::new("/py/bin/python3.12"),
+        Path::new("/w/dist/orbitar.whl"),
+    );
+    let got: Vec<Vec<String>> = plan.iter().map(|(_, s)| words(s)).collect();
+    assert_eq!(
+        got,
+        [
+            [
+                "venv",
+                "--quiet",
+                "--python",
+                "/py/bin/python3.12",
+                "/w/fetch"
+            ]
+            .map(String::from)
+            .to_vec(),
+            [
+                "pip",
+                "install",
+                "--quiet",
+                "--no-deps",
+                "--python",
+                "/w/fetch/bin/python",
+                "/w/dist/orbitar.whl"
+            ]
+            .map(String::from)
+            .to_vec(),
+            [
+                "run",
+                "--no-project",
+                "--quiet",
+                "--python",
+                "/w/fetch/bin/python",
+                "--",
+                "python",
+                "-I",
+                "/w/src/packages/orbitar-jth/stage.py",
+                "/w/fetched",
+            ]
+            .map(String::from)
+            .to_vec(),
+            [
+                "build",
+                "--quiet",
+                "--offline",
+                "--no-cache",
+                "--wheel",
+                "--out-dir",
+                "/w/dist"
+            ]
+            .map(String::from)
+            .to_vec(),
+        ]
+    );
+    assert_eq!(
+        plan[3].1.dir.as_deref(),
+        Some(Path::new("/w/src/packages/orbitar-jth"))
+    );
+}
+
+#[test]
+fn the_floor_plan_resolves_wheels_only_at_the_exact_python_and_the_deployment_floor() {
+    let step = xtask::floor_plan("aarch64-apple-darwin", Path::new("/w/floor.txt")).unwrap();
+    assert_eq!(
+        words(&step),
+        [
+            "pip",
+            "compile",
+            "--quiet",
+            "--no-header",
+            "--only-binary",
+            ":all:",
+            "--python-version",
+            "3.12.16",
+            "--python-platform",
+            "aarch64-apple-darwin",
+            "/w/floor.txt",
+        ]
+    );
+    assert_eq!(
+        step.var("MACOSX_DEPLOYMENT_TARGET").as_deref(),
+        Some("12.0")
+    );
+    assert!(xtask::floor_plan("x86_64-unknown-linux-gnu", Path::new("/w/floor.txt")).is_err());
+}
+
+#[test]
+fn the_venv_plans_run_python_isolated_in_the_venv() {
+    let metadata = words(&xtask::metadata_plan(Path::new("/w/venv/bin/python")));
+    assert_eq!(
+        metadata[..8],
+        [
+            "run",
+            "--no-project",
+            "--quiet",
+            "--python",
+            "/w/venv/bin/python",
+            "--",
+            "python",
+            "-I"
+        ]
+    );
+    assert_eq!(
+        metadata.last().map(String::as_str),
+        Some("[\"orbitar\",\"orbitar-jth\"]")
+    );
+    let readme = xtask::readme_plan(
+        Path::new("/w/venv/bin/python"),
+        "print(1)",
+        Path::new("/w/ase"),
+    );
+    assert_eq!(
+        words(&readme),
+        [
+            "run",
+            "--no-project",
+            "--quiet",
+            "--python",
+            "/w/venv/bin/python",
+            "--",
+            "python",
+            "-I",
+            "-c",
+            "print(1)"
+        ]
+    );
+    assert_eq!(readme.dir.as_deref(), Some(Path::new("/w/ase")));
 }

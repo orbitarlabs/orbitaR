@@ -7,13 +7,14 @@ exclude_re = [
   # prints (stdout trims it), in the order the lever needs. The package workflow (.github/workflows/package.yml) runs
   # them; every decision on their output is a pure function with seeded tests (install_verdict, image_verdict, baked,
   # readme_lines, contents, named, stamped; xtask/tests/release.rs, xtask/tests/reproduce.rs). Both forms: `replace <fn> -> …` and `… in <fn>`.
-  "^xtask/src/release\\.rs:.*(replace (build|build_wheel|venv_run|install|fill|readme_tests|observe_image|prove_wheel|prove_images|stdout) -> | in (build|build_wheel|venv_run|install|fill|readme_tests|observe_image|prove_wheel|prove_images|stdout)$)",
-  # The Mac lever's subprocess plumbing (xtask/src/release/mac.rs): `build`, `data_wheel`, `tools`, `prove`, and the
-  # Host steps only start uv, cargo, cargo-about, maturin, Python, or a lever and hand back what it gave; the package
-  # workflow's mac-wheel job runs them. Every decision is elsewhere with seeded tests (xtask/tests/release/mac.rs):
-  # the proof's order and stops (`proof` on stand-in steps), `pair_verdict`, `ase_verdict`, `remaps`, `c_flags`,
-  # `one_wheel`, `tracked`, `clear`, the pins, `about_config`, and release.rs's checks.
-  "^xtask/src/release/mac\\.rs:.*(replace (<impl Steps for Host<'_>>::(build|check|floor|install|readme|tests)|build|data_wheel|tools|prove) -> | in (<impl Steps for Host<'_>>::(build|check|floor|install|readme|tests)|build|data_wheel|tools|prove)$)",
+  "^xtask/src/release\\.rs:.*(replace (build|build_wheel|venv_run|install|fill|execute|readme_tests|observe_image|prove_wheel|prove_images|stdout) -> | in (build|build_wheel|venv_run|install|fill|execute|readme_tests|observe_image|prove_wheel|prove_images|stdout)$)",
+  # The Mac lever's process execution (xtask/src/release/mac.rs): `prove`, `tool_path`, `Host::run`, and the Host
+  # steps only run the invocations that the plan functions return, in order, and read what they print; the package
+  # workflow's mac-wheel job runs them. Every argument, environment variable, and package policy is in a plan function
+  # (`python_plan`, `tools_plan`, `about_plan`, `maturin_plan`, `data_plan`, `floor_plan`, `metadata_plan`,
+  # `readme_plan`, and release.rs `install_plan`), and every decision on what the steps return is in `proof`,
+  # `pair_verdict`, `ase_verdict`, or release.rs's checks, each with seeded tests (xtask/tests/release/mac.rs).
+  "^xtask/src/release/mac\\.rs:.*(replace (<impl Steps for Host<'_>>::(build|check|floor|install|readme|tests)|<impl Host<'_>>::run|prove|tool_path) -> | in (<impl Steps for Host<'_>>::(build|check|floor|install|readme|tests)|<impl Host<'_>>::run|prove|tool_path)$)",
   "^xtask/src/reproduce\\.rs:.*(replace twice -> | in twice$)",
   # `how` is read only inside `head != base && …`, where head < base and head <= base agree.
   "^xtask/src/version\\.rs:.*replace < with <= in check$",

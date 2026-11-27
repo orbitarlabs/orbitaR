@@ -66,7 +66,8 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.7"
-          python-version: "3.12.16"
+          enable-cache: false
+          save-cache: false
       - run: uname -m
       - run: cargo xtask wheel --target aarch64-apple-darwin
       - run: shasum -a 256 target/wheel-aarch64-apple-darwin/dist/*.whl

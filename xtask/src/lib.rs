@@ -1,12 +1,14 @@
 pub mod harness;
 
 pub use release::mac::{
-    Built, Installed, Steps, about_config, about_pin, ase_verdict, c_flags, clear, maturin_pin,
-    one_wheel, pair_verdict, proof, remaps, tracked,
+    Build, Built, Installed, PYTHON, Steps, about_config, about_pin, about_plan, ase_verdict,
+    c_flags, data_plan, floor_plan, maturin_pin, maturin_plan, maturin_requirement, metadata_plan,
+    one_wheel, pair_verdict, proof, python_plan, readme_plan, remaps, tools_plan, tracked,
 };
 pub use release::{
-    Image, Install, Machine, PAW_SCAN, PAW_SCAN_BYTES, baked, image_verdict, install,
-    install_verdict, machine, readme_lines,
+    Image, Install, Invocation, Machine, PAW_SCAN, PAW_SCAN_BYTES, Program, Wheels, baked, clear,
+    host_paths, image_verdict, in_venv, install, install_plan, install_verdict, machine,
+    readme_lines,
 };
 pub use reproduce::stamp;
 
