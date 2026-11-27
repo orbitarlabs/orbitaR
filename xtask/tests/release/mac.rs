@@ -166,6 +166,20 @@ fn a_mac_engine_that_holds_a_path_under_a_host_root_fails_with_one_finding() {
 }
 
 #[test]
+fn a_mac_engine_finds_each_host_path_of_a_span_once() {
+    let found = mac_engine_holding(
+        "host-two",
+        "/Volumes/first/src/lib.rs /Volumes/second/home/x/src/main.rs",
+    );
+    assert_eq!(
+        found,
+        ["first", "second"].map(|disk| format!(
+            "wheel orbitar-0.1.0.data/scripts/orbitar: `/Volumes/{disk}` is a path on the build host; remap its root (release/mac.rs)"
+        ))
+    );
+}
+
+#[test]
 fn a_mac_engine_that_holds_a_host_path_with_a_non_ascii_component_fails() {
     let found = mac_engine_holding("host-utf8", "/Volumes/\u{c3}\u{a9}tude/src/main.rs");
     assert_eq!(found, host_finding("/Volumes/\u{e9}tude"));
@@ -979,6 +993,8 @@ fn the_data_plan_installs_the_engine_alone_stages_and_builds_offline() {
                 "--offline",
                 "--no-cache",
                 "--wheel",
+                "--python",
+                "/py/bin/python3.12",
                 "--out-dir",
                 "/w/dist"
             ]

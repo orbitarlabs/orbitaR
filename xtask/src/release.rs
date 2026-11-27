@@ -516,7 +516,7 @@ pub fn host_paths(what: &str, spans: &str, build_roots: &[String]) -> Findings {
     let mut paths = BTreeSet::new();
     for span in spans.lines() {
         let lower = span.to_ascii_lowercase();
-        let first = (roots.iter())
+        let mut held: Vec<(usize, usize)> = (roots.iter())
             .flat_map(|(root, anywhere)| {
                 (lower.match_indices(root.as_str())).filter_map(move |(i, _)| {
                     let starts = *anywhere || !span.as_bytes()[..i].last().is_some_and(segment);
@@ -524,9 +524,16 @@ pub fn host_paths(what: &str, spans: &str, build_roots: &[String]) -> Findings {
                     (starts && !component.is_empty()).then(|| (i, i + root.len() + component.len()))
                 })
             })
-            .min();
-        if let Some((start, end)) = first {
-            paths.insert(&span[start..end]);
+            .collect();
+        held.sort_unstable();
+        let mut path_end = 0;
+        for (start, end) in held {
+            if start >= path_end {
+                path_end = span[end..]
+                    .find(|c: char| c.is_ascii_whitespace())
+                    .map_or(span.len(), |n| end + n);
+                paths.insert(&span[start..end]);
+            }
         }
     }
     (paths.into_iter())

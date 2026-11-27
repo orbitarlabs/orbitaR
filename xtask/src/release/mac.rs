@@ -452,8 +452,10 @@ pub fn data_plan(dir: &Path, interpreter: &Path, wheel: &Path) -> Vec<(String, I
             "--offline",
             "--no-cache",
             "--wheel",
-            "--out-dir",
+            "--python",
         ])
+        .arg(interpreter)
+        .arg("--out-dir")
         .arg(dir.join("dist"))
         .dir(&package);
     vec![
