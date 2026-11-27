@@ -635,7 +635,7 @@ fn the_peak_pss_sums_the_processes_that_run_side_by_side_and_counts_shared_pages
     assert!((160e6..185e6).contains(&both), "{both}");
     assert!(peak_rss("engine-pss-rss", &body) < 100e6);
     let light = peak("engine-pss-light", "sleep 0.2", "peak_pss_bytes");
-    assert!(light > 0.0 && light < 5e6, "{light}");
+    assert!(light > 0.0 && light < both / 10.0, "{light} against {both}");
 }
 
 #[test]
