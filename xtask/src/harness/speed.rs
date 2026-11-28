@@ -528,13 +528,11 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
         }
         points.sort_by_key(|p| (p.expected.atoms, p.expected.input));
         let fit = |y: fn(&Point) -> Option<f64>| {
-            let sized: Vec<(NonZeroU64, f64)> = (points.iter())
-                .filter_map(|p| {
-                    let atoms = u64::try_from(p.expected.atoms).ok()?;
-                    Some((NonZeroU64::new(atoms)?, y(p)?))
-                })
+            let sized: Option<Vec<(NonZeroU64, f64)>> = (points.iter())
+                .filter_map(|p| Some((p.expected.atoms, y(p)?)))
+                .map(|(atoms, value)| Some((NonZeroU64::new(u64::try_from(atoms).ok()?)?, value)))
                 .collect();
-            log_log_slope(&sized)
+            sized.map_or(f64::NAN, |sized| log_log_slope(&sized))
         };
         let (t_alpha, pss_alpha) = (fit(|p| p.t_delta_s), fit(|p| p.pss_bytes));
         exponents.insert(format!("{T_DELTA_EXPONENT}_{code}"), t_alpha);
