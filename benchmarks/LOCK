@@ -1,4 +1,4 @@
-# harness reviewer=captain after codex-review3-28-mutants reason=PR 28 on integration-2, merged with main at cf0ae67: a run's guarded peak is the larger of wait4's RSS high-water mark and the Pss samples; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH; card.rs and log_log_slope keep their reviewed arithmetic and rendering, the slope taking atom counts (a fit with a measured point of no atoms stays NaN) and the scaling row search finding orbitaR inside it; tests catch 294 of the 296 mutants that CI's first full mutants run missed, one is gone with the reviewed skip-list rewrite, and one carries a reasoned .cargo/mutants.toml entry
+# harness reviewer=PENDING reason=PR 28 on integration-2, merged with main at cf0ae67: a run's guarded peak is the larger of wait4's RSS high-water mark and the Pss samples; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH; card.rs and log_log_slope keep their reviewed arithmetic and rendering; tests catch the mutants that CI's full mutants runs missed, one is gone with the reviewed skip-list rewrite, one carries a reasoned .cargo/mutants.toml entry, and past_guard judges a measured peak through past_the_guard, whose test pins the guard boundary
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -6,7 +6,7 @@ b131a43552983679750e7571125717a273ef8f0ed15eda3ad30b4ffebb786e3b  xtask/src/benc
 63c431515f06435b087e9e8394726ada53084c1659a00f4948a46c4c99f4fc1b  xtask/src/case.rs
 e3becfebc6a03be1f6d0b8029f114692ffa8d92f69150d99d8e74155f4bdb9aa  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
-9e6c98451bffed8ca84cd836d894096864b9545dc9dfbac96b20c29719203577  xtask/src/harness.rs
+43106365489395546137dd511c34b5f9fd72d91ff698e070ef3d1e449de1ef8c  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 e8cb26daf243b219bb2b0f013a88632212c8a04eb867a085ff067fc7fb5f8086  xtask/src/harness/datasets.rs
 5214916d7f92d82a0423f7a9191cd13a7e2623040eb2e76ae7747968c88b1f52  xtask/src/harness/engine.rs
