@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=tuning-tooling round 2: layout indexes each claim case's source input.toml, inputs/*.toml and replacements/*.toml beside the resolved inputs, so a case dataset table cannot hide a timed cell; layout and the engine's tuning-input test share one rule, a name that ends in .toml, and layout refuses a name with nothing before .toml
+# harness reviewer=captain-after-codex-review3-43 reason=tuning-tooling round 2: layout indexes each claim case's source input.toml, inputs/*.toml and replacements/*.toml beside the resolved inputs, so a case dataset table cannot hide a timed cell; layout and the engine's tuning-input test share one rule, a name that ends in .toml, and layout refuses a name with nothing before .toml
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -491,7 +491,7 @@ b5f49fc91196dc15aa90362317091b94261aff874f65a5911cd177380eec49f3  benchmarks/22_
 08aed7944ed192b105ad96e6ee9833cc64241b7570e38acebea237356c1cc0bd  benchmarks/22_r2scan_derivatives/inputs/gaas-volume-plus.toml
 5e99666c7e5d28d672ce2c7fcf533ce8ffacd76e8d1d1a8246d5ce245232e28d  benchmarks/22_r2scan_derivatives/reference/SOURCE.toml
 03ab7635546450c497ceb4fdf4e8e48bae6ee508341cdaaf187070e5daddad4c  tests/benchmarks/22_r2scan_derivatives/case.rs
-# tuning/mixer reviewer=PENDING reason=tuning-tooling round 1: a tuning input never holds a timed claim input (parsed, so a byte edit does not hide it); the held-out check compares parsed inputs beside raw bytes; every tuning input parses through the engine's own read_spec (tests/io/spec.rs) and layout keeps its structure and [case] checks; slab.py --check compares bytes
+# tuning/mixer reviewer=captain-after-codex-review3-43 reason=tuning-tooling round 1: a tuning input never holds a timed claim input (parsed, so a byte edit does not hide it); the held-out check compares parsed inputs beside raw bytes; every tuning input parses through the engine's own read_spec (tests/io/spec.rs) and layout keeps its structure and [case] checks; slab.py --check compares bytes
 46c1a4d740c9ff8c41253cb0369ecc17d79cb9531f7fd8d8640759a4986b2e78  tuning/mixer/al111_slab.toml
 ec1dce7c93102af1b15af59b1c9e2a3794c328be980b66b40aa8c87a3fe6c4b2  tuning/mixer/mgo001_slab.toml
 53d0dccf7e8c08330b4a94f37a665095fa1592dda4c4677d14e2f3a296497d22  tuning/mixer/slab.py
