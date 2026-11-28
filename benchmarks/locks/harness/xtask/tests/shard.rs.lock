@@ -1,3 +1,3 @@
 sha256 = "203e38334ba1b1ef893c32a4d9ce310b64a126da38a64c386f65b764ea74059f"
-reviewer = "PENDING"
+reviewer = "captain-after-review-1106976"
 reason = "xtask tests: a failed cargo -vV is a finding of check --unit"
