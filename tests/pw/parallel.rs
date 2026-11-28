@@ -1,7 +1,7 @@
 use super::{Parts, bits, entry};
 use orbitar::pw::{
     Mat, Pool, accumulate, c64, per_chunk, per_column, per_point, per_point_with, pool_threads,
-    product, random, times,
+    product, product_tiles, random, times,
 };
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
@@ -519,4 +519,19 @@ fn many_short_parallel_steps_in_a_run_do_not_wait_for_idle_threads_to_stop_looki
         took < Duration::from_millis(500),
         "{took:?} for {steps} steps"
     );
+}
+
+#[test]
+fn a_target_with_few_tall_tiles_takes_the_first_row_height_that_gives_sixteen() {
+    let rows: Vec<(usize, usize)> = (0..8).map(|i| (64 * i, 64)).chain([(512, 88)]).collect();
+    assert_eq!(
+        product_tiles(600, 191, 1000),
+        [rows, vec![(0, 64), (64, 127)]]
+    );
+}
+
+#[test]
+fn eight_row_tiles_stay_apart_while_each_holds_more_than_sixteen_cubed_multiply_adds() {
+    let rows: Vec<(usize, usize)> = (0..11).map(|i| (8 * i, 8)).chain([(88, 12)]).collect();
+    assert_eq!(product_tiles(100, 10, 100), [rows, vec![(0, 10)]]);
 }

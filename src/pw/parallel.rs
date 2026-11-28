@@ -245,7 +245,7 @@ fn spans(length: usize, size: usize) -> Vec<(usize, usize)> {
         .collect()
 }
 
-fn tiles(rows: usize, columns: usize, inner: usize) -> [Vec<(usize, usize)>; 2] {
+pub fn product_tiles(rows: usize, columns: usize, inner: usize) -> [Vec<(usize, usize)>; 2] {
     let shape = |row: usize| {
         let few = rows / row < ENOUGH_TILES;
         let column = if few && columns >= 2 * WIDE {
@@ -292,7 +292,7 @@ where
     if target.nrows() == 0 || target.ncols() == 0 {
         return;
     }
-    let [rows, columns] = tiles(target.nrows(), target.ncols(), a.ncols());
+    let [rows, columns] = product_tiles(target.nrows(), target.ncols(), a.ncols());
     let mut parts = Vec::with_capacity(rows.len() * columns.len());
     let mut below = target;
     for &(row, height) in &rows {
