@@ -380,6 +380,12 @@ fn row(
             "{id} passes without a measure of each bound of its case's [tolerance]"
         ));
     }
+    let claim = match (tier, outcome) {
+        (Tier::Claim, Outcome::Pass) => {
+            Some(claim::read(root, id, case, &record).map_err(|e| format!("{id}: {e}"))?)
+        }
+        _ => None,
+    };
     let mut metrics = Vec::new();
     for (key, limit) in tolerance {
         let (name, bound) = case::bounded(&key).ok_or(format!("{id}: [tolerance].{key}"))?;
@@ -394,12 +400,6 @@ fn row(
         });
     }
     headline(&mut metrics, &whats[&number].metric).map_err(|e| format!("{id}: {e}"))?;
-    let claim = match (tier, outcome) {
-        (Tier::Claim, Outcome::Pass) => {
-            Some(claim::read(root, id, case, &record).map_err(|e| format!("{id}: {e}"))?)
-        }
-        _ => None,
-    };
     Ok(Some(Row {
         number,
         id: id.to_owned(),

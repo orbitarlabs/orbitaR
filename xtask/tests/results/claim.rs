@@ -1,7 +1,9 @@
 use super::{WHAT, cases, commit, read, s11};
 use crate::{Tree, has, lever, write};
 use serde_json::{Value, json};
-use std::path::Path;
+use sha2::{Digest, Sha256};
+use std::{path::Path, time::UNIX_EPOCH};
+use xtask::harness::{Tier, verify};
 
 pub(super) const RECORD: &str = "target/benchmarks/claim/5_e.json";
 const CODES: [&str; 3] = ["orbitar", "qe", "abinit"];
@@ -830,5 +832,117 @@ fn a_schema_5_claim_summary_made_on_one_platform_collects_bit_for_bit_on_another
     assert_eq!(
         refused.as_deref(),
         Some("the record's schema 6 has no summary arithmetic")
+    );
+}
+
+const FROZEN_PLATFORM_G: &str = r#"{"skipped":[],"versus":[{"code":"qe","g":1.0,"g_ci":[1.0,1.0],"g_judged":true,"g_min":1.0,"g_point_min":null,"g_resamples":10000,"g_seed":2316557831640514561,"milestone":"m3","pairs":[{"in_r":true,"input":"input","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[214.3448275862069,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":26.79310344827586,"threads":8},{"in_r":true,"input":"b","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[0.2985842985842986,8.0],"pss_ratio":2.0,"shortest_run_s":1.2985842985842986,"t_ratio":0.03732303732303732,"threads":8},{"in_r":true,"input":"c","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[8.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":1.0,"threads":8},{"in_r":true,"input":"d","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[8.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":1.0,"threads":8},{"in_r":true,"input":"e","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[8.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":1.0,"threads":8},{"in_r":true,"input":"held-out-b","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[8.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":1.0,"threads":8}],"r":2.0,"r_min":1.0},{"code":"abinit","g":2.0,"g_ci":[2.0,2.0],"g_judged":true,"g_min":1.0,"g_point_min":null,"g_resamples":10000,"g_seed":2316557831640514561,"milestone":"m3","pairs":[{"in_r":true,"input":"input","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[16.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":2.0,"threads":8},{"in_r":true,"input":"b","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[16.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":2.0,"threads":8},{"in_r":true,"input":"c","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[16.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":2.0,"threads":8},{"in_r":true,"input":"d","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[16.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":2.0,"threads":8},{"in_r":true,"input":"e","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[16.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":2.0,"threads":8},{"in_r":true,"input":"held-out-b","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[16.0,8.0],"pss_ratio":2.0,"shortest_run_s":9.0,"t_ratio":2.0,"threads":8}],"r":2.0,"r_min":1.0}]}"#;
+
+#[test]
+fn a_schema_5_claim_whose_platform_g_rounds_up_to_one_fails_the_proof_and_the_collector() {
+    let ratios = steady(
+        [
+            26.793_103_448_275_86,
+            0.037_323_037_323_037_32,
+            1.0,
+            1.0,
+            1.0,
+        ],
+        1.0,
+    );
+    let root = claim_cases("claim-pinned-g", &ratios, Claims::Speed);
+    let head = commit(&root, "head");
+    let mut record = measured_record(&head, &ratios);
+    let frozen: Value = serde_json::from_str(FROZEN_PLATFORM_G).unwrap();
+    for key in ["versus", "skipped"] {
+        record[key] = frozen[key].clone();
+    }
+    assert_eq!(
+        (&record["versus"][0]["g"], &record["versus"][0]["g_ci"]),
+        (&json!(1.0), &json!([1.0, 1.0]))
+    );
+    record["schema"] = json!(5);
+    write(&root, RECORD, &record.to_string());
+    let refused = "claim: 5_e: G against qe = 0.9999999999999999 over 6 pairs has a 95% CI [0.9999999999999999, 0.9999999999999999] whose lower bound is not at least 1";
+    let proof = verify(
+        &root,
+        Tier::Claim,
+        &root.join("target/benchmarks/claim"),
+        UNIX_EPOCH,
+        Some("5_e"),
+    );
+    assert!(has(&proof, refused), "{proof:?}");
+    assert!(!has(&proof, "the 95% CI lower bound of its G"), "{proof:?}");
+    let found = collected(&root, &record);
+    assert!(has(&found, refused), "{found:?}");
+    assert!(!root.join("benchmarks/RESULTS.toml").exists());
+}
+
+const PINNED_RSS_EXPONENT: f64 = 1.006_068_782_982_418_4;
+const PLATFORM_RSS_EXPONENT: f64 = 1.006_068_782_982_418_2;
+
+fn sha256(text: &str) -> String {
+    crate::harness::hex(&Sha256::digest(text.as_bytes()))
+}
+
+#[test]
+fn a_schema_5_memory_claim_publishes_only_the_rss_exponent_its_blocks_give_to_the_last_bit() {
+    let root = cases("claim-rss-ulp");
+    let head = commit(&root, "head");
+    solo_memory_case(&root, &head);
+    commit(&root, "solo case");
+    let path = "target/benchmarks/claim/4_d.json";
+    let mut record: Value = serde_json::from_str(&read(&root, path)).unwrap();
+    let d = speed_block(&mut record, "orbitar", "d");
+    d["peak_rss_bytes"] = json!(vec![6_454_071_100_u64; 5]);
+    d["median_peak_rss_bytes"] = json!(6_454_071_100.0);
+    record["schema"] = json!(5);
+    record["metrics"]["rss_exponent"] = json!(PINNED_RSS_EXPONENT);
+    let honest = summed(&root, record);
+    write(&root, path, &honest.to_string());
+    assert_eq!(lever(&["results", "collect"], &root), Vec::<String>::new());
+    assert!(lever(&["results", "render"], &root).is_empty());
+    assert_eq!(s11(&root), Vec::<String>::new());
+    let case = read(&root, "benchmarks/4_d/case.toml");
+    let bound = format!("rss_exponent_max = {PLATFORM_RSS_EXPONENT:?}");
+    write(
+        &root,
+        "benchmarks/4_d/case.toml",
+        &case.replace("rss_exponent_max = 2.0", &bound),
+    );
+    commit(&root, "a bound one ULP under the exponent");
+    let mut tight = honest.clone();
+    tight["tolerance"]["rss_exponent_max"] = json!(PLATFORM_RSS_EXPONENT);
+    let mut forged = tight.clone();
+    forged["metrics"]["rss_exponent"] = json!(PLATFORM_RSS_EXPONENT);
+    let refused = "the record's metrics.rss_exponent is 1.0060687829824182, but its speed blocks give 1.0060687829824184";
+    let results = read(&root, "benchmarks/RESULTS.toml");
+    for (record, why) in [
+        (&tight, "a pass with a metric past its bound"),
+        (&forged, refused),
+    ] {
+        write(&root, path, &record.to_string());
+        let found = lever(&["results", "collect"], &root);
+        assert!(has(&found, why), "{why}: {found:?}");
+        assert_eq!(read(&root, "benchmarks/RESULTS.toml"), results);
+    }
+    let pinned = read(&root, "benchmarks/RECORDS.jsonl");
+    let (was, is) = (honest.to_string(), forged.to_string());
+    write(
+        &root,
+        "benchmarks/RECORDS.jsonl",
+        &pinned.replace(&was, &is),
+    );
+    write(
+        &root,
+        "benchmarks/RESULTS.toml",
+        &results.replace(&sha256(&was), &sha256(&is)),
+    );
+    let found = s11(&root);
+    assert!(
+        has(
+            &found,
+            "4_d: its record in benchmarks/RECORDS.jsonl is refused: "
+        ) && has(&found, refused),
+        "{found:?}"
     );
 }

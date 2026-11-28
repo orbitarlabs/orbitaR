@@ -167,6 +167,16 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
     }
     let outcome = record["outcome"].as_str().unwrap_or("unreadable");
     let filtered = record["filter"].as_array().is_some_and(|f| !f.is_empty());
+    let pinned =
+        (record["schema"].as_u64()).and_then(speed::Logs::of_schema) == Some(speed::Logs::Pinned);
+    if tier == Tier::Claim
+        && outcome == "pass"
+        && !filtered
+        && pinned
+        && let Err(e) = super::replay(root, record)
+    {
+        findings.push(format!("{}: {id}: {e}", tier.name()));
+    }
     if (filtered || candidate) != (outcome == "shard") && ["pass", "shard"].contains(&outcome) {
         findings.push(format!(
             "{}: {id} record says {outcome}, but its filter is {}; only a filtered run or a candidate-table run is a shard",

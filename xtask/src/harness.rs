@@ -1602,7 +1602,8 @@ impl Session {
                         failures.extend(compared.failures);
                     }
                     if case.claims().contains(&Claim::Memory) {
-                        reserved = speed::memory(&blocks, &timed, logs);
+                        let records: Vec<&speed::BlockRecord> = timed.iter().map(|t| &t.record).collect();
+                        reserved = speed::memory(&records, logs);
                         let mut codes = vec![speed::Code::Orbitar];
                         if rivals.is_some() {
                             codes.extend(case.rivals().iter().map(|&r| speed::Code::Rival(r)));
@@ -1625,7 +1626,6 @@ impl Session {
                                 skipped: skipped(code, input),
                             })
                             .collect();
-                        let records: Vec<&speed::BlockRecord> = timed.iter().map(|t| &t.record).collect();
                         let series = speed::series(&records, &expected, logs);
                         trace.series = series.entries;
                         reserved.extend(series.exponents);
@@ -2372,6 +2372,55 @@ pub struct Summaries {
     pub versus: Value,
     pub series: Value,
     pub skipped: Value,
+    pub bounded: Metrics,
+}
+
+pub fn replay(root: &Path, record: &Value) -> Result<Summaries, String> {
+    let made = claim_summaries(root, record)?;
+    for (key, want) in [
+        ("versus", &made.versus),
+        ("skipped", &made.skipped),
+        ("series", &made.series),
+    ] {
+        if record[key] != *want {
+            return Err(differs(key, &record[key], want));
+        }
+    }
+    for (name, value) in &made.bounded {
+        let (got, want) = (&record["metrics"][name], json!(value));
+        if *got != want {
+            return Err(format!(
+                "the record's metrics.{name} is {got}, but its speed blocks give {want}"
+            ));
+        }
+    }
+    Ok(made)
+}
+
+fn differs(key: &str, got: &Value, want: &Value) -> String {
+    let (Some(given), Some(made)) = (got.as_array(), want.as_array()) else {
+        return format!("the record's {key} is {got}, but its speed blocks give {want}");
+    };
+    if given.len() != made.len() {
+        return format!(
+            "the record's {key} holds {} entries, but its speed blocks give {}",
+            given.len(),
+            made.len()
+        );
+    }
+    let Some(i) = (0..made.len()).find(|&i| given[i] != made[i]) else {
+        return format!("the record's {key} is not what its speed blocks give");
+    };
+    let name = made[i]["code"]
+        .as_str()
+        .or(made[i]["input"].as_str())
+        .unwrap_or("");
+    let field = (made[i].as_object().into_iter().flatten())
+        .find(|(k, v)| given[i][k.as_str()] != **v)
+        .map_or_else(String::new, |(k, v)| {
+            format!(": {k} is {}, but they give {v}", given[i][k.as_str()])
+        });
+    format!("the record's {key} for {name} is not what its speed blocks give{field}")
 }
 
 pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String> {
@@ -2483,6 +2532,7 @@ pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String>
     if !compared.failures.is_empty() {
         return Err(compared.failures.join("; "));
     }
+    let mut reserved = Metrics::new();
     let series = match case.claims().contains(&Claim::Memory) {
         false => Value::Null,
         true => {
@@ -2501,13 +2551,21 @@ pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String>
                     },
                 })
                 .collect();
-            speed::series(&records, &expected, logs).entries
+            reserved = speed::memory(&records, logs);
+            let series = speed::series(&records, &expected, logs);
+            reserved.extend(series.exponents);
+            series.entries
         }
     };
+    let bounded = (case.tolerance().keys())
+        .filter_map(|key| crate::case::bounded(key))
+        .filter_map(|(name, _)| Some((name.to_owned(), *reserved.get(name)?)))
+        .collect();
     Ok(Summaries {
         versus: Value::Array(compared.entries),
         series,
         skipped: Value::Array(skipped),
+        bounded,
     })
 }
 

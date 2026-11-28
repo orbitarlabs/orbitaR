@@ -428,15 +428,12 @@ pub(crate) fn time(
     Ok((timed, fatal))
 }
 
-pub(crate) fn memory(blocks: &[Block], timed: &[Timed], logs: Logs) -> Metrics {
-    let rss =
-        |i: usize| (timed[i].record.timing.as_ref()).map_or(f64::NAN, |t| t.median_peak_rss_bytes);
+pub(crate) fn memory(records: &[&BlockRecord], logs: Logs) -> Metrics {
     let mut by_atoms: BTreeMap<usize, f64> = BTreeMap::new();
-    for i in (0..blocks.len())
-        .filter(|&i| blocks[i].rival.is_none() && timed[i].record.refused.is_none())
-    {
-        let worst = by_atoms.entry(blocks[i].atoms).or_insert(rss(i));
-        *worst = super::worst(*worst, rss(i));
+    for r in (records.iter()).filter(|r| r.code == Code::Orbitar && r.refused.is_none()) {
+        let rss = (r.timing.as_ref()).map_or(f64::NAN, |t| t.median_peak_rss_bytes);
+        let worst = by_atoms.entry(r.atoms).or_insert(rss);
+        *worst = super::worst(*worst, rss);
     }
     let mut sizes = by_atoms.iter().rev();
     let exponent = match (sizes.next(), sizes.next()) {

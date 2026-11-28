@@ -123,16 +123,7 @@ pub(super) fn read(root: &Path, id: &str, case: &Case, record: &Value) -> Result
             proof.len()
         ));
     }
-    let made = harness::claim_summaries(root, record)?;
-    for (key, want) in [
-        ("versus", &made.versus),
-        ("skipped", &made.skipped),
-        ("series", &made.series),
-    ] {
-        if record[key] != *want {
-            return Err(differs(key, &record[key], want));
-        }
-    }
+    let made = harness::replay(root, record)?;
     let mut blocks: Vec<BlockRecord> = Vec::new();
     for b in record["speed"].as_array().into_iter().flatten() {
         blocks.push(
@@ -227,32 +218,6 @@ pub(super) fn read(root: &Path, id: &str, case: &Case, record: &Value) -> Result
         claim.package(r.adapter().name())?;
     }
     Ok(claim)
-}
-
-fn differs(key: &str, got: &Value, want: &Value) -> String {
-    let (Some(given), Some(made)) = (got.as_array(), want.as_array()) else {
-        return format!("the record's {key} is {got}, but its speed blocks give {want}");
-    };
-    if given.len() != made.len() {
-        return format!(
-            "the record's {key} holds {} entries, but its speed blocks give {}",
-            given.len(),
-            made.len()
-        );
-    }
-    let Some(i) = (0..made.len()).find(|&i| given[i] != made[i]) else {
-        return format!("the record's {key} is not what its speed blocks give");
-    };
-    let name = made[i]["code"]
-        .as_str()
-        .or(made[i]["input"].as_str())
-        .unwrap_or("");
-    let field = (made[i].as_object().into_iter().flatten())
-        .find(|(k, v)| given[i][k.as_str()] != **v)
-        .map_or_else(String::new, |(k, v)| {
-            format!(": {k} is {}, but they give {v}", given[i][k.as_str()])
-        });
-    format!("the record's {key} for {name} is not what its speed blocks give{field}")
 }
 
 pub(super) fn write(out: &mut String, claim: &Claim) {
