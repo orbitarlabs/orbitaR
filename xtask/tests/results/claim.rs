@@ -877,6 +877,50 @@ fn a_schema_5_claim_whose_platform_g_rounds_up_to_one_fails_the_proof_and_the_co
     assert!(!root.join("benchmarks/RESULTS.toml").exists());
 }
 
+#[test]
+fn a_claim_tier_proof_refuses_a_shard_and_a_filter() {
+    let ratios = steady(
+        [
+            26.793_103_448_275_86,
+            0.037_323_037_323_037_32,
+            1.0,
+            1.0,
+            1.0,
+        ],
+        1.0,
+    );
+    let root = claim_cases("claim-shard", &ratios, Claims::Speed);
+    let head = commit(&root, "head");
+    let mut record = measured_record(&head, &ratios);
+    let frozen: Value = serde_json::from_str(FROZEN_PLATFORM_G).unwrap();
+    for key in ["versus", "skipped"] {
+        record[key] = frozen[key].clone();
+    }
+    record["schema"] = json!(5);
+    for (outcome, filter) in [
+        ("shard", json!(["input"])),
+        ("shard", Value::Null),
+        ("pass", json!(["input"])),
+    ] {
+        record["outcome"] = json!(outcome);
+        record["filter"] = filter.clone();
+        write(&root, RECORD, &record.to_string());
+        let proof = verify(
+            &root,
+            Tier::Claim,
+            &root.join("target/benchmarks/claim"),
+            UNIX_EPOCH,
+            Some("5_e"),
+        );
+        let refused = format!(
+            "claim: 5_e record says {outcome} with the filter {filter}; only the node tier runs a filtered or candidate-table shard"
+        );
+        assert!(has(&proof, &refused), "{proof:?}");
+        assert!(!collected(&root, &record).is_empty());
+    }
+}
+
+const SOLO: &str = "target/benchmarks/claim/4_d.json";
 const PINNED_RSS_EXPONENT: f64 = 1.006_068_782_982_418_4;
 const PLATFORM_RSS_EXPONENT: f64 = 1.006_068_782_982_418_2;
 
@@ -884,65 +928,180 @@ fn sha256(text: &str) -> String {
     crate::harness::hex(&Sha256::digest(text.as_bytes()))
 }
 
-#[test]
-fn a_schema_5_memory_claim_publishes_only_the_rss_exponent_its_blocks_give_to_the_last_bit() {
-    let root = cases("claim-rss-ulp");
+fn solo(name: &str, schema: u64, rss: &[(&str, u64)], exponent: f64) -> (Tree, Value) {
+    let root = cases(name);
     let head = commit(&root, "head");
     solo_memory_case(&root, &head);
     commit(&root, "solo case");
-    let path = "target/benchmarks/claim/4_d.json";
-    let mut record: Value = serde_json::from_str(&read(&root, path)).unwrap();
-    let d = speed_block(&mut record, "orbitar", "d");
-    d["peak_rss_bytes"] = json!(vec![6_454_071_100_u64; 5]);
-    d["median_peak_rss_bytes"] = json!(6_454_071_100.0);
-    record["schema"] = json!(5);
-    record["metrics"]["rss_exponent"] = json!(PINNED_RSS_EXPONENT);
-    let honest = summed(&root, record);
-    write(&root, path, &honest.to_string());
-    assert_eq!(lever(&["results", "collect"], &root), Vec::<String>::new());
-    assert!(lever(&["results", "render"], &root).is_empty());
-    assert_eq!(s11(&root), Vec::<String>::new());
-    let case = read(&root, "benchmarks/4_d/case.toml");
-    let bound = format!("rss_exponent_max = {PLATFORM_RSS_EXPONENT:?}");
-    write(
-        &root,
-        "benchmarks/4_d/case.toml",
-        &case.replace("rss_exponent_max = 2.0", &bound),
-    );
-    commit(&root, "a bound one ULP under the exponent");
-    let mut tight = honest.clone();
-    tight["tolerance"]["rss_exponent_max"] = json!(PLATFORM_RSS_EXPONENT);
-    let mut forged = tight.clone();
-    forged["metrics"]["rss_exponent"] = json!(PLATFORM_RSS_EXPONENT);
-    let refused = "the record's metrics.rss_exponent is 1.0060687829824182, but its speed blocks give 1.0060687829824184";
-    let results = read(&root, "benchmarks/RESULTS.toml");
-    for (record, why) in [
-        (&tight, "a pass with a metric past its bound"),
-        (&forged, refused),
-    ] {
-        write(&root, path, &record.to_string());
-        let found = lever(&["results", "collect"], &root);
-        assert!(has(&found, why), "{why}: {found:?}");
-        assert_eq!(read(&root, "benchmarks/RESULTS.toml"), results);
+    let mut record: Value = serde_json::from_str(&read(&root, SOLO)).unwrap();
+    for &(input, bytes) in rss {
+        let block = speed_block(&mut record, "orbitar", input);
+        block["peak_rss_bytes"] = json!(vec![bytes; 5]);
+        block["median_peak_rss_bytes"] = json!(bytes as f64);
     }
-    let pinned = read(&root, "benchmarks/RECORDS.jsonl");
-    let (was, is) = (honest.to_string(), forged.to_string());
-    write(
-        &root,
-        "benchmarks/RECORDS.jsonl",
-        &pinned.replace(&was, &is),
-    );
-    write(
-        &root,
-        "benchmarks/RESULTS.toml",
-        &results.replace(&sha256(&was), &sha256(&is)),
-    );
-    let found = s11(&root);
+    record["schema"] = json!(schema);
+    record["metrics"]["rss_exponent"] = json!(exponent);
+    let record = summed(&root, record);
+    write(&root, SOLO, &record.to_string());
+    (root, record)
+}
+
+fn solo_proof(root: &Tree) -> Vec<String> {
+    let dir = root.join("target/benchmarks/claim");
+    verify(root, Tier::Claim, &dir, UNIX_EPOCH, Some("4_d"))
+}
+
+fn bound(root: &Tree, record: &mut Value, key: &str, limit: f64) {
+    let case = read(root, "benchmarks/4_d/case.toml");
+    let line = format!("{key} = {limit:?}\n");
+    let case = match case.find(&format!("{key} = ")) {
+        Some(at) => {
+            let end = at + case[at..].find('\n').unwrap() + 1;
+            format!("{}{line}{}", &case[..at], &case[end..])
+        }
+        None => format!("{case}{line}"),
+    };
+    write(root, "benchmarks/4_d/case.toml", &case);
+    commit(root, key);
+    record["tolerance"][key] = json!(limit);
+}
+
+fn kept_row_refused(root: &Tree, was: &Value, is: &Value, run: &str) -> Vec<String> {
+    let (was, is) = (was.to_string(), is.to_string());
+    let pinned = read(root, "benchmarks/RECORDS.jsonl");
+    write(root, "benchmarks/RECORDS.jsonl", &pinned.replace(&was, &is));
+    let mut results = (read(root, "benchmarks/RESULTS.toml"))
+        .replace(&sha256(&was), &sha256(&is))
+        .replace("run = \"claim\"", &format!("run = \"{run}\""));
+    if run != "claim" {
+        let table = ["\n[case.claim", "\n[[case.claim"].map(|header| results.find(header));
+        results.truncate(table.into_iter().flatten().min().unwrap() + 1);
+    }
+    write(root, "benchmarks/RESULTS.toml", &results);
+    let found = s11(root);
     assert!(
         has(
             &found,
             "4_d: its record in benchmarks/RECORDS.jsonl is refused: "
-        ) && has(&found, refused),
+        ),
         "{found:?}"
     );
+    found
+}
+
+fn boundary(name: &str) -> (Tree, Value, Value) {
+    let (root, honest) = solo(name, 5, &[("d", 6_454_071_100)], PINNED_RSS_EXPONENT);
+    assert_eq!(lever(&["results", "collect"], &root), Vec::<String>::new());
+    assert!(lever(&["results", "render"], &root).is_empty());
+    assert_eq!(s11(&root), Vec::<String>::new());
+    let mut forged = honest.clone();
+    bound(
+        &root,
+        &mut forged,
+        "rss_exponent_max",
+        PLATFORM_RSS_EXPONENT,
+    );
+    forged["metrics"]["rss_exponent"] = json!(PLATFORM_RSS_EXPONENT);
+    (root, honest, forged)
+}
+
+#[test]
+fn a_schema_5_memory_claim_publishes_only_the_rss_exponent_its_blocks_give_to_the_last_bit() {
+    let (root, honest, forged) = boundary("claim-rss-ulp");
+    let mut tight = forged.clone();
+    tight["metrics"]["rss_exponent"] = json!(PINNED_RSS_EXPONENT);
+    let refused = "the record's metrics.rss_exponent is 1.0060687829824182, but its speed blocks give 1.0060687829824184";
+    let results = read(&root, "benchmarks/RESULTS.toml");
+    for (record, why) in [
+        (
+            &tight,
+            "its speed blocks fail the case's reserved bounds: rss_exponent = 1.0060687829824184e0 > 1.0060687829824182e0",
+        ),
+        (&forged, refused),
+    ] {
+        write(&root, SOLO, &record.to_string());
+        let found = lever(&["results", "collect"], &root);
+        assert!(has(&found, why), "{why}: {found:?}");
+        assert!(has(&solo_proof(&root), why), "{why}");
+        assert_eq!(read(&root, "benchmarks/RESULTS.toml"), results);
+    }
+    assert!(has(
+        &kept_row_refused(&root, &honest, &forged, "claim"),
+        refused
+    ));
+}
+
+#[test]
+fn a_claim_case_record_under_a_lower_run_tier_is_refused_before_any_replay() {
+    let (root, honest, mut forged) = boundary("claim-under-push");
+    forged["tier"] = json!("push");
+    std::fs::remove_file(root.join(SOLO)).unwrap();
+    write(
+        &root,
+        "target/benchmarks/push/4_d.json",
+        &forged.to_string(),
+    );
+    let refused = "4_d is a claim case, which a push run does not cover";
+    let found = lever(&["results", "collect"], &root);
+    assert!(has(&found, refused), "{found:?}");
+    assert!(has(
+        &kept_row_refused(&root, &honest, &forged, "push"),
+        refused
+    ));
+}
+
+#[test]
+fn a_schema_5_pass_with_a_reserved_bound_its_blocks_cannot_give_is_refused() {
+    let (root, honest) = solo("claim-no-series", 5, &[], 1.0);
+    assert_eq!(lever(&["results", "collect"], &root), Vec::<String>::new());
+    let mut forged = honest.clone();
+    bound(&root, &mut forged, "pss_exponent_qe_max", 0.5);
+    forged["metrics"]["pss_exponent_qe"] = json!(0.25);
+    write(&root, SOLO, &forged.to_string());
+    let refused = "metric pss_exponent_qe missing for [tolerance].pss_exponent_qe_max";
+    assert!(has(&lever(&["results", "collect"], &root), refused));
+    assert!(has(&solo_proof(&root), refused));
+    assert!(has(
+        &kept_row_refused(&root, &honest, &forged, "claim"),
+        refused
+    ));
+}
+
+#[test]
+fn a_schema_4_memory_claim_from_either_mac_architecture_still_collects() {
+    for (n, bits) in [0x3f50_5e6d_4cea_8c81_u64, 0x3f50_5e6d_4cea_8c80]
+        .into_iter()
+        .enumerate()
+    {
+        let exponent = f64::from_bits(bits);
+        let (root, record) = solo(
+            &format!("claim-schema-4-arch-{n}"),
+            4,
+            &[("c", 1_600_000_000), ("d", 1_602_217_556)],
+            exponent,
+        );
+        let read: Value = serde_json::from_str(&record.to_string()).unwrap();
+        assert_eq!(
+            read["metrics"]["rss_exponent"].as_f64().map(f64::to_bits),
+            Some(bits)
+        );
+        assert_eq!(lever(&["results", "collect"], &root), Vec::<String>::new());
+    }
+}
+
+#[test]
+fn a_schema_5_replay_tells_a_negative_zero_from_a_positive_one() {
+    let rss = [("c", 6_400_000_000), ("d", 6_400_000_000)];
+    let (root, honest) = solo("claim-signed-zero", 5, &rss, 0.0);
+    assert_eq!(lever(&["results", "collect"], &root), Vec::<String>::new());
+    let mut forged = honest.clone();
+    forged["metrics"]["rss_exponent"] = json!(-0.0);
+    write(&root, SOLO, &forged.to_string());
+    let refused = "the record's metrics.rss_exponent is -0.0, but its speed blocks give 0.0";
+    assert!(has(&lever(&["results", "collect"], &root), refused));
+    assert!(has(&solo_proof(&root), refused));
+    assert!(has(
+        &kept_row_refused(&root, &honest, &forged, "claim"),
+        refused
+    ));
 }

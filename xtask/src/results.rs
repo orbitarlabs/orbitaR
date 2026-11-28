@@ -321,6 +321,13 @@ fn row(
             tier.name()
         ));
     }
+    if !tier.includes(case.tier()) {
+        return Err(format!(
+            "{id} is a {} case, which a {} run does not cover",
+            case.tier().name(),
+            tier.name()
+        ));
+    }
     let hex = |s: &str, n: usize| s.len() == n && s.bytes().all(|b| b.is_ascii_hexdigit());
     let commit = record["commit"].as_str().unwrap_or("");
     if !hex(commit, 40) {

@@ -167,6 +167,13 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
     }
     let outcome = record["outcome"].as_str().unwrap_or("unreadable");
     let filtered = record["filter"].as_array().is_some_and(|f| !f.is_empty());
+    if tier == Tier::Claim && (outcome == "shard" || filtered) {
+        findings.push(format!(
+            "{}: {id} record says {outcome} with the filter {}; only the node tier runs a filtered or candidate-table shard",
+            tier.name(),
+            record["filter"]
+        ));
+    }
     let pinned =
         (record["schema"].as_u64()).and_then(speed::Logs::of_schema) == Some(speed::Logs::Pinned);
     if tier == Tier::Claim

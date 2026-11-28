@@ -2373,31 +2373,52 @@ pub struct Summaries {
     pub series: Value,
     pub skipped: Value,
     pub bounded: Metrics,
+    pub judged: Vec<String>,
 }
 
 pub fn replay(root: &Path, record: &Value) -> Result<Summaries, String> {
     let made = claim_summaries(root, record)?;
+    let pinned =
+        (record["schema"].as_u64()).and_then(speed::Logs::of_schema) == Some(speed::Logs::Pinned);
+    let same = if pinned { same_text } else { same_value };
     for (key, want) in [
         ("versus", &made.versus),
         ("skipped", &made.skipped),
         ("series", &made.series),
     ] {
-        if record[key] != *want {
-            return Err(differs(key, &record[key], want));
+        if !same(&record[key], want) {
+            return Err(differs(key, &record[key], want, same));
         }
+    }
+    if !pinned {
+        return Ok(made);
     }
     for (name, value) in &made.bounded {
         let (got, want) = (&record["metrics"][name], json!(value));
-        if *got != want {
+        if !same_text(got, &want) {
             return Err(format!(
                 "the record's metrics.{name} is {got}, but its speed blocks give {want}"
             ));
         }
     }
+    if !made.judged.is_empty() {
+        return Err(format!(
+            "its speed blocks fail the case's reserved bounds: {}",
+            made.judged.join("; ")
+        ));
+    }
     Ok(made)
 }
 
-fn differs(key: &str, got: &Value, want: &Value) -> String {
+fn same_value(got: &Value, want: &Value) -> bool {
+    got == want
+}
+
+fn same_text(got: &Value, want: &Value) -> bool {
+    serde_json::to_string(got).ok() == serde_json::to_string(want).ok()
+}
+
+fn differs(key: &str, got: &Value, want: &Value, same: fn(&Value, &Value) -> bool) -> String {
     let (Some(given), Some(made)) = (got.as_array(), want.as_array()) else {
         return format!("the record's {key} is {got}, but its speed blocks give {want}");
     };
@@ -2408,7 +2429,7 @@ fn differs(key: &str, got: &Value, want: &Value) -> String {
             made.len()
         );
     }
-    let Some(i) = (0..made.len()).find(|&i| given[i] != made[i]) else {
+    let Some(i) = (0..made.len()).find(|&i| !same(&given[i], &made[i])) else {
         return format!("the record's {key} is not what its speed blocks give");
     };
     let name = made[i]["code"]
@@ -2416,7 +2437,7 @@ fn differs(key: &str, got: &Value, want: &Value) -> String {
         .or(made[i]["input"].as_str())
         .unwrap_or("");
     let field = (made[i].as_object().into_iter().flatten())
-        .find(|(k, v)| given[i][k.as_str()] != **v)
+        .find(|(k, v)| !same(&given[i][k.as_str()], v))
         .map_or_else(String::new, |(k, v)| {
             format!(": {k} is {}, but they give {v}", given[i][k.as_str()])
         });
@@ -2557,7 +2578,11 @@ pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String>
             series.entries
         }
     };
-    let bounded = (case.tolerance().keys())
+    let bounds: BTreeMap<String, f64> = (case.tolerance().iter())
+        .filter(|(key, _)| crate::case::is_reserved(key))
+        .map(|(key, limit)| (key.clone(), *limit))
+        .collect();
+    let bounded = (bounds.keys())
         .filter_map(|key| crate::case::bounded(key))
         .filter_map(|(name, _)| Some((name.to_owned(), *reserved.get(name)?)))
         .collect();
@@ -2566,6 +2591,7 @@ pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String>
         series,
         skipped: Value::Array(skipped),
         bounded,
+        judged: record::judge(&bounds, &reserved),
     })
 }
 
