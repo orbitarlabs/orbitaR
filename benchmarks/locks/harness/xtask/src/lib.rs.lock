@@ -1,3 +1,3 @@
-sha256 = "87399a4b6a4b0539a2fa416b323baa2eead844da39b49d92d37dad713270634f"
-reviewer = "captain"
-reason = "merge of integration-2 63f8cda: lock-split's help line and integration-2's hunks are disjoint (captain checked)"
+sha256 = "e3a047521e7950c263cfb641412a132852643d8c5fc6538db9e2a2648439123a"
+reviewer = "PENDING"
+reason = "Merge integration-2 at 1e9485b into the per-file lock after the metadata and release checks changed."
