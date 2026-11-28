@@ -450,7 +450,11 @@ fn tuning_inputs_the_engine_refuses(tuning: &std::path::Path) -> Vec<String> {
     let mut refused = Vec::new();
     for setting in listed(tuning) {
         let inputs = listed(&setting).into_iter();
-        for file in inputs.filter(|p| p.extension().is_some_and(|x| x == "toml")) {
+        let toml = |p: &std::path::PathBuf| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().ends_with(".toml"))
+        };
+        for file in inputs.filter(toml) {
             if let Err(e) = read_spec(&std::fs::read_to_string(&file).unwrap()) {
                 let name = file.strip_prefix(tuning).unwrap().display().to_string();
                 refused.push(format!("{name}: {e}"));
@@ -473,6 +477,7 @@ fn a_tuning_input_with_a_two_number_lattice_row_or_no_basis_is_one_that_the_engi
     let root = super::run::directory(
         "tuning-refused",
         &[
+            ("mixer/.toml", no_basis.clone()),
             ("mixer/cell.toml", TUNING_CELL.to_owned()),
             ("mixer/no_basis.toml", no_basis),
             ("mixer/short_row.toml", short_row),
@@ -486,7 +491,7 @@ fn a_tuning_input_with_a_two_number_lattice_row_or_no_basis_is_one_that_the_engi
         .collect();
     assert_eq!(
         names,
-        ["mixer/no_basis.toml", "mixer/short_row.toml"],
+        ["mixer/.toml", "mixer/no_basis.toml", "mixer/short_row.toml"],
         "{refused:?}"
     );
 }

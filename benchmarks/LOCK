@@ -1,4 +1,4 @@
-# harness reviewer=PENDING reason=tuning-tooling round 1: a tuning input never holds a timed claim input (parsed, so a byte edit does not hide it); the held-out check compares parsed inputs beside raw bytes; every tuning input parses through the engine's own read_spec (tests/io/spec.rs) and layout keeps its structure and [case] checks; slab.py --check compares bytes
+# harness reviewer=PENDING reason=tuning-tooling round 2: layout indexes each claim case's source input.toml, inputs/*.toml and replacements/*.toml beside the resolved inputs, so a case dataset table cannot hide a timed cell; layout and the engine's tuning-input test share one rule, a name that ends in .toml, and layout refuses a name with nothing before .toml
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -18,7 +18,7 @@ c2b08a66c21dbf30aff36c1fbe641120f5964eea9a1ef373481abb8728f8c1cb  xtask/src/harn
 f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harness/rival/qe.rs
 ec4c980211c7243e37508ee3af8f242b298661ef4684a599f4ba93559a607b76  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
-15a16c20074884b494d996f50164754253ae4eb2d2bdee5e3ce5cd7b95b0a0d3  xtask/src/layout.rs
+6f1052f6955f5e9c646fadbdc18df32f992afe03f6c2c244339c134d1c90026c  xtask/src/layout.rs
 d7768397efdd07b5dcf41e79b461da61d4de0d1844a3e61c33ba7c01a95a4861  xtask/src/lib.rs
 87feca350f509f58d4886ac74095ca0fff5915093df2a9bec354c5ff2970cbcd  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
@@ -59,7 +59,7 @@ ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/ha
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
 164a2198a3f120433365858b1c3a6d291e7c89919c818ed73444cd9e8c409898  xtask/tests/harness/speed.rs
 33467b75f6e238946868cd25d6d62922bbb10c6d99ee156bab47117d798cbae5  xtask/tests/layers.rs
-a2e6b8235d17e92fce7e090cb90b4acbe52096c3c0dbdf1916ce8fc93e9fb0fc  xtask/tests/layout.rs
+7fe3be015bd1524ee6db9589071a628c0de4c0a6dd4c7c41bea82a288ef92b36  xtask/tests/layout.rs
 933c6330d7d6ff1bf6d6ab6c39ae0ac94039b853ddfa6736edf39a8179891d26  xtask/tests/lib.rs
 4d8e13aeda15882bbaf3a43b00b94ac5f0adcffba25088ebeb3d34e038748b7a  xtask/tests/lock.rs
 0861973ee38c653fad11c1fc4616d892e83660b4a72b38b77ac224a0083176c4  xtask/tests/main.rs

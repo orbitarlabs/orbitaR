@@ -110,23 +110,29 @@ fn timed_claim_inputs(root: &Path, findings: &mut Findings) -> Vec<(String, toml
             continue;
         }
         let dir = root.join("benchmarks").join(&id);
-        let inputs = match crate::harness::inputs(root, &dir, None) {
+        let resolved = match crate::harness::inputs(root, &dir, None) {
             Ok((named, _)) => named,
             Err(e) => {
                 findings.push(format!("layout: benchmarks/{id}: {e}"));
-                continue;
+                Vec::new()
             }
         };
-        let replacements = (walk::files(root, &format!("benchmarks/{id}/{REPLACEMENTS_DIR}"))
-            .into_iter())
-        .filter(|f| f.ends_with(TUNING_INPUT))
-        .map(|f| {
-            let text = walk::read(root, &f);
-            (f, text)
-        });
-        let named = (inputs.into_iter())
+        let sources = [case::INPUT_FILE, case::INPUTS_DIR, REPLACEMENTS_DIR];
+        let source = |f: &String| {
+            (sources.iter()).any(|s| {
+                let at = format!("benchmarks/{id}/{s}");
+                *f == at || (f.starts_with(&format!("{at}/")) && f.ends_with(TUNING_INPUT))
+            })
+        };
+        let files = (walk::files(root, &format!("benchmarks/{id}")).into_iter())
+            .filter(source)
+            .map(|f| {
+                let text = walk::read(root, &f);
+                (f, text)
+            });
+        let named = (resolved.into_iter())
             .map(|(name, text)| (format!("benchmarks/{id} input {name}"), text));
-        for (label, text) in named.chain(replacements) {
+        for (label, text) in named.chain(files) {
             if let Ok(table) = toml::from_str::<toml::Table>(&text) {
                 timed.push((label, table));
             }
@@ -151,7 +157,9 @@ fn tuning(root: &Path, findings: &mut Findings) {
     }
     for file in walk::files(root, TUNING) {
         let kind = match file.split('/').collect::<Vec<_>>().as_slice() {
-            [_, setting, name] if name.ends_with(TUNING_INPUT) => {
+            [_, setting, name]
+                if name.ends_with(TUNING_INPUT) && name.len() > TUNING_INPUT.len() =>
+            {
                 let text = walk::read(root, &file);
                 if let Err(e) = engine_input(&text) {
                     findings.push(format!("layout: {file} is no engine input: {e}"));

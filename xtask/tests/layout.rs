@@ -572,3 +572,63 @@ fn a_tuning_input_that_holds_a_timed_claim_input_is_refused_and_an_in_case_tunin
         }
     }
 }
+
+#[test]
+fn a_tuning_file_named_only_toml_is_no_tuning_input() {
+    let root = tree(
+        "layout-tuning-bare",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/own.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    write(&root, "tuning/mixer/.toml", CELL);
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer/.toml is neither tuning/<setting>/<input>.toml"
+    ));
+}
+
+#[test]
+fn a_copy_of_a_tabled_claim_input_is_refused_in_its_source_and_its_resolved_form() {
+    let claim = "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"correctness\"]\nreference = \"analytic\"\nrivals = [\"qe\", \"abinit\"]\n\n[tolerance]\nerror_max = 1e-12\n";
+    let repository = |path: &str| {
+        std::fs::read_to_string(format!("{}/../{path}", env!("CARGO_MANIFEST_DIR"))).unwrap()
+    };
+    let source = CELL.replace("5.0, 0.0, 0.0", "5.5, 0.0, 0.0");
+    let root = tree(
+        "layout-tuning-tabled",
+        &[
+            ("benchmarks/1_a/case.toml", claim),
+            ("benchmarks/1_a/input.toml", &source),
+            (
+                "benchmarks/1_a/table.toml",
+                "[element]\nSi = { file = \"si.xml\", sha256 = \"0\", cutoff_hint_ha = 5.0 }\n",
+            ),
+            ("benchmarks/1_a/si.xml", "0.5"),
+            ("benchmarks/ACWF.toml", &repository("benchmarks/ACWF.toml")),
+            (
+                "datasets/jth-2.0.toml",
+                &repository("datasets/jth-2.0.toml"),
+            ),
+            ("tuning/mixer/own.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let resolved = format!("{source}\n[datasets]\nfiles = {{ Si = \"si.xml\" }}\n");
+    for (body, what) in [
+        (source.clone(), "benchmarks/1_a/input.toml"),
+        (resolved, "benchmarks/1_a input input"),
+    ] {
+        write(&root, "tuning/mixer/copy.toml", &body);
+        let found = lever(&["layout"], &root);
+        assert!(
+            has(
+                &found,
+                &format!("tuning/mixer/copy.toml holds the input of {what}, a timed claim cell")
+            ),
+            "{what}: {found:?}"
+        );
+    }
+}
