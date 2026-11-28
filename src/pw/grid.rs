@@ -1,6 +1,7 @@
 use super::Basis;
 use super::parallel::{per_chunk, per_point, per_point_with};
 use crate::model::Cell;
+use compensated_summation::KahanBabuskaNeumaier;
 use rustfft::{Fft, FftPlanner, num_complex::Complex64};
 use std::sync::Arc;
 
@@ -182,6 +183,13 @@ impl Grid {
             }
             sum
         })
+    }
+
+    pub fn integral(&self, values: impl ExactSizeIterator<Item = f64>) -> f64 {
+        let n = self.len();
+        assert_eq!(values.len(), n, "one value per grid point");
+        let element = self.cell.volume() / n as f64;
+        values.sum::<KahanBabuskaNeumaier<f64>>().total() * element
     }
 
     pub fn synthesized(

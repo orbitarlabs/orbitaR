@@ -23,6 +23,58 @@ fn density(grid: &Grid, scale: f64) -> Vec<f64> {
 }
 
 #[test]
+fn a_uniform_density_gives_one_energy_on_eight_points_and_on_ninety_thousand_to_the_last_bits() {
+    let energy = |cutoff_ha: f64| {
+        let grid = Grid::coarse(grid().cell(), cutoff_ha);
+        let rho = vec![0.0123; grid.points().len()];
+        (
+            grid.points().len(),
+            exchange_correlation(&grid, Functional::Lda, Spins::Unpolarized(&rho), None, None)
+                .energy_ha,
+        )
+    };
+    let ((few, coarse), (many, fine)) = (energy(0.01), energy(40.0));
+    assert_eq!(few, 8);
+    assert!(many > 90_000, "{many} points");
+    assert!(
+        ((fine - coarse) / coarse).abs() < 8.0 * f64::EPSILON,
+        "{fine} against {coarse}"
+    );
+}
+
+#[test]
+fn a_repeat_of_sixty_four_cells_has_sixty_four_times_the_xc_energy_within_case_12s_bound() {
+    let a = 10.337;
+    let fcc = |scale: f64| {
+        let h = 0.5 * a * scale;
+        Cell::try_from([[0.0, h, h], [h, 0.0, h], [h, h, 0.0]]).unwrap()
+    };
+    let (one, many) = (Grid::coarse(&fcc(1.0), 20.0), Grid::coarse(&fcc(4.0), 20.0));
+    assert_eq!((one.dims(), many.dims()), ([30; 3], [120; 3]));
+    let rho: Vec<f64> = (one.points().iter())
+        .map(|f| {
+            0.6 + 0.2 * (TAU * (f[0] + f[1])).cos() + 0.1 * (TAU * (2.0 * f[2] - f[0]) + 0.3).sin()
+        })
+        .collect();
+    let tiled: Vec<f64> = (0..120 * 120 * 120)
+        .map(|i| {
+            let (i1, i2, i3) = (i / 14_400 % 30, i / 120 % 120 % 30, i % 120 % 30);
+            rho[(i1 * 30 + i2) * 30 + i3]
+        })
+        .collect();
+    let energy = |grid: &Grid, rho: &[f64]| {
+        exchange_correlation(grid, Functional::Lda, Spins::Unpolarized(rho), None, None).energy_ha
+    };
+    let (cell, repeat) = (energy(&one, &rho), energy(&many, &tiled));
+    assert!(cell < -80.0, "{cell} Ha per cell");
+    let gap = (repeat / 64.0 - cell).abs();
+    assert!(
+        gap < 1e-11,
+        "{gap:e} Ha per cell between {repeat} / 64 and {cell}"
+    );
+}
+
+#[test]
 fn a_uniform_density_gives_volume_times_the_energy_density_and_a_flat_potential() {
     let grid = grid();
     let n = grid.points().len();
@@ -245,7 +297,7 @@ fn an_lda_grid_is_the_point_entry_at_each_point_bit_for_bit() {
         };
         let xc = exchange_correlation(&grid, Functional::Lda, spins, Some(&core), None);
         let last = channels.len() - 1;
-        let mut energy = 0.0;
+        let mut energies = Vec::with_capacity(n);
         for r in 0..n {
             let (e, vrho) = if polarized {
                 let p = Point::of(channels[0][r], channels[last][r], [0.0; 3]);
@@ -258,14 +310,30 @@ fn an_lda_grid_is_the_point_entry_at_each_point_bit_for_bit() {
                 let [x, c] = unpolarized(Functional::Lda, 2.0 * channels[0][r], 0.0, None);
                 (x.energy + c.energy, vec![x.vrho + c.vrho])
             };
-            energy += e;
+            energies.push(e);
             for (s, v) in xc.potential.iter().enumerate() {
                 assert_eq!(v[r].to_bits(), vrho[s].to_bits(), "point {r}");
             }
         }
-        let want = energy * grid.cell().volume() / n as f64;
-        assert_eq!(xc.energy_ha.to_bits(), want.to_bits());
+        let want = exact_sum(&energies) * (grid.cell().volume() / n as f64);
+        assert!(
+            ((xc.energy_ha - want) / want).abs() < 4.0 * f64::EPSILON,
+            "{} against {want}",
+            xc.energy_ha
+        );
     }
+}
+
+fn exact_sum(values: &[f64]) -> f64 {
+    let scale = 2.0_f64.powi(100);
+    let total: i128 = (values.iter())
+        .map(|&v| {
+            let scaled = v * scale;
+            assert_eq!(scaled.fract(), 0.0, "{v} holds bits below 2^-100");
+            scaled as i128
+        })
+        .sum();
+    total as f64 / scale
 }
 
 fn strained(t: f64) -> (Grid, [[f64; 3]; 3]) {
