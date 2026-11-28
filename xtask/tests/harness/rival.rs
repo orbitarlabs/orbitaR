@@ -9,6 +9,18 @@ use std::os::unix::fs::PermissionsExt;
 use xtask::Env;
 use xtask::harness::{Outcome, Session, Tier};
 
+macro_rules! clocked {
+    ($body:literal) => {
+        concat!(
+            "s=$(perl -MTime::HiRes=time -e 'printf \"%.3f\", time')\n",
+            "clock() { perl -MTime::HiRes=time -e \"printf '%.3f', ${2:-1} * (time - $s - ${1:-0})\"; }\n",
+            $body
+        )
+    };
+}
+
+pub(crate) const CLOCK: &str = clocked!("");
+
 mod abinit;
 mod qe;
 
@@ -16,8 +28,12 @@ pub(crate) const RIVALS: &str = "calibration_cells = [\"benchmarks/1_a/input.tom
 pub(crate) const TUNED: &str = "[qe.cutoff_ha]\nAl = 10.0\nSi = 10.0\n\n[qe.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 1, threads = 8 }\n\n[abinit.cutoff_ha]\nAl = 10.0\nSi = 10.0\n\n[abinit]\nvolume_scale = 0.94\n\n[abinit.calibration]\n\"benchmarks/1_a/input.toml\" = [[10.0, 1e-6, 0.0, 2e-6, 0.0], [13.0, 1e-6, 0.0, 2e-6, 0.0]]\n\n[abinit.layout]\n1 = { ranks = 1, threads = 1 }\n2 = { ranks = 1, threads = 2 }\n4 = { ranks = 1, threads = 4 }\n8 = { ranks = 1, threads = 8 }\n";
 pub(crate) const CASE: &str = "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"correctness\"]\nreference = \"analytic\"\nrivals = [\"qe\", \"abinit\"]\n\n[tolerance]\nerror_max = 1e-12\n";
 pub(crate) const INPUT: &str = "schema = 1\n\n[structure]\ncell_bohr = [[0.0, 5.0, 5.0], [5.0, 0.0, 5.0], [5.0, 5.0, 0.0]]\nspecies = [\"Si\"]\npositions_fractional = [[0.0, 0.0, 0.25]]\n\n[basis]\ncutoff_ha = 1.0\n\n[kpoints]\nmesh = [2, 2, 2]\nshift = [0.5, 0.5, 0.5]\nsymmetry = false\n\n[occupations]\nsmearing = \"fermi-dirac\"\nwidth_ha = 0.01\n\n[scf]\nenergy_tolerance_ha = 0.001\n\n[bands]\ncount = 8\n";
-pub(crate) const PW: &str = "t=${t:-0.1}; e=${e:--4.0}\necho '     Program PWSCF v.7.5 starts on 31Oct2026'\nsleep $t\necho \"     total cpu time spent up to now is        $t secs\"\necho \"     total energy              =     $e Ry\"\necho \"!    total energy              =     $e Ry\"\necho \"     PWSCF        :      0.01s CPU      ${t}s WALL\"";
-pub(crate) const ABINIT: &str = "t=${t:-0.1}; e=${e:--2.0}\necho ' ABINIT 10.0.3'\nsleep $t\necho \" ETOT  1  $e    -2.000E+00 1.0E-04 1.0E+00\"\necho \"{SCF_istep: 1 , Vnl|psi>: 437 , wall_time: '  $t [s] '} <<< TIME\"\necho \" Proc.   0 individual time (sec): cpu=          $t  wall=          $t\"\necho 'overall_wall_time:          14.2'";
+pub(crate) const PW: &str = clocked!(
+    "t=${t:-0.1}; e=${e:--4.0}\necho '     Program PWSCF v.7.5 starts on 31Oct2026'\nsleep $t\necho \"     total cpu time spent up to now is        $t secs\"\necho \"     total energy              =     $e Ry\"\necho \"!    total energy              =     $e Ry\"\necho \"     PWSCF        :      0.01s CPU      $(clock)s WALL\""
+);
+pub(crate) const ABINIT: &str = clocked!(
+    "t=${t:-0.1}; e=${e:--2.0}\necho ' ABINIT 10.0.3'\nsleep $t\necho \" ETOT  1  $e    -2.000E+00 1.0E-04 1.0E+00\"\necho \"{SCF_istep: 1 , Vnl|psi>: 437 , wall_time: '  $t [s] '} <<< TIME\"\necho \" Proc.   0 individual time (sec): cpu=          $t  wall=          $(clock)\"\necho 'overall_wall_time:          14.2'"
+);
 
 const JTH_SI: &str = "<atom Z=\"14.00\" valence=\"4.00\"/>";
 const JTH_AL: &str = "<atom Z=\"13.00\" valence=\"3.00\"/>";
@@ -702,18 +718,22 @@ fn a_short_run_whose_lines_all_arrive_at_its_end_loses_by_its_own_clock() {
 
 #[test]
 fn step_lines_that_arrive_in_one_block_lose_by_each_steps_own_clock() {
-    let block = "echo ' ABINIT 10.0.3'\nsleep 0.9\n\
+    let block = clocked!(
+        "echo ' ABINIT 10.0.3'\nsleep 0.9\n\
         for k in 1 2 3; do echo \" ETOT  $k  -2.0    -2.000E+00 1.0E-04 1.0E+00\"; echo \"{SCF_istep: $k , Vnl|psi>: 437 , wall_time: '  0.30 [s] '} <<< TIME\"; done\n\
-        echo ' Proc.   0 individual time (sec): cpu=          0.9  wall=          0.9'";
+        echo \" Proc.   0 individual time (sec): cpu=          0.9  wall=          $(clock)\""
+    );
     let loss = first_loss("rival-block", PW, block, "abinit");
     assert!(
         loss.contains("abinit: its step 2 arrived 0.0")
             && loss.contains("but its own clock gives 0.300 s: its output buffers"),
         "{loss}"
     );
-    let pw = "echo '     Program PWSCF v.7.5 starts'\nsleep 0.6\n\
+    let pw = clocked!(
+        "echo '     Program PWSCF v.7.5 starts'\nsleep 0.6\n\
         for c in 0.3 0.6; do echo \"     total cpu time spent up to now is        $c secs\"; echo '     total energy              =     -4.0 Ry'; done\n\
-        echo '     PWSCF        :      0.60s CPU      0.60s WALL'";
+        echo \"     PWSCF        :      0.60s CPU      $(clock)s WALL\""
+    );
     let loss = first_loss("rival-block-qe", pw, ABINIT, "qe");
     assert!(
         loss.contains("qe: its step 2 arrived 0.0") && loss.contains("own clock gives 0.300 s"),
@@ -723,40 +743,53 @@ fn step_lines_that_arrive_in_one_block_lose_by_each_steps_own_clock() {
 
 #[test]
 fn a_step_that_arrives_later_than_its_own_clock_is_no_buffering() {
-    let abinit = "echo ' ABINIT 10.0.3'\n\
+    let abinit = clocked!(
+        "echo ' ABINIT 10.0.3'\n\
         for k in 1 2 3; do sleep 0.5; echo \" ETOT  $k  -2.0    -2.000E+00 1.0E-04 1.0E+00\"; echo \"{SCF_istep: $k , Vnl|psi>: 437 , wall_time: '  0.30 [s] '} <<< TIME\"; done\n\
-        echo ' Proc.   0 individual time (sec): cpu=          1.5  wall=          1.5'";
+        echo \" Proc.   0 individual time (sec): cpu=          1.5  wall=          $(clock)\""
+    );
     assert_eq!(first_loss("rival-late", PW, abinit, "abinit"), "");
 }
 
 #[test]
 fn a_step_that_arrives_within_its_share_of_its_own_clock_is_no_buffering() {
-    let abinit = "echo ' ABINIT 10.0.3'\nsleep 0.3\n\
+    let abinit = clocked!(
+        "echo ' ABINIT 10.0.3'\nsleep 0.3\n\
         echo ' ETOT  1  -2.0    -2.000E+00 1.0E-04 1.0E+00'\necho \"{SCF_istep: 1 , Vnl|psi>: 437 , wall_time: '  0.30 [s] '} <<< TIME\"\n\
         sleep 0.469\necho ' ETOT  2  -2.0    -2.000E+00 1.0E-04 1.0E+00'\necho \"{SCF_istep: 2 , Vnl|psi>: 437 , wall_time: '  0.58 [s] '} <<< TIME\"\n\
         sleep 0.5\necho ' ETOT  3  -2.0    -2.000E+00 1.0E-04 1.0E+00'\necho \"{SCF_istep: 3 , Vnl|psi>: 437 , wall_time: '  1.00 [s] '} <<< TIME\"\n\
-        echo ' Proc.   0 individual time (sec): cpu=          1.27  wall=          1.27'";
+        echo \" Proc.   0 individual time (sec): cpu=          1.27  wall=          $(clock)\""
+    );
     assert_eq!(first_loss("rival-share", PW, abinit, "abinit"), "");
 }
 
 #[test]
 fn a_step_that_arrives_sooner_than_its_share_of_its_own_clock_loses() {
-    let abinit = "echo ' ABINIT 10.0.3'\n\
-        for k in 1 2; do sleep 0.2; echo \" ETOT  $k  -2.0    -2.000E+00 1.0E-04 1.0E+00\"; echo \"{SCF_istep: $k , Vnl|psi>: 437 , wall_time: '  0.60 [s] '} <<< TIME\"; done\n\
-        echo ' Proc.   0 individual time (sec): cpu=          0.4  wall=          0.4'";
-    let loss = first_loss("rival-soon", PW, abinit, "abinit");
-    assert!(
-        loss.contains("abinit: its step 2 arrived 0.2")
-            && loss.contains("but its own clock gives 0.600 s"),
-        "{loss}"
+    let abinit = clocked!(
+        "echo ' ABINIT 10.0.3'\np=$(clock)\n\
+        for k in 1 2; do sleep 0.2; echo \" ETOT  $k  -2.0    -2.000E+00 1.0E-04 1.0E+00\"; echo \"{SCF_istep: $k , Vnl|psi>: 437 , wall_time: '  $(clock $p 10) [s] '} <<< TIME\"; p=$(clock); done\n\
+        echo \" Proc.   0 individual time (sec): cpu=          0.4  wall=          $(clock)\""
     );
+    let loss = first_loss("rival-soon", PW, abinit, "abinit");
+    let (gap, took) = (loss.split_once("abinit: its step 2 arrived "))
+        .and_then(|(_, rest)| rest.split_once(" s after the one before, but its own clock gives "))
+        .and_then(|(gap, rest)| {
+            Some((
+                gap.parse::<f64>().ok()?,
+                rest.split_once(" s:")?.0.parse::<f64>().ok()?,
+            ))
+        })
+        .unwrap_or_else(|| panic!("{loss}"));
+    assert!(gap >= 0.2 - 0.05 && took >= 10.0 * (0.2 - 0.05), "{loss}");
 }
 
 #[test]
 fn steps_that_arrive_as_their_own_clock_says_pass() {
-    let abinit = "echo ' ABINIT 10.0.3'\n\
+    let abinit = clocked!(
+        "echo ' ABINIT 10.0.3'\n\
         for k in 1 2 3; do sleep 0.3; echo \" ETOT  $k  -2.0    -2.000E+00 1.0E-04 1.0E+00\"; echo \"{SCF_istep: $k , Vnl|psi>: 437 , wall_time: '  0.30 [s] '} <<< TIME\"; echo \"{GS_kpoint: 1 , wall_time: '  9.99 [s] '} <<< TIME\"; done\n\
-        echo ' Proc.   0 individual time (sec): cpu=          0.9  wall=          0.9'";
+        echo \" Proc.   0 individual time (sec): cpu=          0.9  wall=          $(clock)\""
+    );
     assert_eq!(first_loss("rival-steps", PW, abinit, "abinit"), "");
 }
 
@@ -1620,7 +1653,7 @@ fn a_stop_floor_whose_tenfold_passes_the_e_ref_bound_stops_the_claim_by_name() {
 
 #[test]
 fn a_long_run_may_differ_from_its_own_clock_by_its_share() {
-    let pw = PW.replace("${t}s WALL", "3.185s WALL");
+    let pw = PW.replace("$(clock)s WALL", "$(clock -0.185)s WALL");
     let one = INPUT
         .replace("mesh = [2, 2, 2]", "mesh = [1, 1, 1]")
         .replace("shift = [0.5, 0.5, 0.5]\n", "");
@@ -2217,4 +2250,61 @@ fn a_fold_equivalent_repeat_takes_its_accuracy_from_its_cases_anchor_row_alone()
         ),
         "{record}"
     );
+}
+
+fn abinit_lines(gap: f64, own: f64, span: f64) -> Vec<(f64, String)> {
+    let step = |k: u32, at: f64| {
+        [
+            (
+                at,
+                format!(" ETOT  {k}  -2.0    -2.000E+00 1.0E-04 1.0E+00"),
+            ),
+            (
+                at,
+                format!("{{SCF_istep: {k} , Vnl|psi>: 437 , wall_time: '  0.60 [s] '}} <<< TIME"),
+            ),
+        ]
+    };
+    let mut lines = vec![(0.0, " ABINIT 10.0.3".to_owned())];
+    lines.extend(step(1, 0.1));
+    lines.extend(step(2, 0.1 + gap));
+    lines.push((
+        span,
+        format!(" Proc.   0 individual time (sec): cpu=          {own}  wall=          {own}"),
+    ));
+    lines
+}
+
+#[test]
+fn a_step_loses_exactly_when_it_arrives_sooner_than_half_its_own_clock_less_fifty_ms() {
+    use xtask::harness::{Rival, clocks_agree};
+    assert_eq!(
+        clocks_agree(Rival::Abinit, &abinit_lines(0.24, 1.0, 1.0)),
+        Err("its step 2 arrived 0.240 s after the one before, but its own clock gives 0.600 s: its output buffers".to_owned())
+    );
+    assert_eq!(
+        clocks_agree(Rival::Abinit, &abinit_lines(0.26, 1.0, 1.0)),
+        Ok(())
+    );
+}
+
+#[test]
+fn a_run_loses_exactly_when_its_lines_span_differs_from_its_own_clock_past_its_slack_and_share() {
+    use xtask::harness::{Rival, clocks_agree};
+    for span in [1.169, 0.831] {
+        assert_eq!(
+            clocks_agree(Rival::Abinit, &abinit_lines(0.5, 1.0, span)),
+            Ok(()),
+            "{span}"
+        );
+    }
+    for (span, text) in [(1.171, "1.171"), (0.829, "0.829")] {
+        assert_eq!(
+            clocks_agree(Rival::Abinit, &abinit_lines(0.5, 1.0, span)),
+            Err(format!(
+                "its lines span {text} s, but its own clock reads 1.000 s: its output buffers"
+            )),
+            "{span}"
+        );
+    }
 }

@@ -1137,7 +1137,7 @@ fn agreed(code: Rival, run: Run, clocks: Clocks, cap: Option<usize>) -> Result<R
             };
         }
     }
-    match (clocked(code, &run), clocks) {
+    match (clocks_agree(code, &run.lines), clocks) {
         (Ok(()), _) => Ok(run),
         (Err(why), Clocks::Loss) => lost(why),
         (Err(why), Clocks::Warning) => {
@@ -1147,12 +1147,12 @@ fn agreed(code: Rival, run: Run, clocks: Clocks, cap: Option<usize>) -> Result<R
     }
 }
 
-fn clocked(code: Rival, run: &Run) -> Result<(), String> {
-    let first = run.lines.first().map_or(0.0, |(at, _)| *at);
+pub fn clocks_agree(code: Rival, lines: &[(f64, String)]) -> Result<(), String> {
+    let first = lines.first().map_or(0.0, |(at, _)| *at);
     let (mut own, mut since) = (None, None);
     let mut steps: Vec<(f64, Option<f64>)> = Vec::new();
     let mut previous: Option<f64> = None;
-    for (at, line) in &run.lines {
+    for (at, line) in lines {
         match code.adapter().clock(line.trim()) {
             Some(Clock::Run(seconds)) => own = own.or(Some((*at, seconds))),
             Some(Clock::Since(seconds)) => since = Some(seconds),

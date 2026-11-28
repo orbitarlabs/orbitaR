@@ -321,7 +321,7 @@ fn time_one(
     Ok(runs)
 }
 
-fn compared(base: &str, times: [Vec<f64>; 2]) -> String {
+pub fn compared(base: &str, times: [Vec<f64>; 2]) -> String {
     let spread = |s: &[f64]| {
         let lowest = s.iter().copied().fold(f64::INFINITY, f64::min);
         let highest = s.iter().copied().fold(f64::NEG_INFINITY, f64::max);

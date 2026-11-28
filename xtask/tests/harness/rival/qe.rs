@@ -60,8 +60,8 @@ fn a_qe_dataset_with_other_valence_electrons_than_jths_loses_each_run() {
 
 #[test]
 fn qe_clocks_of_minutes_and_hours_read_in_seconds() {
-    for (clock, agrees) in [("0.10s", true), (" 1m 5.00s", false), (" 1h 2m", false)] {
-        let pw = PW.replace("${t}s WALL", &format!("{clock} WALL"));
+    for (clock, agrees) in [("$(clock)s", true), (" 1m 5.00s", false), (" 1h 2m", false)] {
+        let pw = PW.replace("$(clock)s WALL", &format!("{clock} WALL"));
         let root = rivals_tree("rival-clock", INPUT, TUNED, &pw, ABINIT);
         let (_, record) = claim(&root, true);
         let b = blocks(&record, "qe")[0];

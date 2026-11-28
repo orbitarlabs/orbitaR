@@ -11,6 +11,7 @@ pub(crate) mod speed;
 pub use crate::case::Tier;
 pub use datasets::agree;
 pub use engine::{SHIM, end_group, polled, shim};
+pub use rival::{Rival, clocks_agree};
 
 use crate::case::{Case, Claim, Status};
 use libtest_mimic::{Arguments, Failed, Trial};

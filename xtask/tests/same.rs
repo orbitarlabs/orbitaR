@@ -542,23 +542,33 @@ fn summary_lines(name: &str, sleep_s: [&str; 2], tags: [&str; 2]) -> Vec<String>
 
 const SLOW: &str = "1.0";
 
+fn medians_apart_by_half(part: &str, slower: &str, gap: f64) {
+    let n = numbers(part);
+    let [base, here] = [n[0], n[3]];
+    let (slow, fast) = if slower == "base" {
+        (base, here)
+    } else {
+        (here, base)
+    };
+    assert!(slow - fast >= gap / 2.0, "{part}");
+}
+
+fn wall(line: &str) -> &str {
+    let first = line.split("; ").next().unwrap();
+    first.split_once(": wall ").unwrap().1
+}
+
 #[test]
 fn a_slower_base_is_reported_apart() {
     for line in summary_lines("same-apart-base", [SLOW, "0"], ["a", "a"]) {
-        assert!(
-            line.split("; ").next().unwrap().ends_with("ranges apart"),
-            "{line}"
-        );
+        medians_apart_by_half(wall(&line), "base", 1.0);
     }
 }
 
 #[test]
 fn a_slower_here_is_reported_apart() {
     for line in summary_lines("same-apart-here", ["0", SLOW], ["a", "a"]) {
-        assert!(
-            line.split("; ").next().unwrap().ends_with("ranges apart"),
-            "{line}"
-        );
+        medians_apart_by_half(wall(&line), "here", 1.0);
     }
 }
 
@@ -745,7 +755,7 @@ const LATE: Steps = &[(false, "-9.0"), (true, "-9.5"), (true, "-10.0")];
 fn a_base_that_settles_later_has_its_t_delta_range_apart() {
     let (_, parts) = stepped("same-t-delta-base", [LATE, EARLY]);
     for part in parts {
-        assert!(part.ends_with("ranges apart"), "{part}");
+        medians_apart_by_half(&part, "base", 2.0 * GAP);
     }
 }
 
@@ -753,7 +763,7 @@ fn a_base_that_settles_later_has_its_t_delta_range_apart() {
 fn a_here_that_settles_later_has_its_t_delta_range_apart() {
     let (_, parts) = stepped("same-t-delta-here", [EARLY, LATE]);
     for part in parts {
-        assert!(part.ends_with("ranges apart"), "{part}");
+        medians_apart_by_half(&part, "here", 2.0 * GAP);
     }
 }
 
@@ -994,4 +1004,21 @@ fn claim_cutoff_needs_time() {
     let f = xtask::run(&["same", "--base", "HEAD", "--claim-cutoff"], &root, &env);
     assert!(has(&f, "required arguments were not provided"), "{f:?}");
     assert!(!root.join("builds.log").exists());
+}
+
+#[test]
+fn ranges_are_apart_exactly_when_one_engines_slowest_run_is_faster_than_the_others_fastest() {
+    let slow = vec![1.2, 1.0, 1.4, 1.1, 1.3];
+    let fast = vec![0.3, 0.5, 0.1, 0.2, 0.4];
+    assert_eq!(
+        xtask::same::compared("HEAD", [slow.clone(), fast.clone()]),
+        "HEAD 1.200 s (1.000–1.400), here 0.300 s (0.100–0.500), here/base 0.250, ranges apart"
+    );
+    assert!(xtask::same::compared("HEAD", [fast.clone(), slow.clone()]).ends_with("ranges apart"));
+    let late = vec![0.3, 0.5, 0.1, 0.2, 1.05];
+    for pair in [[slow.clone(), late.clone()], [late, slow.clone()]] {
+        assert!(xtask::same::compared("HEAD", pair).ends_with("ranges overlap"));
+    }
+    let touching = vec![0.3, 0.5, 0.1, 0.2, 1.0];
+    assert!(xtask::same::compared("HEAD", [slow, touching]).ends_with("ranges overlap"));
 }
