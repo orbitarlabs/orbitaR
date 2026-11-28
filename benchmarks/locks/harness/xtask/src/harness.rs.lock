@@ -1,3 +1,3 @@
-sha256 = "729534a6cd9b045b363c17b8fcb03a43583b64715a38fe25fe65502b96875429"
-reviewer = "captain after codex-review3-31-35"
-reason = "merge of lock-split 53f4c42 into ci-speed: the file holds both sides' changes"
+sha256 = "a56ba530b8a79a2c188bb810ffb57290f029b5ea3128d13f255d2bfeddbca70b"
+reviewer = "PENDING"
+reason = "merge of lock-split d996701 into ci-speed: the file holds both sides' changes"

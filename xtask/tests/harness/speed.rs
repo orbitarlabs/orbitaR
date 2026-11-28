@@ -614,11 +614,14 @@ fn a_memory_claim_records_each_codes_medians_per_size_and_their_least_squares_ex
         ("median_peak_pss_bytes", "pss_exponent"),
         ("median_t_delta_s", "t_delta_exponent"),
     ] {
-        let xy: Vec<(f64, f64)> = (points.iter())
-            .filter_map(|p| Some(((p["atoms"].as_f64().unwrap()).ln(), p[key].as_f64()?.ln())))
+        let sized: Vec<(std::num::NonZeroU64, f64)> = (points.iter())
+            .filter_map(|p| {
+                let atoms = std::num::NonZeroU64::new(p["atoms"].as_u64().unwrap()).unwrap();
+                Some((atoms, p[key].as_f64()?))
+            })
             .collect();
         let (expected, alpha) = (
-            xtask::harness::log_log_slope(&xy),
+            xtask::harness::log_log_slope(&sized),
             &record["metrics"][format!("{metric}_orbitar")],
         );
         match expected.is_finite() {
@@ -722,17 +725,30 @@ fn a_single_k_point_size_holds_one_solve_in_flight_so_a_size_on_two_k_points_dou
 }
 
 #[test]
-fn a_spin_polarized_size_holds_a_solve_in_flight_per_spin() {
-    let spin = |atoms: usize| {
-        let moments = vec!["1.0"; atoms].join(", ");
-        format!("{}\n[spin]\nmoments = [{moments}]\n", chain(atoms))
-    };
+fn a_spin_polarized_size_holds_twice_the_solves_in_flight_of_an_unpolarized_one() {
+    let polarized = format!("{}\n[spin]\nmoments = [1.0, 1.0]\n", chain(2));
     assert!(refused_by_estimate(
         "speed-spin-solves",
-        &spin(1),
-        &spin(2),
-        120e6
+        &chain(1),
+        &polarized,
+        200e6
     ));
+}
+
+#[test]
+fn a_size_whose_peak_estimate_equals_the_guard_passes_it_and_one_byte_more_does_not() {
+    use xtask::harness::{PEAK_PSS_GUARD_BYTES, Peak, estimated_peak, past_the_guard};
+    let four = Peak {
+        atoms: 4,
+        in_flight: 1,
+        bytes: 8.96e9,
+    };
+    let estimate = estimated_peak(&[four], 5, 1).unwrap();
+    assert_eq!(estimate, 14_000_000_000.0);
+    assert_eq!(PEAK_PSS_GUARD_BYTES, 14_000_000_000.0);
+    assert!(!past_the_guard(estimate, PEAK_PSS_GUARD_BYTES));
+    assert!(past_the_guard(estimate + 1.0, PEAK_PSS_GUARD_BYTES));
+    assert!(!past_the_guard(13_671_875.0 * 1024.0, PEAK_PSS_GUARD_BYTES));
 }
 
 #[test]
@@ -780,15 +796,17 @@ fn a_measured_peak_past_the_guard_stops_every_later_launch_of_its_block() {
 
 #[test]
 fn the_least_squares_slope_weighs_every_point_and_needs_two_sizes() {
+    use std::num::NonZeroU64;
     use xtask::harness::log_log_slope;
-    let power: Vec<(f64, f64)> = [2.0_f64, 8.0, 16.0, 32.0]
+    let at = |atoms: u64, y: f64| (NonZeroU64::new(atoms).unwrap(), y);
+    let power: Vec<(NonZeroU64, f64)> = [2_u64, 8, 16, 32]
         .iter()
-        .map(|&x| (x.ln(), (3.0 * x.powf(1.7)).ln()))
+        .map(|&n| at(n, 3.0 * (n as f64).powf(1.7)))
         .collect();
     assert!((log_log_slope(&power) - 1.7).abs() < 1e-12);
-    assert!((log_log_slope(&[(0.0, 0.0), (1.0, 2.0), (3.0, 3.0)]) - 39.0 / 42.0).abs() < 1e-12);
-    assert!(log_log_slope(&[(1.0, 2.0), (1.0, 3.0)]).is_nan());
-    assert!(log_log_slope(&[(0.0, 0.0), (1e-200, 1.0)]).is_nan());
+    let bent = [at(1, 1.0), at(2, 4.0), at(8, 8.0)];
+    assert!((log_log_slope(&bent) - 39.0 / 42.0).abs() < 1e-12);
+    assert!(log_log_slope(&[at(2, 2.0), at(2, 3.0)]).is_nan());
     assert!(log_log_slope(&[]).is_nan());
 }
 
