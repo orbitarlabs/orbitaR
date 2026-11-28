@@ -1,3 +1,3 @@
 sha256 = "816a06f1c6d462443015e08038f795a6bb2b420a195d246e33cb489170f9a16c"
-reviewer = "PENDING"
+reviewer = "captain-after-review-1106976"
 reason = "merge of ci-speed into mutants-size: the file holds both sides' tests"
