@@ -105,6 +105,9 @@ exclude_re = [
   "replace >= with < in block_rows$",
   # A block_rows that returns 0 or 1 for either value gives one row block: the whole product.
   "replace block_rows -> \\(usize, usize\\) with",
+  # Past `&&`, a 0 × n or n × 0 target gets one empty tile, and faer's matmul returns at M == 0 || N == 0 before any
+  # read or write (tests/pw/parallel.rs an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size).
+  "^src/pw/parallel\\.rs:.*replace \\|\\| with && in product$",
   # The busy retry runs only when a fork in another thread races the fresh copy; no test can time that race.
   " in spawn$",
   # pool decides only which threads solve the bands, never what a solve computes, and each result lands at its index:

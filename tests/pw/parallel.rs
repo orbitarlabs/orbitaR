@@ -291,6 +291,45 @@ fn an_empty_target_stays_empty_and_an_empty_inner_dimension_zeroes_the_target() 
 }
 
 #[test]
+fn an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size() {
+    within(|| {
+        an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size_in::<c64>();
+        an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size_in::<f64>();
+    });
+}
+
+fn an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size_in<T: Parts>() {
+    let pool = Pool::try_from(4).unwrap();
+    let shapes = [(0, 0), (0, 1), (0, 64), (0, 300), (1, 0), (64, 0), (300, 0)];
+    for (rows, columns) in shapes {
+        for inner in [0, 1, 17, 300, 4097, 20_000] {
+            let (a, b) = (random::<T>(rows, inner, 3), random::<T>(inner, columns, 4));
+            let mut around = Mat::from_fn(rows + 2, columns + 2, |i, j| {
+                entry::<T>((7 * i + j) as f64 + 0.5, 1.0)
+            });
+            let before = bits(around.as_ref());
+            product(
+                around.as_mut().submatrix_mut(1, 1, rows, columns),
+                a.as_ref(),
+                b.as_ref(),
+            );
+            pool.run(|| {
+                product(
+                    around.as_mut().submatrix_mut(1, 1, rows, columns),
+                    a.as_ref(),
+                    b.as_ref(),
+                )
+            });
+            assert_eq!(
+                bits(around.as_ref()),
+                before,
+                "{rows}×{inner} · {inner}×{columns}"
+            );
+        }
+    }
+}
+
+#[test]
 #[should_panic(expected = "a 10×3 target for a 10×5 · 5×4 product")]
 fn a_product_into_a_target_of_another_shape_is_refused() {
     let (a, b) = (random::<f64>(10, 5, 1), random::<f64>(5, 4, 2));
