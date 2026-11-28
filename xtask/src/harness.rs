@@ -1541,12 +1541,19 @@ impl Session {
         let committed = (crate::walk::files(&self.root, "benchmarks").into_iter())
             .chain(crate::walk::files(&self.root, crate::layout::TUNING))
             .filter(|file| file.ends_with(".toml"));
+        let mut parsed: Vec<(toml::Table, String)> = Vec::new();
         for file in cells.into_iter().cloned().chain(committed) {
             let text =
                 fs::read_to_string(self.root.join(&file)).map_err(|e| format!("{file}: {e}"))?;
+            parsed.extend(toml::from_str(&text).ok().map(|t| (t, file.clone())));
             known.entry(sha(&text)).or_insert(file);
         }
         for (name, text) in &inputs {
+            parsed.extend(
+                toml::from_str(text)
+                    .ok()
+                    .map(|t| (t, format!("input {name}"))),
+            );
             known.insert(sha(text), format!("input {name}"));
         }
         let dir = base.join(id);
@@ -1590,6 +1597,14 @@ impl Session {
             if let Some(same) = known.get(&hash) {
                 return Err(format!(
                     "{}: the same bytes as {same}; a held-out variant is new (CONTRIBUTING.md, rival cases)",
+                    path.display()
+                ));
+            }
+            let table = toml::from_str::<toml::Table>(&text).ok();
+            if let Some((_, same)) = parsed.iter().find(|(t, _)| Some(t) == table.as_ref()) {
+                return Err(format!(
+                    "{}: the same input as {same} once parsed; a held-out variant is new (CONTRIBUTING.md, rival \
+                     cases)",
                     path.display()
                 ));
             }

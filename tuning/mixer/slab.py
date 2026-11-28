@@ -59,7 +59,7 @@ if __name__ == "__main__":
                 (HERE / name).write_text(text(*cell()))
         case ["--check"]:
             for name, cell in CELLS.items():
-                if (HERE / name).read_text() != text(*cell()):
+                if (HERE / name).read_bytes() != text(*cell()).encode():
                     sys.exit(f"{name} differs from what slab.py writes")
         case _:
             sys.exit(USAGE)

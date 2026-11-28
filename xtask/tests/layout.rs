@@ -530,3 +530,45 @@ fn a_symlinked_tuning_input_is_caught() {
         "tuning/mixer/slab.toml is a symlink"
     ));
 }
+
+#[test]
+fn a_tuning_input_that_holds_a_timed_claim_input_is_refused_and_an_in_case_tuning_cell_is_not() {
+    let claim = "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"correctness\"]\nreference = \"analytic\"\nrivals = [\"qe\", \"abinit\"]\n\n[tolerance]\nerror_max = 1e-12\n";
+    let timed = CELL.replace("5.0, 0.0, 0.0", "5.5, 0.0, 0.0");
+    let replaced = CELL.replace("5.0, 0.0, 0.0", "6.0, 0.0, 0.0");
+    let tuned = CELL.replace("5.0, 0.0, 0.0", "6.5, 0.0, 0.0");
+    let root = tree(
+        "layout-tuning-timed",
+        &[
+            ("benchmarks/1_a/case.toml", claim),
+            ("benchmarks/1_a/inputs/slab.toml", &timed),
+            ("benchmarks/1_a/replacements/slab_small.toml", &replaced),
+            ("benchmarks/1_a/tuning/bulk.toml", &tuned),
+            ("tuning/mixer/own.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let needle = "tuning/mixer/copy.toml holds the input of";
+    for (body, refused) in [
+        (
+            timed.clone(),
+            Some("benchmarks/1_a input slab, a timed claim cell"),
+        ),
+        (
+            format!("{timed}\n"),
+            Some("benchmarks/1_a input slab, a timed claim cell"),
+        ),
+        (
+            replaced.clone(),
+            Some("benchmarks/1_a/replacements/slab_small.toml, a timed claim cell"),
+        ),
+        (tuned.clone(), None),
+    ] {
+        write(&root, "tuning/mixer/copy.toml", &body);
+        let found = lever(&["layout"], &root);
+        match refused {
+            Some(what) => assert!(has(&found, &format!("{needle} {what}")), "{found:?}"),
+            None => assert!(!has(&found, needle), "{found:?}"),
+        }
+    }
+}

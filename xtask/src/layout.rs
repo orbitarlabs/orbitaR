@@ -100,10 +100,50 @@ fn engine_input(text: &str) -> Result<(), String> {
     }
 }
 
+const REPLACEMENTS_DIR: &str = "replacements";
+
+fn timed_claim_inputs(root: &Path, findings: &mut Findings) -> Vec<(String, toml::Table)> {
+    let mut timed = Vec::new();
+    for id in case::ids(root).unwrap_or_default() {
+        let claim = case::Case::load(root, &id).is_ok_and(|c| c.tier() == case::Tier::Claim);
+        if !claim {
+            continue;
+        }
+        let dir = root.join("benchmarks").join(&id);
+        let inputs = match crate::harness::inputs(root, &dir, None) {
+            Ok((named, _)) => named,
+            Err(e) => {
+                findings.push(format!("layout: benchmarks/{id}: {e}"));
+                continue;
+            }
+        };
+        let replacements = (walk::files(root, &format!("benchmarks/{id}/{REPLACEMENTS_DIR}"))
+            .into_iter())
+        .filter(|f| f.ends_with(TUNING_INPUT))
+        .map(|f| {
+            let text = walk::read(root, &f);
+            (f, text)
+        });
+        let named = (inputs.into_iter())
+            .map(|(name, text)| (format!("benchmarks/{id} input {name}"), text));
+        for (label, text) in named.chain(replacements) {
+            if let Ok(table) = toml::from_str::<toml::Table>(&text) {
+                timed.push((label, table));
+            }
+        }
+    }
+    timed
+}
+
 fn tuning(root: &Path, findings: &mut Findings) {
     let mut kinds: BTreeMap<String, [usize; 2]> = (tuning_settings(root).into_iter())
         .map(|setting| (setting, [0, 0]))
         .collect();
+    let timed = if kinds.is_empty() {
+        Vec::new()
+    } else {
+        timed_claim_inputs(root, findings)
+    };
     for setting in kinds.keys().filter(|setting| !setting_name_ok(setting)) {
         findings.push(format!(
             "layout: {setting:?} is no setting name: [a-z0-9_]+, the one word that a LOCK header reads"
@@ -112,13 +152,20 @@ fn tuning(root: &Path, findings: &mut Findings) {
     for file in walk::files(root, TUNING) {
         let kind = match file.split('/').collect::<Vec<_>>().as_slice() {
             [_, setting, name] if name.ends_with(TUNING_INPUT) => {
-                match engine_input(&walk::read(root, &file)) {
-                    Ok(()) => Some((*setting, 0)),
-                    Err(e) => {
-                        findings.push(format!("layout: {file} is no engine input: {e}"));
-                        continue;
-                    }
+                let text = walk::read(root, &file);
+                if let Err(e) = engine_input(&text) {
+                    findings.push(format!("layout: {file} is no engine input: {e}"));
+                    continue;
                 }
+                let table = toml::from_str::<toml::Table>(&text).ok();
+                if let Some((label, _)) = timed.iter().find(|(_, t)| Some(t) == table.as_ref()) {
+                    findings.push(format!(
+                        "layout: {file} holds the input of {label}, a timed claim cell; a claim cell never tunes \
+                         a setting"
+                    ));
+                    continue;
+                }
+                Some((*setting, 0))
             }
             [_, setting, name] if name.ends_with(TUNING_GENERATOR) => Some((*setting, 1)),
             _ => None,
