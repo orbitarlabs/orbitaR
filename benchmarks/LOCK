@@ -1,4 +1,4 @@
-# harness reviewer=captain after codex-review-pr30-tail reason=rival-reuse (#30) merged with integration-2 at ae33fb5, whose harness block is reviewed by captain after codex-review3-28-mutants; on top of #30's reviewed reuse (captain-final-call after codex-review3-22): the reuse tests' fake rivals hold one touched 32 MiB dd buffer through their paced sleep, so their measured peak Pss lies far inside the drift share; on Linux the exact-reuse test checks that each drift run's peak Pss holds that buffer; the drift rule, its 10% share and every threshold are unchanged
+# harness reviewer=PENDING reason=Pilot reuse checks the saved timing samples against the active run policy. Tests verify the recorded decks, runtime files, node and drift decisions.
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -6,7 +6,7 @@ b131a43552983679750e7571125717a273ef8f0ed15eda3ad30b4ffebb786e3b  xtask/src/benc
 63c431515f06435b087e9e8394726ada53084c1659a00f4948a46c4c99f4fc1b  xtask/src/case.rs
 e3becfebc6a03be1f6d0b8029f114692ffa8d92f69150d99d8e74155f4bdb9aa  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
-ffd6cbbe5512bd296ed7d4a8202a950b7b1bd09fc4f40fa92bb216eb70759320  xtask/src/harness.rs
+0a32d2978ce466e2daa94a37a34f6176b07e093d63d6959dd4958f2c2a05c31c  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 e8cb26daf243b219bb2b0f013a88632212c8a04eb867a085ff067fc7fb5f8086  xtask/src/harness/datasets.rs
 d5db8c7281491536c861baef43872250e5940f62fe189ddc296ae5472ed546f3  xtask/src/harness/engine.rs
@@ -14,7 +14,7 @@ e4ff8dac6c5883566f42a2fd836c4f53f8c5e99d6ccf30a19ed3e95957f3757c  xtask/src/harn
 ab5678c69b56aff8db61dab1b665ffd5c35a633e7bd7b8b2808d9b8b6d06962d  xtask/src/harness/load.rs
 9d7b0897887b019c739251fe3c3aa7f544c526bef039b3ad23ca973e48de4b54  xtask/src/harness/record.rs
 c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harness/relax.rs
-abfff5207e38df0f8024b7c61e25e9d60be3952427081393ff98ff0ec81fb37b  xtask/src/harness/reuse.rs
+833a171d10d13058c87f93b9212b25c644f3eff9441faa665ff4d5b8a64dc5a0  xtask/src/harness/reuse.rs
 45105ed0bd06fda66d205c783f5b232fe4df5d225dc24e5272caedc625f3a237  xtask/src/harness/rival.rs
 832e4d829b61ed81c03204e298754a9ca5f7b6f88385d4d477aedda04ec751bb  xtask/src/harness/rival/abinit.rs
 22e53eda5ff78cec6077c4becbd15ada0b53efe844cd27e3eea96b522039fc24  xtask/src/harness/rival/qe.rs
@@ -59,8 +59,8 @@ ebef8d29956e04bb248f1e6122acbc46f6d94526e8c8f1093044dc8475fb8b88  xtask/tests/ha
 4ec752a236e077eeb08b42765c2ba87d9452acaefc3097ad98a3b5ef81934e38  xtask/tests/harness/load.rs
 1433c0de12d03c68058c667a912056b43808f0fdaae54985aeafbdbac7bd60fe  xtask/tests/harness/record.rs
 e652c604be84a225f6a4f1bb55a4a971bade99cafc215f6df3f8323a40855a88  xtask/tests/harness/relax.rs
-4c49575bb9d5453a0be295913b28c60332eea46b3f26504c33aefcdb30c6dd2e  xtask/tests/harness/reuse.rs
-5fc7ff73534674663194f0720ff3beffd48ebae04e7c6af31d316c5f945e58b0  xtask/tests/harness/rival.rs
+174297e651c78d2af5a198f1dd1a1c40bd3130968b51d429cddd151efebca37c  xtask/tests/harness/reuse.rs
+8ece3eb1cbb18852864f07b402987504b7d3ea5d120b2017a0ef6c6a9ea37081  xtask/tests/harness/rival.rs
 ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/harness/rival/abinit.rs
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
 f42759da0ed431a0654f5772476982ab07afb3d8db7ec05af9dff848d93af1fd  xtask/tests/harness/speed.rs
