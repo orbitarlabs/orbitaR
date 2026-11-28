@@ -1,10 +1,10 @@
-# harness reviewer=captain-after-codex-review3-28-mutants-and-15ab6a8 reason=PR 28 on integration-2, merged with main at cf0ae67: a run's guarded peak is the larger of wait4's RSS high-water mark and the Pss samples; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH; card.rs and log_log_slope keep their reviewed arithmetic and rendering; tests catch the mutants that CI's full mutants runs missed, one is gone with the reviewed skip-list rewrite, one carries a reasoned .cargo/mutants.toml entry, and past_guard judges a measured peak through past_the_guard, whose test pins the guard boundary
+# harness reviewer=PENDING reason=merge of main a2a460c (#32, metadata: project links, citation URLs, a Colab quickstart; captain after the 3522ef2 review) into #28 (harness: guarded peak, memory scope, past_guard; captain after codex-review3-28-mutants and the 15ab6a8 review)
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
 b131a43552983679750e7571125717a273ef8f0ed15eda3ad30b4ffebb786e3b  xtask/src/bench.rs
 63c431515f06435b087e9e8394726ada53084c1659a00f4948a46c4c99f4fc1b  xtask/src/case.rs
-e3becfebc6a03be1f6d0b8029f114692ffa8d92f69150d99d8e74155f4bdb9aa  xtask/src/docs.rs
+c59330ee97417c2df4f3cd4793437488c86293736b1374e196705383c4a379d5  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
 43106365489395546137dd511c34b5f9fd72d91ff698e070ef3d1e449de1ef8c  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
@@ -20,7 +20,7 @@ c435be4070338874e714281fa955833705fb178c0c76769eff7b64b12f6c4b5f  xtask/src/harn
 2665981c2bb924897e93e885b0952324381838f1ccd5892e06dac69ca0e1cf42  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
 ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
-559e4a3236d15f89eb70629d1ddd2e7934c5c52598d3d88c47208b4a42704f1a  xtask/src/lib.rs
+cf1e3d713516cd5e46ff6a764a1fa08addd4538b2fde3a516d4ce1ce6e8d0967  xtask/src/lib.rs
 d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
@@ -28,7 +28,7 @@ fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main
 dd125db005245fa9789ae86efcea78cacf86874ed115eec7c06614c71c4b74b1  xtask/src/node.rs
 a7ba241e2fb79b7952eccf8f9a3803fea1faa6949a07f7edb554c564222f512a  xtask/src/pr_text.rs
 36b99e5a53344bbe4f2da44f7bcd646c07adc1c8af5ed64905bc465ac6a20e37  xtask/src/publish.rs
-1ebe6d2fe4d15388e4c3f68be9934fd2dd8e8fbd465e5183ad4b471284ed9e11  xtask/src/release.rs
+9228c5ecc9f1e0f631f001c8cdfb58003e2f73d63aa26bd21e5fcaf0a114095e  xtask/src/release.rs
 58ae1a4318862fd2a9f574fa1ade4c0cb28a01a2f55200f35f44e14b60b47889  xtask/src/release/archive.rs
 e39c9e39f45f11364aeca1051ee4e75e5122dae7d62459ce9b7dd919d2ad56a3  xtask/src/release/mac.rs
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
@@ -43,12 +43,12 @@ bccc20364a7a8d88ea892b748a373ac7668e870c0da87623f00bf2f6cf32c3eb  xtask/src/scie
 af1167b4049c37599a8056a69776738384d5343da8d0f33252f69dc98c3630db  xtask/src/tune/calibrate.rs
 0a16f226f6446c17aa0920af157238fd51dbd13362e08280fbe84c8d4188994e  xtask/src/tune/layout.rs
 35b2993cab0508dbe504dc20d38367118a84dff5b7cd7d9555cfdb599317f027  xtask/src/tune/mixing.rs
-5efdc448b97aea9b68fccafa8d4d80d56e3b6560f594fc3814b7612ae0203ff8  xtask/src/version.rs
+c014dfff08c1b65e8756b5fdc24070e60941a3137eff06b6feeaf3788fd6272b  xtask/src/version.rs
 b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk.rs
 6ab6b9fbdacafa2d2973bdc4f0a7ef366da2d5b9af21a5516a80e379e3219b26  xtask/tests/atompaw.rs
 2ae958a7b8eb74840b96c5ddf9d8b9a4c2dfab0f9cc1b958dc230f14c51815a8  xtask/tests/bench.rs
 37df1f7f7b9a18c49ea5fe978fc0613f55a0cd4c6a6c08edf2b0bad1a795d06d  xtask/tests/case.rs
-b7eeebba385d0d02a1867c7b9c39b97336923dc72ddaf878fe4f40517187bde7  xtask/tests/docs.rs
+f8fabf434497a3f1214b405c965d105e1926d0d24bfcb25693e8d87da80ee8dc  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
 768116fd43b70dbf5f8df797f562c9d7469941600aa72b45ae5051adace2bf0e  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
@@ -71,8 +71,8 @@ f42759da0ed431a0654f5772476982ab07afb3d8db7ec05af9dff848d93af1fd  xtask/tests/ha
 c42a2e5450ddcbdc637f26637bcd8a869c26f3a206edf8fe0d5d1e802a8b3087  xtask/tests/native.rs
 c084896974badc19f1ade982ff3771693ab5f4af240af15c7146b5ba8482e9f8  xtask/tests/node.rs
 1c51ee0f921c9fa82d7870c5c2f8d082d9b5c5e5cee8dcaf92d0938e137e5913  xtask/tests/pr_text.rs
-adbbdc00ab51db5acb2968db1f53f8b3b022c4ff5a885bc26c697a133bf313be  xtask/tests/publish.rs
-9b9f3220b49c3f47d25873de7410b06de25ad6a1954bd1b0621b86e907538201  xtask/tests/release.rs
+bb340356538dc5b6f2833b7bec6b25c05944c4d8689a8927d33d1585535d244e  xtask/tests/publish.rs
+6ab081f062c153d9af141a69305a91b2069f3f435d0604983f8c6d1fcb7d88e5  xtask/tests/release.rs
 fc2f0e2d82c9a12dcd8947f645e4eafd8eaea82d55fe6a80853c3e15383976ca  xtask/tests/release/archive.rs
 445712a3248ffe26d7f8ae34898d83a8f60657603ef9b4b1df3e6942619b88ed  xtask/tests/release/mac.rs
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
@@ -87,7 +87,7 @@ e2b6a50e1224807abd1ac83a4f67ae1c6acad001a9452c8ea0561ea3576a2dcd  xtask/tests/sy
 a5683359ed43e51de6f86dc1ab3e19288c3246e9f264cc48e7215d6e7a3919dd  xtask/tests/tune/calibrate.rs
 f137e9358808fbc61dab5e57ea3c5af8a89979718c7927287b5f9b6979fc8fb7  xtask/tests/tune/layout.rs
 4734b0f23570160c090055238e9c7adcebed7e6fd48db4e478d734cb5e99284c  xtask/tests/tune/mixing.rs
-fe88881970ec5f9d3b865b5ed9e64eb29d2101b42464dc988b06e376974a718b  xtask/tests/version.rs
+1b7f72fe286ec845bc109206a51067d76c7d3f300a49627d7cd610d25f8268e9  xtask/tests/version.rs
 585b19e29aa753a31e5519e749d73abae49789c8ee83e9cb296a97f20121067a  xtask/tests/walk.rs
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/version-steps.toml
 58b0f7c77d7a0c419f735992e0842b9d7bb01907bebbab5f845f2139bf62ab3c  tests/benchmarks.rs

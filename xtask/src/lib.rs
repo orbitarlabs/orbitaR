@@ -125,7 +125,8 @@ enum Cli {
     Layers,
     /// Exact pins in every dependency table, members, no build script, one version per tool
     Manifest,
-    /// Prose files, symlinks, line kinds and length, sentences, voice, terms, paths, commands, README proofs, a linked private method
+    /// Prose files, symlinks, line kinds and length, sentences, voice, terms, paths, commands, README proofs, a linked private method,
+    /// the quickstart notebook byte for byte as `cargo xtask notebook --write` writes it
     /// With --base <rev>, also check added code comments
     Docs {
         #[arg(long)]
@@ -157,8 +158,15 @@ enum Cli {
         #[arg(long, default_value = "HEAD")]
         head: String,
     },
+    /// notebook [--write]: write notebooks/quickstart.ipynb from README.md's `## ASE` python block; without
+    /// --write, check the committed file byte for byte
+    Notebook {
+        #[arg(long)]
+        write: bool,
+    },
     /// Cargo.toml's version equals origin/main's or its patch + 1; xtask/version-steps.toml names any other step;
-    /// CITATION.cff cites Cargo.toml's version and license
+    /// CITATION.cff cites Cargo.toml's version and license; CITATION.cff and both pyproject files name release.rs's
+    /// project links alone; both pyproject files name the collective author alone and no maintainer
     Version,
     /// A local manifest names a provider, proof, and the options tried for every dependency and code file
     Native,
@@ -377,6 +385,7 @@ pub fn run(args: &[&str], root: &Path, env: &Env) -> Findings {
         Cli::Science { base } => science::check(root, base.as_deref()),
         Cli::Native => native::check(root),
         Cli::Version => version::check(root),
+        Cli::Notebook { write } => docs::notebook_lever(root, write),
         Cli::Publish { base, head } => publish::check(root, &base, &head),
         Cli::PrText { body, base, head } => pr_text::check(root, body.as_deref(), &base, &head),
         Cli::Same {
