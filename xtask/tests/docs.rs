@@ -58,7 +58,10 @@ fn clean_docs_pass() {
         "# A\n- Run `cargo xtask smoke`.\n",
         &format!("# R\n{GATES}"),
         STACK,
-        &[],
+        &[(
+            ".github/pull_request_template.md",
+            include_str!("../../.github/pull_request_template.md"),
+        )],
     );
     assert!(f.is_empty(), "{f:?}");
 }
@@ -259,13 +262,26 @@ fn a_doc_file_may_not_be_a_symlink() {
         &[
             ("AGENTS.md", "# A\n"),
             ("CLAUDE.md", "@AGENTS.md\n"),
+            (".github/.keep", ""),
             ("tests/main.rs", ""),
         ],
     );
     std::os::unix::fs::symlink("AGENTS.md", root.join("README.md")).unwrap();
+    std::os::unix::fs::symlink(
+        "../AGENTS.md",
+        root.join(".github/pull_request_template.md"),
+    )
+    .unwrap();
     let findings = lever(&["docs"], &root);
     assert!(
         has(&findings, "docs: README.md is a symlink"),
+        "{findings:?}"
+    );
+    assert!(
+        has(
+            &findings,
+            "docs: .github/pull_request_template.md is a symlink"
+        ),
         "{findings:?}"
     );
 }

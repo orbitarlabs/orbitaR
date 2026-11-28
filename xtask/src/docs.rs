@@ -24,6 +24,7 @@ const PROSE: [(&str, usize); 5] = [
 ];
 const LOCAL: &str = "CLAUDE.local.md";
 const NOTEBOOK: &str = "notebooks/quickstart.ipynb";
+const PR_TEMPLATE: &str = ".github/pull_request_template.md";
 const NOTEBOOK_INSTALL: &str = "%pip install orbitar";
 const NOTEBOOK_PRINT: &str = "print(\"energy (eV):\", energy)\nprint(\"forces (eV/Å):\", forces)\nprint(\"stress (eV/Å³):\", stress)";
 const NOTEBOOK_BLOCK: &str = "ASE";
@@ -129,6 +130,7 @@ pub(crate) fn check(root: &Path) -> Findings {
             || file == LOCAL
             || file == results::PAGE
             || file == NOTEBOOK
+            || file == PR_TEMPLATE
             || local.iter().any(|(path, _)| *path == file)
             || file.starts_with(".agents/skills/");
         if prose && !allowed {
@@ -138,7 +140,11 @@ pub(crate) fn check(root: &Path) -> Findings {
         }
     }
     let links = walk::links(root, ".");
-    for file in PROSE.iter().map(|(file, _)| *file).chain(["CLAUDE.md"]) {
+    for file in PROSE
+        .iter()
+        .map(|(file, _)| *file)
+        .chain(["CLAUDE.md", PR_TEMPLATE])
+    {
         if links.iter().any(|link| link == file) {
             findings.push(format!("docs: {file} is a symlink; write the file itself"));
         }

@@ -150,6 +150,7 @@ enum Cli {
     },
     /// pr-text [--body <file>] --base <rev> [--head <rev>]: the pull request text and each commit message of
     /// <base>..<head> (head: HEAD) hold no tool's generated-by line and no co-author trailer
+    /// With --body <file>, check the required PR lines and the prose and Core change line limits
     PrText {
         #[arg(long)]
         body: Option<PathBuf>,
