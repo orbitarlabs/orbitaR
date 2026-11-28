@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest as _;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ffi::OsString,
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
@@ -299,6 +300,81 @@ pub(crate) struct Job {
     pub(crate) mixing: Vec<String>,
     pub(crate) mpiexec: Vec<String>,
     pub(crate) claim: Option<ClaimPart>,
+}
+
+type Dataset = (String, String, Vec<u8>);
+
+fn file_sha256(path: &Path) -> Result<String, String> {
+    fs::read(path)
+        .map(|bytes| crate::lock::hex(&sha2::Sha256::digest(bytes)))
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+
+fn loaded(program: &Path, env: &[(OsString, OsString)]) -> Result<Vec<PathBuf>, String> {
+    let listed = (Command::new("ldd")
+        .env_clear()
+        .envs(env.iter().cloned())
+        .arg(program)
+        .output())
+    .map_err(|e| {
+        format!(
+            "no ldd on the rival's own PATH ({}): its libraries cannot be fingerprinted",
+            e.kind()
+        )
+    })?;
+    let text = String::from_utf8_lossy(&listed.stdout).into_owned()
+        + &String::from_utf8_lossy(&listed.stderr);
+    if !listed.status.success() {
+        return match text.contains("not a dynamic executable") {
+            true => Ok(Vec::new()),
+            false => Err(format!("ldd {}: {}", program.display(), text.trim())),
+        };
+    }
+    let mut out = Vec::new();
+    for line in text.lines().map(str::trim) {
+        let (name, target) = line.split_once(" => ").unwrap_or((line, line));
+        let target = target.split(" (0x").next().unwrap_or(target).trim();
+        match target {
+            "not found" => return Err(format!("ldd {}: {name} not found", program.display())),
+            t if t.starts_with('/') => out.push(PathBuf::from(t)),
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
+fn interpreters(program: &Path, env: &[(OsString, OsString)]) -> Result<Vec<PathBuf>, String> {
+    let head = fs::read(program).map_err(|e| format!("{}: {e}", program.display()))?;
+    let Some(line) = head.strip_prefix(b"#!") else {
+        return Ok(Vec::new());
+    };
+    let line = String::from_utf8_lossy(line.split(|&b| b == b'\n').next().unwrap_or_default())
+        .into_owned();
+    let mut words = line.split_whitespace();
+    let Some(first) = words.next().map(PathBuf::from) else {
+        return Err(format!("{}: an empty #! line", program.display()));
+    };
+    if first.file_name().is_none_or(|n| n != "env") {
+        return Ok(vec![first]);
+    }
+    let unresolved = || {
+        format!(
+            "{}: `#!{line}` names no interpreter on the rival's own PATH",
+            program.display()
+        )
+    };
+    let name = words
+        .next()
+        .filter(|w| !w.starts_with('-'))
+        .ok_or_else(unresolved)?;
+    let path = (env.iter())
+        .find(|(key, _)| key == "PATH")
+        .map(|(_, path)| std::env::split_paths(path).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let found = (path.iter().map(|dir| dir.join(name)))
+        .find(|candidate| candidate.is_file())
+        .ok_or_else(unresolved)?;
+    Ok(vec![first, found])
 }
 
 pub(crate) struct ClaimPart {
@@ -1055,13 +1131,11 @@ impl Rivals {
         timeout: Duration,
     ) -> Result<Run, Failure> {
         let (code, adapter) = (job.code, job.code.adapter());
-        let datasets = (adapter.datasets(&self.root, &self.prefix, &job.cell, jth))
+        let (datasets, text) = self
+            .input(job, jth, stop_ha, mode)
             .map_err(Failure::Harness)?;
         same_valence(code, &job.cell, &datasets, jth)?;
-        let ratio = self.settings.setup(code).density_ratio;
         let (name, _) = adapter.input_file();
-        let text =
-            (adapter.input(job, ratio, stop_ha, mode, &datasets)).map_err(Failure::Harness)?;
         let files: Vec<(String, &[u8])> = std::iter::once((name.to_owned(), text.as_bytes()))
             .chain((datasets.iter()).map(|(_, path, bytes)| (path.clone(), bytes.as_slice())))
             .collect();
@@ -1074,6 +1148,80 @@ impl Rivals {
             timeout,
         )
         .and_then(|run| agreed(code, run, clocks, job.cell.steps))
+    }
+
+    pub(crate) fn input_text(
+        &self,
+        job: &Job,
+        jth: &[(String, Vec<u8>)],
+        stop_ha: f64,
+        mode: Mode,
+    ) -> Result<String, String> {
+        self.input(job, jth, stop_ha, mode).map(|(_, text)| text)
+    }
+
+    pub(crate) fn invocation(&self, job: &Job) -> String {
+        let command = self.command(job);
+        let envs: Vec<_> = command.get_envs().collect();
+        format!(
+            "{:?} {:?} {envs:?}",
+            command.get_program(),
+            command.get_args().collect::<Vec<_>>()
+        )
+    }
+
+    pub(crate) fn runtime(&self, job: &Job) -> Result<BTreeMap<String, String>, String> {
+        let adapter = job.code.adapter();
+        let bin = self.prefix.join(adapter.name()).join("bin");
+        let env = engine::cold_env(&self.command(job));
+        let mut programs = vec![adapter.command().get_program().to_owned()];
+        if job.layout.ranks > 1 {
+            programs.push("mpiexec".into());
+        }
+        let mut files = Vec::new();
+        for program in programs {
+            let found = [bin.as_path(), Path::new("/usr/bin"), Path::new("/bin")]
+                .iter()
+                .map(|dir| dir.join(&program))
+                .find(|path| path.is_file())
+                .ok_or_else(|| format!("{}: {program:?} is on no PATH entry", adapter.name()))?;
+            files.extend(interpreters(&found, &env)?);
+            files.push(found);
+        }
+        let mut out = BTreeMap::new();
+        for file in files {
+            for library in loaded(&file, &env)? {
+                out.insert(self.label(&library), file_sha256(&library)?);
+            }
+            out.insert(self.label(&file), file_sha256(&file)?);
+        }
+        Ok(out)
+    }
+
+    fn label(&self, path: &Path) -> String {
+        let system = ["/usr/", "/lib", "/bin/", "/etc/"];
+        match path.strip_prefix(&self.prefix) {
+            Ok(inside) => format!("<rivals>/{}", inside.display()),
+            Err(_) if system.iter().any(|d| path.starts_with(d)) => path.display().to_string(),
+            Err(_) => format!(
+                "outside the rivals and the system: path sha256 {}",
+                crate::lock::hex(&sha2::Sha256::digest(path.as_os_str().as_encoded_bytes()))
+            ),
+        }
+    }
+
+    fn input(
+        &self,
+        job: &Job,
+        jth: &[(String, Vec<u8>)],
+        stop_ha: f64,
+        mode: Mode,
+    ) -> Result<(Vec<Dataset>, String), String> {
+        let adapter = job.code.adapter();
+        let datasets = adapter.datasets(&self.root, &self.prefix, &job.cell, jth)?;
+        let ratio = self.settings.setup(job.code).density_ratio;
+        let text = adapter.input(job, ratio, stop_ha, mode, &datasets)?;
+        Ok((datasets, text))
     }
 
     pub(crate) fn pins(

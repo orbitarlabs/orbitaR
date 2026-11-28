@@ -1,4 +1,5 @@
 use crate::{Findings, bench, harness::rival::Rival};
+use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, fs, path::Path};
 
 const PACKAGES: [&str; 6] = [
@@ -93,6 +94,77 @@ pub(crate) fn block(root: &Path, rivals: Option<&Path>) -> toml::Table {
     block
 }
 
+pub(crate) fn identity(root: &Path) -> serde_json::Value {
+    let mut host = block(root, None)
+        .get("host")
+        .and_then(toml::Value::as_table)
+        .cloned()
+        .unwrap_or_default();
+    host.remove("memory_bytes");
+    let machine = fs::read_to_string("/etc/machine-id").map_or_else(
+        |_| "unknown".to_owned(),
+        |id| crate::lock::hex(&Sha256::digest(id.trim())),
+    );
+    let total_gib = (fs::read_to_string("/proc/meminfo")
+        .unwrap_or_default()
+        .lines())
+    .find_map(|l| l.strip_prefix("MemTotal:"))
+    .and_then(|v| v.trim().strip_suffix("kB")?.trim().parse::<f64>().ok())
+    .map(|kib| (kib / f64::from(1u32 << 20)).round());
+    serde_json::json!({
+        "host": host,
+        "machine_id_sha256": machine,
+        "memory_total_gib_rounded": total_gib,
+        "cgroup_limits": cgroup_limits(),
+    })
+}
+
+const CGROUP_LIMITS: [&str; 7] = [
+    "memory.max",
+    "memory.high",
+    "memory.swap.max",
+    "cpu.max",
+    "cpu.weight",
+    "cpuset.cpus.effective",
+    "pids.max",
+];
+
+fn cgroup_limits() -> serde_json::Value {
+    let own = (fs::read_to_string("/proc/self/cgroup")
+        .unwrap_or_default()
+        .lines())
+    .find_map(|l| l.strip_prefix("0::").map(str::to_owned))
+    .unwrap_or_default();
+    let uid = (fs::read_to_string("/proc/self/status")
+        .unwrap_or_default()
+        .lines())
+    .find_map(|l| {
+        l.strip_prefix("Uid:")?
+            .split_whitespace()
+            .next()
+            .map(str::to_owned)
+    })
+    .unwrap_or_default();
+    let user = format!("/user.slice/user-{uid}.slice/user@{uid}.service");
+    let chain = |group: &str| -> serde_json::Value {
+        (CGROUP_LIMITS.iter())
+            .map(|file| {
+                let values: Vec<String> = (Path::new(group).ancestors())
+                    .filter_map(|dir| {
+                        let at =
+                            Path::new("/sys/fs/cgroup").join(dir.strip_prefix("/").unwrap_or(dir));
+                        fs::read_to_string(at.join(file)).ok()
+                    })
+                    .map(|v| v.trim().to_owned())
+                    .collect();
+                ((*file).to_owned(), serde_json::json!(values))
+            })
+            .collect::<serde_json::Map<_, _>>()
+            .into()
+    };
+    serde_json::json!({ "harness": chain(&own), "user_service": chain(&user) })
+}
+
 fn memory_bytes() -> toml::Value {
     let total = (fs::read_to_string("/proc/meminfo")
         .unwrap_or_default()
@@ -173,17 +245,35 @@ pub(crate) fn check(
     rivals: Option<&Path>,
 ) -> Result<(), String> {
     let here = block(root, rivals);
+    let tables: Vec<&str> = here.keys().map(String::as_str).collect();
+    let differ = differences(&here, declared, &tables);
+    match differ.is_empty() {
+        true => Ok(()),
+        false => Err(format!(
+            "claim: this host is not the declared node: {}; on the node, run `cargo xtask node`",
+            differ.join("; ")
+        )),
+    }
+}
+
+pub(crate) fn differences(
+    here: &toml::Table,
+    declared: &toml::Table,
+    tables: &[&str],
+) -> Vec<String> {
     let mut differ = Vec::new();
-    for (table, keys) in &here {
-        let ours = keys.as_table().cloned().unwrap_or_default();
-        let theirs = (declared.get(table).and_then(toml::Value::as_table))
-            .cloned()
-            .unwrap_or_default();
+    for &table in tables {
+        let of = |t: &toml::Table| {
+            (t.get(table).and_then(toml::Value::as_table))
+                .cloned()
+                .unwrap_or_default()
+        };
+        let (ours, theirs) = (of(here), of(declared));
         let names: BTreeSet<&String> = ours.keys().chain(theirs.keys()).collect();
         for key in names {
             let (value, shown) = (ours.get(key), theirs.get(key));
             let int = |v: Option<&toml::Value>| v.and_then(toml::Value::as_integer);
-            let apart = match (table.as_str(), key.as_str(), int(value), int(shown)) {
+            let apart = match (table, key.as_str(), int(value), int(shown)) {
                 ("host", "memory_bytes", Some(a), Some(b)) => Some(a.abs_diff(b)),
                 _ => None,
             };
@@ -202,13 +292,7 @@ pub(crate) fn check(
             }
         }
     }
-    match differ.is_empty() {
-        true => Ok(()),
-        false => Err(format!(
-            "claim: this host is not the declared node: {}; on the node, run `cargo xtask node`",
-            differ.join("; ")
-        )),
-    }
+    differ
 }
 
 fn cpulist(key: &str, value: Option<&toml::Value>) -> Result<BTreeSet<u32>, String> {

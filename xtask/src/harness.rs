@@ -5,6 +5,7 @@ pub mod eos;
 pub(crate) mod load;
 pub(crate) mod record;
 pub mod relax;
+pub(crate) mod reuse;
 pub(crate) mod rival;
 pub(crate) mod speed;
 
@@ -879,6 +880,14 @@ impl RivalPaths<'_> {
             && from != self.own(name)
     }
 
+    fn variant(&self, name: &str) -> String {
+        match self.held.get(name) {
+            None => "a case input".to_owned(),
+            Some(Some(base)) => format!("a held-out variant of {base}"),
+            Some(None) => "a held-out variant beyond the generators".to_owned(),
+        }
+    }
+
     fn keyed(&self, name: &str) -> String {
         rival::input_path(
             self.id,
@@ -1092,6 +1101,7 @@ pub struct Session {
     guard_bytes: f64,
     containment: Option<engine::Containment>,
     contain_required: bool,
+    rival_records: Option<PathBuf>,
 }
 
 impl Session {
@@ -1149,6 +1159,7 @@ impl Session {
             guard_bytes: speed::PEAK_PSS_GUARD_BYTES,
             containment: None,
             contain_required: false,
+            rival_records: None,
         }
     }
 
@@ -1190,6 +1201,16 @@ impl Session {
         self
     }
 
+    pub fn with_pilot(mut self) -> Session {
+        self.pilot = true;
+        self
+    }
+
+    pub fn with_rival_records(mut self, dir: &Path) -> Session {
+        self.rival_records = Some(dir.to_owned());
+        self
+    }
+
     pub fn with_rivals(mut self, prefix: &Path) -> Session {
         self.rivals = Some(prefix.to_owned());
         self
@@ -1224,6 +1245,10 @@ impl Session {
                 ));
             }
             session.pilot = true;
+        }
+        if let Some(dir) = var(reuse::VAR) {
+            reuse::allowed(tier, session.pilot)?;
+            session.rival_records = Some(PathBuf::from(dir));
         }
         if let Some(filter) = text("ORBITAR_CASE_FILTER") {
             if tier != Tier::Node {
@@ -1327,6 +1352,7 @@ impl Session {
             "containment": self.containment.as_ref().map(engine::Containment::describe),
         });
         record["why"] = json!(case.why());
+        record["rival_reuse"] = trace.rival_reuse.clone();
         if !trace.series.is_null() {
             record["series"] = trace.series.clone();
         }
@@ -1370,6 +1396,11 @@ impl Session {
                 }
             }
         };
+        if let Some(why) =
+            (self.rival_records.as_ref()).and_then(|_| reuse::allowed(self.tier, self.pilot).err())
+        {
+            return vec![trace.failed("rival reuse", engine::Failure::Harness(why))];
+        }
         let HeldOut {
             inputs,
             held,
@@ -1533,15 +1564,106 @@ impl Session {
                 };
                 let gate = (self.load.as_deref())
                     .map(|proc| load::Gate::new(proc, &self.root, !self.pilot));
-                let ran = speed::time(
-                    &run,
-                    &blocks,
-                    speed,
+                let node = (rivals.as_ref())
+                    .map(|_| crate::node::block(&self.root, self.rivals.as_deref()))
+                    .unwrap_or_default();
+                let identity = crate::node::identity(&self.root);
+                let declared_host = (crate::node::declared(&self.root).ok())
+                    .and_then(|t| serde_json::to_value(t.get("host")).ok())
+                    .unwrap_or_default();
+                let containment = (self.containment.as_ref()).map(engine::Containment::describe);
+                let protocol = reuse::Protocol::of(&self.root, json!(containment), guard);
+                let plan = reuse::Plan {
+                    pilot: self.pilot,
                     repeats,
-                    self.seed,
-                    gate.as_ref(),
-                    guard,
-                );
+                    timeout_s: case.timeout_s(),
+                    node: &node,
+                    identity: &identity,
+                    declared_host: &declared_host,
+                    protocol: &protocol,
+                };
+                let digest = |name: &str| {
+                    (inputs.iter())
+                        .find(|(n, _)| n == name)
+                        .map(|(_, text)| reuse::sha256(text.as_bytes()))
+                };
+                let held_out = |b: &Block, rivals: &rival::Rivals| {
+                    let base = paths.held.get(b.input).cloned().flatten();
+                    let paired = (paths.held.contains_key(b.input))
+                        .then(|| b.input.strip_prefix(rival::HELD_OUT).unwrap_or(b.input));
+                    let code = b.rival.as_ref().map(|j| j.code);
+                    let calibration = (code.zip(rival::Cell::parse(&b.table).ok())).map(
+                        |(code, cell)| match paths.calibration(rivals, code, b.input, &cell) {
+                            Ok(row) => json!(row),
+                            Err(e) => json!({ "unmeasured": e }),
+                        },
+                    );
+                    json!({
+                        "input": b.input, "input_sha256": digest(b.input), "variant": paths.variant(b.input),
+                        "paired": paired, "paired_sha256": paired.and_then(digest), "base": base,
+                        "base_sha256": base.as_deref().and_then(digest), "calibration": calibration,
+                    })
+                };
+                let keys: Vec<Option<Result<reuse::Key, String>>> = (blocks.iter())
+                    .map(|b| {
+                        let rivals = rivals.as_ref().filter(|_| b.rival.is_some())?;
+                        let identity = held_out(b, rivals);
+                        Some(reuse::key(rivals, b, identity, stressed(b), &plan))
+                    })
+                    .collect();
+                let commit = git(&self.root, &["rev-parse", "HEAD"]);
+                let claimant = reuse::Claimant {
+                    root: &self.root,
+                    id,
+                    case,
+                    pilot: self.pilot,
+                    repeats,
+                    speed,
+                    started_unix_ms: u64::try_from(unix_ms()).unwrap_or(u64::MAX),
+                    commit: &commit,
+                };
+                let mut lookup = (self.rival_records.as_deref())
+                    .filter(|_| rivals.is_some())
+                    .map(|dir| {
+                        let wants: Vec<Option<reuse::Want>> = (blocks.iter().zip(&keys))
+                            .map(|(b, key)| {
+                                Some(reuse::Want {
+                                    code: b.code(),
+                                    input: b.input.to_owned(),
+                                    threads: b.threads.unwrap_or(NonZeroUsize::MIN),
+                                    key: key.clone()?,
+                                    needs_v2: (b.rival.as_ref())
+                                        .is_some_and(|j| j.code == rival::Rival::Abinit),
+                                    needs_pressure: stressed(b),
+                                })
+                            })
+                            .collect();
+                        reuse::Lookup::find(&claimant, dir, &node, &protocol, &wants)
+                    });
+                let guarded = match lookup.as_mut() {
+                    Some(l) => l.guard(&blocks, &run, gate.as_ref(), speed),
+                    None => Ok(()),
+                };
+                trace.rival_reuse = lookup.as_ref().map_or(Value::Null, reuse::Lookup::record);
+                let found =
+                    lookup.map_or_else(|| blocks.iter().map(|_| None).collect(), |l| l.found);
+                let split = reuse::split(std::mem::take(&mut blocks), found);
+                let ran = guarded.and_then(|()| {
+                    speed::time(
+                        &run,
+                        &split.fresh,
+                        speed,
+                        repeats,
+                        self.seed,
+                        gate.as_ref(),
+                        guard,
+                    )
+                });
+                let ran = ran.map(|(timed, fatal)| {
+                    let (all, timed) = split.merged(timed);
+                    blocks = all;
+                    (timed, fatal)
+                });
                 trace.load = gate.as_ref().map(load::Gate::log).unwrap_or_default();
                 let ran = ran.and_then(|(timed, fatal)| match fatal {
                     None => Ok(timed),
@@ -1553,6 +1675,11 @@ impl Session {
                     }
                 });
                 ran.map(|mut timed| {
+                    for (b, t) in blocks.iter().zip(&timed) {
+                        if let (Some(_), Some(p)) = (&t.record.reused, t.record.p_ref_gpa) {
+                            pressures.borrow_mut().insert((b.code(), b.index), Ok(p));
+                        }
+                    }
                     for t in &timed {
                         failures.extend(t.record.refused.clone());
                         if t.record.code == speed::Code::Orbitar && t.record.refused.is_some() {
@@ -1568,6 +1695,10 @@ impl Session {
                             let wanted = (b.rival.as_ref()).is_none_or(|j| j.code == rival::Rival::Abinit);
                             if let Some(why) = &t.record.refused {
                                 compressed.insert(key, Err(why.clone()));
+                            } else if let (true, false, Some(_), Some(e)) =
+                                (wanted, compressed.contains_key(&key), &t.record.reused, t.record.e_v2_ha)
+                            {
+                                compressed.insert(key, Ok(e));
                             } else if wanted && !compressed.contains_key(&key) {
                                 engine::forget_peaks();
                                 compressed.insert(key, self.at_v2(b, scale, rivals, timeout));
@@ -1578,6 +1709,15 @@ impl Session {
                                         refused.insert(b.input.to_owned());
                                     }
                                 }
+                            }
+                        }
+                        for (i, (b, t)) in blocks.iter().zip(timed.iter_mut()).enumerate() {
+                            if b.rival.is_some() && t.record.reused.is_none() {
+                                let at = (b.code(), b.index);
+                                t.record.e_v2_ha = compressed.get(&at).and_then(|e| e.clone().ok());
+                                t.record.p_ref_gpa =
+                                    pressures.borrow().get(&at).and_then(|p| p.clone().ok());
+                                t.record.reuse_key = keys[i].clone().and_then(Result::ok);
                             }
                         }
                         failures.extend(accuracies(
@@ -2113,6 +2253,7 @@ struct Trace {
     tuned: Vec<String>,
     relaxations: Vec<Value>,
     table: Option<Value>,
+    rival_reuse: Value,
     spent_s: f64,
     metrics: Metrics,
     faulted: bool,
@@ -2357,6 +2498,7 @@ impl Discretization {
 }
 
 pub use record::{readout, union, verify};
+pub use reuse::PROTOCOL_FILES as REUSE_PROTOCOL;
 pub use speed::{
     G_MIN, G_RESAMPLES, G_SEED, ORBITAR_SOLVES_IN_FLIGHT, PEAK_PSS_GUARD_BYTES, Peak,
     estimated_peak, g_interval, log_log_slope, past_the_guard,

@@ -7,6 +7,7 @@ mod eos;
 mod load;
 mod record;
 mod relax;
+mod reuse;
 pub mod rival;
 pub(crate) mod speed;
 

@@ -1,4 +1,4 @@
-use super::{Metrics, rival, speed};
+use super::{Metrics, reuse, rival, speed};
 use crate::{
     Findings,
     case::{self, Bound, Case, Status, Tier},
@@ -128,7 +128,9 @@ pub fn verify(
 }
 
 pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Value) -> Findings {
-    let mut findings = Vec::new();
+    let mut findings: Findings = (reuse::refused_in(id, record).into_iter())
+        .map(|f| format!("{}: {f}", tier.name()))
+        .collect();
     let times = |key: &str| -> Vec<f64> {
         record[key]
             .as_array()
@@ -259,80 +261,16 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
                                 continue;
                             }
                         };
-                        let (t, at) = (&block.t_delta_s, block.threads.get());
-                        if block.code != speed::Code::Orbitar
-                            && settings.as_ref().is_some_and(|s| !s.times(at))
-                        {
-                            findings.push(format!(
-                                    "{}: {id} record holds a {} block at {at} threads, which {} does not time",
-                                    tier.name(),
-                                    block.code,
-                                    rival::SETTINGS
-                                ));
-                        }
-                        let lost = block.losses.len();
-                        let first = &t[..repeats.min(t.len())];
-                        let want = speed::runs_for(first, &speed, repeats);
-                        if t.len() + lost != want {
-                            findings.push(format!(
-                                    "{}: {id} times {} runs of {at}; the CV of its first {repeats} asks for {want}",
-                                    tier.name(),
-                                    t.len() + lost,
-                                ));
-                        }
-                        if case.timed() && (block.noisy || speed::noisy(t, lost, repeats)) {
-                            findings.push(format!(
-                                    "{}: {id} passes with T(δ) at {at} threads under {repeats} runs, judged or lost, under two judged times, or with no finite CV; the judge refuses the block",
-                                    tier.name(),
-                                ));
-                        }
-                        if block.delta_ha != speed::delta_ha(block.atoms) {
-                            findings.push(format!(
-                                "{}: {id} passes with δ {} at {at} threads, not δ · {} atoms",
-                                tier.name(),
-                                block.delta_ha,
-                                block.atoms
-                            ));
-                        }
-                        let holds = block.e_ref_shift_ha.map_or(block.rival.is_some(), |shift| {
-                            speed::e_ref_holds(shift, block.delta_ha)
-                        });
-                        if !holds {
-                            findings.push(format!(
-                                    "{}: {id} passes with an E_ref at {at} threads whose shift {:?} is not below δ / 100",
-                                    tier.name(),
-                                    block.e_ref_shift_ha
-                                ));
-                        }
-                        if block.steps.len() != block.wall_s.len() {
-                            findings.push(format!(
-                                "{}: {id} record holds {} step counts for the {} timed runs of {} at {at} threads",
-                                tier.name(),
-                                block.steps.len(),
-                                block.wall_s.len(),
-                                block.code
-                            ));
-                        }
-                        let quiet = block.load.iter().filter(|r| r.quiet()).count();
-                        if quiet != 1 + t.len() + lost {
-                            findings.push(format!(
-                                "{}: {id} record shows a quiet node before {quiet} runs of {} at {at} threads, not before its warm-up and each of its {} runs",
-                                tier.name(),
-                                block.code,
-                                t.len() + lost
-                            ));
-                        }
-                        let alone = block.during.iter().filter(|d| d.quiet()).count();
-                        if block.during.len() != 1 + t.len() + lost || alone != 1 + t.len() + lost {
-                            findings.push(format!(
-                                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its warm-up and each of its {} runs, judged or lost",
-                                tier.name(),
-                                block.code,
-                                t.len() + lost
-                            ));
-                        }
+                        findings.extend(block_findings(
+                            tier,
+                            id,
+                            case,
+                            (&speed, repeats, false),
+                            settings.as_ref(),
+                            &block,
+                        ));
                         if block.code == speed::Code::Orbitar {
-                            sum += t.len();
+                            sum += block.t_delta_s.len();
                         }
                     }
                     if !case.rivals().is_empty()
@@ -435,6 +373,88 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
             "{}: {id} record has the wrong schema or case",
             tier.name()
         ));
+    }
+    findings
+}
+
+pub(crate) fn block_findings(
+    tier: Tier,
+    id: &str,
+    case: &Case,
+    (speed, repeats, pilot): (&crate::case::Speed, usize, bool),
+    settings: Option<&rival::Settings>,
+    block: &speed::BlockRecord,
+) -> Findings {
+    let mut findings = Vec::new();
+    let (t, at) = (&block.t_delta_s, block.threads.get());
+    if block.code != speed::Code::Orbitar && settings.as_ref().is_some_and(|s| !s.times(at)) {
+        findings.push(format!(
+            "{}: {id} record holds a {} block at {at} threads, which {} does not time",
+            tier.name(),
+            block.code,
+            rival::SETTINGS
+        ));
+    }
+    let lost = block.losses.len();
+    let first = &t[..repeats.min(t.len())];
+    let want = speed::runs_for(first, speed, repeats);
+    if t.len() + lost != want {
+        findings.push(format!(
+            "{}: {id} times {} runs of {at}; the CV of its first {repeats} asks for {want}",
+            tier.name(),
+            t.len() + lost,
+        ));
+    }
+    if !pilot && case.timed() && (block.noisy || speed::noisy(t, lost, repeats)) {
+        findings.push(format!(
+                    "{}: {id} passes with T(δ) at {at} threads under {repeats} runs, judged or lost, under two judged times, or with no finite CV; the judge refuses the block",
+                    tier.name(),
+                ));
+    }
+    if block.delta_ha != speed::delta_ha(block.atoms) {
+        findings.push(format!(
+            "{}: {id} passes with δ {} at {at} threads, not δ · {} atoms",
+            tier.name(),
+            block.delta_ha,
+            block.atoms
+        ));
+    }
+    let holds = block.e_ref_shift_ha.map_or(block.rival.is_some(), |shift| {
+        speed::e_ref_holds(shift, block.delta_ha)
+    });
+    if !holds {
+        findings.push(format!(
+            "{}: {id} passes with an E_ref at {at} threads whose shift {:?} is not below δ / 100",
+            tier.name(),
+            block.e_ref_shift_ha
+        ));
+    }
+    if block.steps.len() != block.wall_s.len() {
+        findings.push(format!(
+            "{}: {id} record holds {} step counts for the {} timed runs of {} at {at} threads",
+            tier.name(),
+            block.steps.len(),
+            block.wall_s.len(),
+            block.code
+        ));
+    }
+    let quiet = block.load.iter().filter(|r| r.quiet()).count();
+    if quiet != 1 + t.len() + lost {
+        findings.push(format!(
+                "{}: {id} record shows a quiet node before {quiet} runs of {} at {at} threads, not before its warm-up and each of its {} runs",
+                tier.name(),
+                block.code,
+                t.len() + lost
+            ));
+    }
+    let alone = block.during.iter().filter(|d| d.quiet()).count();
+    if block.during.len() != 1 + t.len() + lost || alone != 1 + t.len() + lost {
+        findings.push(format!(
+                "{}: {id} record shows {alone} runs of {} at {at} threads with no other load through them, not its warm-up and each of its {} runs, judged or lost",
+                tier.name(),
+                block.code,
+                t.len() + lost
+            ));
     }
     findings
 }
@@ -781,6 +801,7 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
         field("pilot")
     );
     println!("skipped {} spent_s {}", field("skipped"), field("spent_s"));
+    println!("rival reuse {}", field("rival_reuse"));
     for failure in record["failures"].as_array().into_iter().flatten() {
         println!("failure: {}", text(failure));
     }
@@ -841,7 +862,7 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
         println!(
             "block {} {} p={}: timed runs {} losses {}; medians of the runs alone: T(δ) {} s, wall {} s, peak Pss {} \
              bytes; noisy {} E_ref {} accuracy {}; SCF steps {:?}, E_ref's {:?}, cap {:?}; a quiet node before {} of {} \
-             runs, the warm-up first: {:?}; no other load through {} of them: {:?}",
+             runs, the warm-up first: {:?}; no other load through {} of them: {:?}; reused from {}",
             b.code,
             b.input,
             b.threads,
@@ -867,7 +888,14 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
             b.load.len(),
             b.load,
             b.during.iter().filter(|d| d.quiet()).count(),
-            b.during
+            b.during,
+            b.reused.as_ref().map_or_else(
+                || "none: timed in this run".to_owned(),
+                |s| format!(
+                    "record {} at {}, started {} ms",
+                    s.record_sha256, s.commit, s.started_unix_ms
+                )
+            )
         );
     }
     let mut lost: Vec<&str> = (blocks.iter())

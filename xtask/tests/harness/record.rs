@@ -1310,6 +1310,7 @@ fn readout_prints_r_g_each_pair_and_each_blocks_medians_from_a_record() {
         "tier claim schema 4 outcome fail commit abc dirty false engine e5 seed 7 seed_fixed false\n".into(),
         "held_out [] tuned t1 pilot null\n".into(),
         "skipped [{\"code\":\"qe\",\"input\":\"nio\"}] spent_s 12.5\n".into(),
+        "rival reuse null\n".into(),
         "failure: R against abinit is unmeasured\n".into(),
         "failure: b: at ABINIT's frozen cutoff, the accuracy is unmeasured\n".into(),
         "versus abinit: R NaN (judged, R_min 1.0) G 1.25 95% CI null by null resamples, seed null (g_judged false, G_min \
@@ -1324,10 +1325,10 @@ fn readout_prints_r_g_each_pair_and_each_blocks_medians_from_a_record() {
         pair("b", "t_ratio 1.0625 pss_ratio 0.625 in_r true", "T(δ) [4.25,4.0] s, Pss [250.0,400.0] bytes", 2),
         "block orbitar input p=8: timed runs 4 losses 0; medians of the runs alone: T(δ) 2.375 s, wall 4.5 s, peak Pss \
          325 bytes; noisy false E_ref -7.5 accuracy {\"d_ha_per_atom\":0.5}; SCF steps [12, 11, 12, 13], E_ref's \
-         Some([20, 24]), cap Some(200); a quiet node before 0 of 0 runs, the warm-up first: []; no other load through 0 of them: []\n"
+         Some([20, 24]), cap Some(200); a quiet node before 0 of 0 runs, the warm-up first: []; no other load through 0 of them: []; reused from none: timed in this run\n"
             .into(),
         "block abinit input p=8: timed runs 0 losses 5; medians of the runs alone: T(δ) none s, wall none s, peak Pss \
-         none bytes; noisy true E_ref none accuracy none; SCF steps [], E_ref's None, cap None; a quiet node before 0 of 0 runs, the warm-up first: []; no other load through 0 of them: []\n"
+         none bytes; noisy true E_ref none accuracy none; SCF steps [], E_ref's None, cap None; a quiet node before 0 of 0 runs, the warm-up first: []; no other load through 0 of them: []; reused from none: timed in this run\n"
             .into(),
         "rival losses, each counted as +inf in R and G: crash\n".into(),
         "read each rival block's E_ref (none: its reference run was lost, \"E_ref lost\" in the tier log) before its \
