@@ -549,6 +549,10 @@ fn a_held_out_variant_beyond_the_generators_is_keyed_to_the_bytes_of_its_paired_
         .unwrap();
     let identity = &variant["reuse_key"]["identity"];
     assert_eq!(identity["paired"], "input", "{identity}");
+    assert_eq!(
+        identity["variant"], "a held-out variant beyond the generators",
+        "{identity}"
+    );
     assert!(identity["base"].is_null(), "{identity}");
     assert!(identity["paired_sha256"].is_string(), "{identity}");
     kept(&root, &earlier, "1_a.json");
@@ -616,4 +620,115 @@ fn the_measuring_protocol_names_only_files_of_this_checkout() {
     for file in xtask::harness::REUSE_PROTOCOL {
         assert!(root.join(file).is_file(), "{file}");
     }
+}
+
+fn file_sha256(path: &Path) -> String {
+    super::hex(&<sha2::Sha256 as sha2::Digest>::digest(
+        std::fs::read(path).unwrap(),
+    ))
+}
+
+#[test]
+fn a_fresh_rival_key_names_the_decks_the_runtime_and_the_node_that_its_rival_ran_with() {
+    let (root, _) = reusable("reuse-fresh-key");
+    let rivals = [("qe", "pw.x", "pw.in"), ("abinit", "abinit", "run.abi")];
+    for (code, program, deck) in rivals {
+        let kept = root.join(format!("pace/decks-{code}"));
+        std::fs::create_dir_all(&kept).unwrap();
+        let bin = root.join(format!("rivals/{code}/bin/{program}"));
+        let body = std::fs::read_to_string(&bin).unwrap();
+        script(
+            &bin,
+            &format!(
+                "cp {deck} \"$(mktemp '{}/deck.XXXXXX')\"\n{}",
+                kept.display(),
+                body.trim_start_matches("#!/bin/sh\n")
+            ),
+        );
+    }
+    git(&root, &["add", "-A"]);
+    git(
+        &root,
+        &["commit", "-q", "-m", "rivals that keep their decks"],
+    );
+    let (_, first) = claim(&root, None);
+    let memory_total_gib = (std::fs::read_to_string("/proc/meminfo").ok())
+        .and_then(|m| {
+            let kib = m.lines().find_map(|l| l.strip_prefix("MemTotal:"))?;
+            kib.trim().strip_suffix("kB")?.trim().parse::<f64>().ok()
+        })
+        .map(|kib| (kib / 1_048_576.0).round());
+    let limits = [
+        "cpu.max",
+        "cpu.weight",
+        "cpuset.cpus.effective",
+        "memory.high",
+        "memory.max",
+        "memory.swap.max",
+        "pids.max",
+    ];
+    for (code, program, _) in rivals {
+        let key = &of(&first, code)["reuse_key"];
+        let decks: std::collections::BTreeSet<&str> = (key["decks"].as_object().unwrap().values())
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        let ran: std::collections::BTreeSet<String> =
+            (std::fs::read_dir(root.join(format!("pace/decks-{code}"))).unwrap())
+                .map(|entry| file_sha256(&entry.unwrap().path()))
+                .collect();
+        let ran: std::collections::BTreeSet<&str> = ran.iter().map(String::as_str).collect();
+        assert_eq!(decks, ran, "{code}: {key}");
+        assert_eq!(key["decks"].get("v2").is_some(), code == "abinit", "{key}");
+        let mut runtime = serde_json::Map::new();
+        runtime.insert("/bin/sh".into(), json!(file_sha256(Path::new("/bin/sh"))));
+        runtime.insert(
+            format!("<rivals>/{code}/bin/{program}"),
+            json!(file_sha256(
+                &root.join(format!("rivals/{code}/bin/{program}"))
+            )),
+        );
+        runtime.insert(
+            format!("<rivals>/{code}/lib/libfake.so"),
+            json!(sha256("build 1")),
+        );
+        assert_eq!(key["runtime"], Value::Object(runtime), "{code}");
+        assert_eq!(key["identity"]["variant"], "a case input", "{key}");
+        let node = &key["node"];
+        assert_eq!(
+            node["memory_total_gib_rounded"],
+            json!(memory_total_gib),
+            "{node}"
+        );
+        for chain in ["harness", "user_service"] {
+            let files: Vec<&String> =
+                (node["cgroup_limits"][chain].as_object().unwrap().keys()).collect();
+            assert_eq!(files, limits, "{node}");
+        }
+    }
+    let invoked = |code: &str| of(&first, code)["reuse_key"]["invocation_sha256"].clone();
+    assert_ne!(invoked("qe"), invoked("abinit"));
+    for b in (first["speed"].as_array().unwrap().iter()).filter(|b| b["code"] == "orbitar") {
+        for field in ["e_v2_ha", "p_ref_gpa", "reuse_key"] {
+            assert!(b[field].is_null(), "{field}: {b}");
+        }
+    }
+}
+
+#[test]
+fn a_library_that_the_rivals_own_loader_cannot_find_keeps_that_rival_from_reuse() {
+    let (root, earlier) = reusable("reuse-not-found");
+    claim(&root, None);
+    kept(&root, &earlier, "1_a.json");
+    script(
+        &root.join("rivals/qe/bin/ldd"),
+        "printf '\\tlibmissing.so => not found\\n'",
+    );
+    let (_, second) = claim(&root, Some(&earlier));
+    assert!(of(&second, "qe")["reused"].is_null(), "{second}");
+    assert!(!of(&second, "abinit")["reused"].is_null(), "{second}");
+    let why = why_of(&second, "qe");
+    assert!(
+        why.iter().any(|w| w.ends_with("libmissing.so not found")),
+        "{why:?}"
+    );
 }

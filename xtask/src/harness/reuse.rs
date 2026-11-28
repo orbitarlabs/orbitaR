@@ -212,26 +212,13 @@ pub(crate) struct Claimant<'a> {
     pub(crate) id: &'a str,
     pub(crate) case: &'a Case,
     pub(crate) pilot: bool,
+    pub(crate) repeats: usize,
+    pub(crate) speed: &'a Speed,
     pub(crate) started_unix_ms: u64,
     pub(crate) commit: &'a str,
 }
 
 impl Claimant<'_> {
-    fn repeats(&self) -> usize {
-        match self.pilot {
-            true => 1,
-            false => self.case.repeats() as usize,
-        }
-    }
-
-    fn speed(&self) -> Result<Speed, String> {
-        let speed = (Tier::Claim.policy().speed).ok_or("the claim tier times nothing")?;
-        Ok(match self.pilot {
-            true => speed::never_grown(&speed),
-            false => speed,
-        })
-    }
-
     fn source(&self, sha: &str, text: &str) -> Result<(Source, Value), String> {
         let record: Value = serde_json::from_str(text).map_err(|e| format!("not JSON: {e}"))?;
         let wanted = [
@@ -319,12 +306,11 @@ impl Claimant<'_> {
             return Err((*why).to_owned());
         }
         let settings = rival::settings(self.root).ok();
-        let speed = self.speed()?;
         let judged = record::block_findings(
             Tier::Claim,
             self.id,
             self.case,
-            (&speed, self.repeats(), self.pilot),
+            (self.speed, self.repeats, self.pilot),
             settings.as_ref(),
             &block,
         );
@@ -474,10 +460,6 @@ impl Lookup {
             }
         }
         lookup
-    }
-
-    pub(crate) fn any(&self) -> bool {
-        self.found.iter().any(Option::is_some)
     }
 
     pub(crate) fn guard(

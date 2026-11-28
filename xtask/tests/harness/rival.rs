@@ -967,6 +967,7 @@ fn a_layout_with_ranks_runs_the_code_under_mpiexec_with_its_flags() {
         log.display()
     );
     script(&root.join("rivals/qe/bin/mpiexec"), &mpiexec);
+    script(&root.join("rivals/qe/bin/ldd"), "exit 0");
     let (outcome, record) = claim(&root, true);
     let text = std::fs::read_to_string(&log).unwrap();
     let _ = std::fs::remove_file(&log);
@@ -988,6 +989,11 @@ fn a_layout_with_ranks_runs_the_code_under_mpiexec_with_its_flags() {
         json!(["--bind-to", "none"]),
         "{}",
         qe[0]
+    );
+    let runtime = &qe[0]["reuse_key"]["runtime"];
+    assert!(
+        runtime.get("<rivals>/qe/bin/mpiexec").is_some(),
+        "{runtime}"
     );
 }
 

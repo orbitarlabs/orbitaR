@@ -1617,6 +1617,8 @@ impl Session {
                     id,
                     case,
                     pilot: self.pilot,
+                    repeats,
+                    speed,
                     started_unix_ms: u64::try_from(unix_ms()).unwrap_or(u64::MAX),
                     commit: &commit,
                 };
@@ -1638,7 +1640,7 @@ impl Session {
                             .collect();
                         reuse::Lookup::find(&claimant, dir, &node, &protocol, &wants)
                     });
-                let guarded = match lookup.as_mut().filter(|l| l.any()) {
+                let guarded = match lookup.as_mut() {
                     Some(l) => l.guard(&blocks, &run, gate.as_ref(), speed),
                     None => Ok(()),
                 };
