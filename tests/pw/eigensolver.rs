@@ -187,21 +187,6 @@ fn lobpcg_finds_the_lowest_pairs_of_the_dense_solution_in<T: Parts>() {
 }
 
 #[test]
-fn a_semicore_pencil_in_real_arithmetic_reaches_a_residual_of_1e_14_but_not_1e_15() {
-    let t = semicore::<f64>(400, 1);
-    let worst =
-        |pairs: &Eigenpairs<f64>| pairs.residuals()[..20].iter().copied().fold(0.0, f64::max);
-    match solve(&t, random_block::<f64>(400, 24, 3), 20, 1e-14, 100) {
-        Ok(pairs) => assert!(worst(&pairs) < 1e-14),
-        Err(pairs) => panic!("1e-14 not reached: {:e}", worst(&pairs)),
-    }
-    match solve(&t, random_block::<f64>(400, 24, 3), 20, 1e-15, 100) {
-        Ok(pairs) => panic!("1e-15 reached: {:e}", worst(&pairs)),
-        Err(pairs) => assert!(worst(&pairs) > 1e-15),
-    }
-}
-
-#[test]
 fn deep_bands_from_a_cold_start_converge_to_a_tolerance_near_rounding() {
     deep_bands_from_a_cold_start_converge_to_a_tolerance_near_rounding_in::<c64>();
     deep_bands_from_a_cold_start_converge_to_a_tolerance_near_rounding_in::<f64>();

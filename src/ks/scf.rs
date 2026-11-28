@@ -8,10 +8,7 @@ use std::num::NonZeroUsize;
 
 const FIRST_EIGENSOLVER_RESIDUAL_TOLERANCE: f64 = 2.5e-2;
 const EIGENSOLVER_TOLERANCE_PER_DENSITY_CHANGE: f64 = 0.02;
-const EIGENSOLVER_TOLERANCE_CEILING: f64 = 5e-3;
-const EIGENSOLVER_FLOOR_PER_DENSITY_STOP: f64 = 0.1;
-const LOWEST_EIGENSOLVER_FLOOR: f64 = 1e-14;
-const HIGHEST_EIGENSOLVER_FLOOR: f64 = 1e-13;
+const EIGENSOLVER_TOLERANCE_BOUNDS: [f64; 2] = [1e-13, 5e-3];
 const EXTRA_BANDS_AT_REPORTED_EDGE: usize = 3;
 const ATOMS_PER_BAND: usize = 2;
 const MOMENT_PER_EXTRA_BAND: f64 = 2.0;
@@ -264,8 +261,8 @@ pub(super) fn ground_state(
         if added == 0 {
             smallest = smallest.min(change.0);
             tolerance = (EIGENSOLVER_TOLERANCE_PER_DENSITY_CHANGE * smallest).clamp(
-                eigensolver_floor(density_stop),
-                EIGENSOLVER_TOLERANCE_CEILING,
+                EIGENSOLVER_TOLERANCE_BOUNDS[0],
+                EIGENSOLVER_TOLERANCE_BOUNDS[1],
             );
         }
         guesses = (bands.into_iter())
@@ -322,11 +319,6 @@ pub(super) fn ground_state(
         unmet.join(", ")
     );
     Err(Failure::Unconverged(message))
-}
-
-pub fn eigensolver_floor(density_stop: f64) -> f64 {
-    (EIGENSOLVER_FLOOR_PER_DENSITY_STOP * density_stop)
-        .clamp(LOWEST_EIGENSOLVER_FLOOR, HIGHEST_EIGENSOLVER_FLOOR)
 }
 
 fn pool(threads: NonZeroUsize) -> Result<Option<Pool>, String> {

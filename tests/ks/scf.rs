@@ -1,6 +1,6 @@
 use crate::{synthetic_3d_draft, synthetic_draft, synthetic_meta_draft};
 use orbitar::io::{read_spec, to_json};
-use orbitar::ks::{Failure, Outcome, eigensolver_floor, run};
+use orbitar::ks::{Failure, Outcome, run};
 use orbitar::paw::{CoreKinetic, Dataset, DatasetDraft};
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -830,17 +830,4 @@ fn the_eigensolver_tolerance_that_follows_the_density_change_costs_at_most_one_s
             dense.steps
         );
     }
-}
-
-#[test]
-fn the_eigensolver_floor_is_a_tenth_of_the_density_stop_between_1e_14_and_1e_13() {
-    let near = |got: f64, want: f64| (got - want).abs() <= 2.0 * f64::EPSILON * want;
-    assert!(
-        near(eigensolver_floor(1e-13), 1e-14),
-        "{}",
-        eigensolver_floor(1e-13)
-    );
-    assert_eq!(eigensolver_floor(1e-11), 1e-13);
-    assert_eq!(eigensolver_floor(1e-12), 1e-13);
-    assert_eq!(eigensolver_floor(1e-14), 1e-14);
 }
