@@ -5,6 +5,7 @@ use crate::pw::{Grid, Mat, per_point};
 use crate::xc::{DENSITY_FLOOR_PER_BOHR3, Point, Rung, evaluate, unpolarized};
 use compensated_summation::KahanBabuskaNeumaier;
 use std::f64::consts::PI;
+use std::ops::AddAssign;
 use std::sync::Arc;
 
 const STEP: f64 = 1e-2;
@@ -365,15 +366,27 @@ impl Sphere {
     }
 
     pub fn potential_d(&self, v: &[f64]) -> Mat<f64> {
+        self.projected_d(v, |sum: &f64| *sum)
+    }
+
+    pub fn compensated_potential_d(&self, v: &[f64]) -> Mat<f64> {
+        self.projected_d(v, KahanBabuskaNeumaier::<f64>::total)
+    }
+
+    fn projected_d<S: Clone + Default + AddAssign<f64>>(
+        &self,
+        v: &[f64],
+        total: impl Fn(&S) -> f64,
+    ) -> Mat<f64> {
         let species = &self.species;
         let count = self.values.first().map_or(0, Vec::len);
-        let mut sums = vec![KahanBabuskaNeumaier::<f64>::new(); count];
+        let mut sums = vec![S::default(); count];
         for (&index, values) in self.points.iter().zip(&self.values) {
             for (sum, g) in sums.iter_mut().zip(values) {
                 *sum += v[index] * g * self.volume;
             }
         }
-        let projected: Vec<f64> = sums.iter().map(KahanBabuskaNeumaier::total).collect();
+        let projected: Vec<f64> = sums.iter().map(total).collect();
         let n = species.orbitals().len();
         Mat::from_fn(n, n, |i, j| {
             (0..count)

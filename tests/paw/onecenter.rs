@@ -193,14 +193,14 @@ fn the_compensation_density_and_d_hat_are_adjoint() {
 }
 
 #[test]
-fn a_potential_near_the_largest_float_keeps_d_hat_finite_and_linear() {
+fn a_potential_near_the_largest_float_keeps_the_compensated_d_hat_finite_and_linear() {
     let s = species(|_| {});
     let grid = sphere_grid();
     let sphere = s.sphere(&grid, [0.1, 0.2, 0.3]);
     let points = grid.points().len();
     let (two, huge) = (
-        sphere.potential_d(&vec![2.0; points]),
-        sphere.potential_d(&vec![1e306; points]),
+        sphere.compensated_potential_d(&vec![2.0; points]),
+        sphere.compensated_potential_d(&vec![1e306; points]),
     );
     let scale = 0.5e306 * two[(0, 0)].abs();
     for i in 0..4 {

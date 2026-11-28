@@ -31,6 +31,7 @@ impl Local {
 pub(super) struct Field {
     pub(super) local: Vec<Local>,
     pub(super) d: Vec<Vec<Mat<f64>>>,
+    pub(super) energy_d: Vec<Vec<Mat<f64>>>,
     pub(super) hartree_ha: f64,
     pub(super) xc_ha: f64,
     pub(super) local_ha: f64,

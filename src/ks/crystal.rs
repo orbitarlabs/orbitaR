@@ -458,12 +458,28 @@ impl<'a> Crystal<'a> {
             let (energy_ha, d) = kind
                 .species
                 .sphere_terms(kind.upright.as_ref(), images, rho);
-            let hat = atom.sphere.potential_d(electrostatic);
-            (energy_ha, d.iter().map(|d| d + &hat).collect::<Vec<_>>())
+            let (hat, energy_hat) = (
+                atom.sphere.potential_d(electrostatic),
+                atom.sphere.compensated_potential_d(electrostatic),
+            );
+            let plus = |hat: &Mat<f64>| d.iter().map(|d| d + hat).collect::<Vec<_>>();
+            (energy_ha, plus(&hat), plus(&energy_hat))
         });
-        let one_center_ha = atoms.iter().fold(0.0, |sum, (e, _)| sum + e);
-        let d: Vec<Vec<Mat<f64>>> = atoms.into_iter().map(|(_, d)| d).collect();
-        let d = match (self.reads_tau(), !self.symmetries.is_empty()) {
+        let one_center_ha = atoms.iter().fold(0.0, |sum, (e, ..)| sum + e);
+        let (d, energy_d): (Vec<_>, Vec<_>) = atoms.into_iter().map(|(_, d, e)| (d, e)).unzip();
+        Field {
+            local,
+            d: self.symmetrized_d(d),
+            energy_d: self.symmetrized_d(energy_d),
+            hartree_ha: h.energy_ha,
+            xc_ha: xc.energy_ha,
+            local_ha,
+            one_center_ha,
+        }
+    }
+
+    fn symmetrized_d(&self, d: Vec<Vec<Mat<f64>>>) -> Vec<Vec<Mat<f64>>> {
+        match (self.reads_tau(), !self.symmetries.is_empty()) {
             (true, true) => {
                 let n = self.symmetries.len() as f64;
                 (0..self.atoms.len())
@@ -483,14 +499,6 @@ impl<'a> Crystal<'a> {
                     .collect()
             }
             _ => d,
-        };
-        Field {
-            local,
-            d,
-            hartree_ha: h.energy_ha,
-            xc_ha: xc.energy_ha,
-            local_ha,
-            one_center_ha,
         }
     }
 
@@ -515,7 +523,7 @@ impl<'a> Crystal<'a> {
             }
             _ => smooth,
         };
-        let onsite: f64 = (field.d.iter())
+        let onsite: f64 = (field.energy_d.iter())
             .zip(a.onsite.iter().zip(&b.onsite))
             .flat_map(|(d, (a, b))| d.iter().zip(a.iter().zip(b)))
             .map(|(d, (a, b))| {
