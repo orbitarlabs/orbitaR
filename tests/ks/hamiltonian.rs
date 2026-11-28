@@ -307,6 +307,32 @@ fn each_column_of_a_paired_h_keeps_its_accuracy_beside_a_far_larger_or_a_zero_co
 }
 
 #[test]
+fn a_paired_h_scales_columns_at_both_ends_of_the_exponent_range_exactly() {
+    let (cell, k) = (cell(), [0.0; 3]);
+    let basis = Basis::sphere(&cell, k, 0.01);
+    assert_eq!(basis.millers(), [[0, 0, 0]]);
+    let pairs = basis.pairs(k).unwrap();
+    let grid = Grid::coarse(&cell, 0.01);
+    let quarter = plain(&vec![0.25; grid.points().len()]);
+    let whole = Hamiltonian::assembled(&basis, &grid, &quarter, &[]).unwrap();
+    let paired = whole.paired(&pairs).unwrap();
+    let (largest, tiniest) = (2f64.powi(1023), 2f64.powi(-1025));
+    for column in [
+        [1.0, largest],
+        [largest, 1.0],
+        [tiniest, 1.0],
+        [1.0, tiniest],
+    ] {
+        let block = paired.h(Mat::from_fn(1, 2, |_, j| column[j]).as_ref());
+        for (j, &value) in column.iter().enumerate() {
+            let alone = paired.h(Mat::from_fn(1, 1, |_, _| value).as_ref());
+            assert_eq!(block[(0, j)], value / 4.0, "{column:?} column {j}");
+            assert_eq!(block[(0, j)], alone[(0, 0)], "{column:?} column {j} alone");
+        }
+    }
+}
+
+#[test]
 fn projectors_that_are_no_real_functions_have_no_paired_form() {
     let (cell, k) = (cell(), [0.0; 3]);
     let basis = Basis::sphere(&cell, k, 3.0);

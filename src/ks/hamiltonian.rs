@@ -213,7 +213,9 @@ impl Paired<'_> {
     pub fn h(&self, x: MatRef<'_, f64>) -> Mat<f64> {
         let (whole, pairs) = (self.whole, self.pairs);
         let mut out = self.nonlocal(x, |(_, d, _)| d);
-        let scaled = |j: usize, scale: f64| move |row: usize| x[(row, j)] * scale;
+        let column = |j: usize| move |row: usize| x[(row, j)];
+        let scaled =
+            |j: usize, exponent: i32| move |row: usize| libm::scalbn(x[(row, j)], -exponent);
         per_column_pair(
             out.as_mut(),
             || (whole.scratch(), Vec::new()),
@@ -225,25 +227,24 @@ impl Paired<'_> {
                 if columns.ncols() == 1 || peaks.contains(&0.0) {
                     for j in 0..columns.ncols() {
                         whole.apply_local(
-                            |g| pairs.coefficient(scaled(first + j, 1.0), g),
+                            |g| pairs.coefficient(column(first + j), g),
                             scratch,
                             |g, v| columns[(g, j)] += pairs.entry(g, v) + kinetic(g, j),
                         );
                     }
                     return;
                 }
-                let exponents = [peaks[0], peaks[1]].map(|peak| libm::frexp(peak).1);
-                let [down, up] = [-1, 1].map(|sign| exponents.map(|e| libm::scalbn(1.0, sign * e)));
+                let [ea, eb] = [peaks[0], peaks[1]].map(|peak| libm::frexp(peak).1);
                 applied.clear();
                 whole.apply_local(
-                    |g| pairs.packed(scaled(first, down[0]), scaled(first + 1, down[1]), g),
+                    |g| pairs.packed(scaled(first, ea), scaled(first + 1, eb), g),
                     scratch,
                     |_, v| applied.push(v),
                 );
                 for g in 0..applied.len() {
                     let [a, b] = pairs.halves(applied, g);
-                    columns[(g, 0)] += pairs.entry(g, a) * up[0] + kinetic(g, 0);
-                    columns[(g, 1)] += pairs.entry(g, b) * up[1] + kinetic(g, 1);
+                    columns[(g, 0)] += libm::scalbn(pairs.entry(g, a), ea) + kinetic(g, 0);
+                    columns[(g, 1)] += libm::scalbn(pairs.entry(g, b), eb) + kinetic(g, 1);
                 }
             },
         );

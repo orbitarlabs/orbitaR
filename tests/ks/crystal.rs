@@ -8,6 +8,29 @@ use orbitar::pw::{Basis, Grid};
 use std::f64::consts::TAU;
 
 fn difference(a: &Outcome, b: &Outcome) -> f64 {
+    let (p, q) = (a.eigenvalues_ha(), b.eigenvalues_ha());
+    assert!(
+        !p.is_empty() && p.len() == q.len(),
+        "{} spins against {}",
+        p.len(),
+        q.len()
+    );
+    for (spin, (x, y)) in p.iter().zip(q).enumerate() {
+        assert!(
+            !x.is_empty() && x.len() == y.len(),
+            "spin {spin}: {} k-points against {}",
+            x.len(),
+            y.len()
+        );
+        for (point, (u, v)) in x.iter().zip(y).enumerate() {
+            assert!(
+                !u.is_empty() && u.len() == v.len(),
+                "spin {spin}, k-point {point}: {} bands against {}",
+                u.len(),
+                v.len()
+            );
+        }
+    }
     let flat = |o: &Outcome| -> Vec<f64> {
         let e = &o.scf().unwrap().energies;
         let mut all: Vec<f64> = o
