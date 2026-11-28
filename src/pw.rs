@@ -8,7 +8,7 @@ mod xc;
 
 pub use basis::{Basis, Pairs};
 pub use eigensolver::{
-    Applied, Eigenpairs, Guess, Pencil, Scalar, Tolerance, Workspace, dense, lowest, random,
+    Applied, Eigenpairs, Guess, Pencil, Scalar, Workspace, dense, lowest, random,
 };
 pub use faer::{Mat, MatRef, c64};
 pub use grid::{Grid, SphereFft, kinetic_density, kinetic_strain};

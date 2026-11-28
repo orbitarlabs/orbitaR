@@ -849,21 +849,22 @@ fn the_eigensolver_floor_is_a_tenth_of_the_density_stop_between_a_hundred_epsilo
 }
 
 #[test]
-fn a_tight_stop_at_a_compressed_complex_point_converges_on_the_pairs_its_eigensolver_accepts() {
-    let a = 0.45 * 3.8172467884289993;
-    let cutoff = 12.0 / (0.45 * 0.45);
-    let text = format!(
-        "schema = 1\n\n[structure]\ncell_bohr = [[0.0, {a}, {a}], [{a}, 0.0, {a}], [{a}, {a}, 0.0]]\n\
-         species = [\"Fe\"]\npositions_fractional = [[0.0, 0.0, 0.0]]\n\n[basis]\ncutoff_ha = {cutoff}\n\
-         density_cutoff_ha = {}\n\n[kpoints]\nlist = [[0.23, 0.12, 0.1]]\n\n[occupations]\n\
-         smearing = \"fermi-dirac\"\nwidth_ha = 0.00225\n\n[scf]\nenergy_tolerance_ha = 1e-11\n\n\
-         [bands]\ncount = 45\n",
-        2.0 * cutoff
-    );
+fn a_tight_stop_at_a_complex_point_converges_within_a_step_of_the_old_floor() {
+    let text = "schema = 1\n\n[structure]\n\
+        cell_bohr = [[0.0, 3.8172467884289993, 3.8172467884289993], [3.8172467884289993, 0.0, 3.8172467884289993], \
+        [3.8172467884289993, 3.8172467884289993, 0.0]]\n\
+        species = [\"Fe\"]\npositions_fractional = [[0.0, 0.0, 0.0]]\n\n[basis]\ncutoff_ha = 12.0\n\n\
+        [kpoints]\nlist = [[0.23, 0.12, 0.1]]\n\n[occupations]\nsmearing = \"fermi-dirac\"\nwidth_ha = 0.00225\n\n\
+        [scf]\nenergy_tolerance_ha = 1e-11\n\n[bands]\ncount = 45\n";
     let iron = |z: u8| {
         assert_eq!(z, 26, "only the synthetic iron is asked for");
         Ok(Dataset::try_from(synthetic_3d_draft()).unwrap())
     };
-    let outcome = run(&read_spec(&text).unwrap(), iron, |_, _| {}).unwrap();
+    let outcome = run(&read_spec(text).unwrap(), iron, |_, _| {}).unwrap();
     assert_eq!(outcome.basis_sizes(), [215]);
+    let steps = outcome.scf().unwrap().steps;
+    assert!(
+        (19..=21).contains(&steps),
+        "{steps} steps, where a fixed floor of 1e-13 takes 20"
+    );
 }

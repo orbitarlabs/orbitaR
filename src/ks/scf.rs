@@ -1,9 +1,9 @@
-use super::crystal::{Crystal, Density, Field, Start};
+use super::crystal::{Crystal, Density, Field, Start, Tolerance};
 use super::diagnosis::Diagnosis;
 use super::{Discretization, Failure, Mixer, Scf, Weight, occupy};
 use crate::model::{Draft, KPoints, Smearing, Spec};
 use crate::paw::Dataset;
-use crate::pw::{Mat, Pool, Tolerance, c64, random};
+use crate::pw::{Mat, Pool, c64, random};
 use std::num::NonZeroUsize;
 
 const FIRST_EIGENSOLVER_RESIDUAL_TOLERANCE: f64 = 2.5e-2;
@@ -151,7 +151,10 @@ pub(super) fn ground_state(
         let field = on(pool.as_ref(), || {
             crystal.field(&input, &crystal.fine(&input))
         });
-        let tolerance = Tolerance::aiming(target, target.max(ACCEPTED_EIGENSOLVER_RESIDUAL));
+        let tolerance = Tolerance {
+            target,
+            accepted: target.max(ACCEPTED_EIGENSOLVER_RESIDUAL),
+        };
         let bands = crystal.bands(pool.as_ref(), &field, guesses, reported, tolerance);
         let eigenvalues: Vec<Vec<Vec<f64>>> = (bands.iter())
             .map(|spin| {

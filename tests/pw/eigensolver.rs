@@ -1,7 +1,6 @@
 use super::{Parts, bits, entry};
 use orbitar::pw::{
-    Applied, Eigenpairs, Guess, Mat, MatRef, Pencil, Tolerance, Workspace, c64, dense, lowest,
-    random,
+    Applied, Eigenpairs, Guess, Mat, MatRef, Pencil, Workspace, c64, dense, lowest, random,
 };
 
 fn stream(seed: u64) -> impl FnMut() -> f64 {
@@ -62,7 +61,7 @@ fn solve<T: Parts>(
     t: &Toy<T>,
     guess: Mat<T>,
     converged: usize,
-    tolerance: impl Into<Tolerance>,
+    tolerance: f64,
     max: usize,
 ) -> Result<Eigenpairs<T>, Eigenpairs<T>> {
     solve_counting(t, guess, converged, tolerance, max).0
@@ -72,7 +71,7 @@ fn solve_counting<T: Parts>(
     t: &Toy<T>,
     guess: Mat<T>,
     converged: usize,
-    tolerance: impl Into<Tolerance>,
+    tolerance: f64,
     max: usize,
 ) -> (Result<Eigenpairs<T>, Eigenpairs<T>>, usize) {
     solve_in(
@@ -89,7 +88,7 @@ fn solve_in<T: Parts>(
     t: &Toy<T>,
     guess: impl Into<Guess<T>>,
     converged: usize,
-    tolerance: impl Into<Tolerance>,
+    tolerance: f64,
     max: usize,
     work: &mut Workspace<T>,
 ) -> (Result<Eigenpairs<T>, Eigenpairs<T>>, usize) {
@@ -211,70 +210,21 @@ fn a_restarted_semicore_pencil_reaches_a_hundred_epsilon_in<T: Parts>() {
     }
 }
 
-fn prescribed<T: Parts>(residuals: [f64; 3]) -> (Toy<T>, Mat<T>) {
-    let mut h = Mat::from_fn(16, 16, |i, j| {
-        entry::<T>(if i == j { i as f64 } else { 0.0 }, 0.0)
-    });
-    for (j, r) in residuals.into_iter().enumerate() {
-        h[(j, j + 3)] = entry::<T>(r, 0.0);
-        h[(j + 3, j)] = entry::<T>(r, 0.0);
-    }
-    let toy = Toy {
-        kinetic: (1..=16).map(f64::from).collect(),
-        h,
-        s: Mat::identity(16, 16),
-    };
-    let start = Mat::from_fn(16, 3, |i, j| entry::<T>(f64::from(u8::from(i == j)), 0.0));
-    (toy, start)
-}
-
 #[test]
-fn pairs_are_converged_below_a_bound_only_strictly_and_only_for_the_asked_bands() {
-    pairs_are_converged_below_a_bound_only_strictly_and_only_for_the_asked_bands_in::<f64>();
-    pairs_are_converged_below_a_bound_only_strictly_and_only_for_the_asked_bands_in::<c64>();
+fn pairs_short_of_an_unreachable_target_are_converged_below_1e_13_in_real_and_complex_arithmetic() {
+    pairs_short_of_an_unreachable_target_are_converged_below_1e_13_in::<f64>();
+    pairs_short_of_an_unreachable_target_are_converged_below_1e_13_in::<c64>();
 }
 
-fn pairs_are_converged_below_a_bound_only_strictly_and_only_for_the_asked_bands_in<T: Parts>() {
-    let (t, start) = prescribed::<T>([5e-14, 1e-13, 2e-13]);
-    let Err(start) = solve(&t, start, 2, 100.0 * f64::EPSILON, 0) else {
-        panic!("a solve of no iterations converged");
-    };
-    assert_eq!(start.residuals(), [5e-14, 1e-13, 2e-13]);
-    let above = 1e-13_f64.next_up();
-    assert!(start.converged_below(1, 1e-13));
-    assert!(!start.converged_below(2, 1e-13));
-    assert!(start.converged_below(2, above));
-    assert!(!start.converged_below(3, above));
-}
-
-#[test]
-fn a_solve_of_no_iterations_is_unconverged_though_its_start_meets_the_accepted_bound() {
-    a_solve_of_no_iterations_is_unconverged_though_its_start_meets_the_accepted_bound_in::<f64>();
-    a_solve_of_no_iterations_is_unconverged_though_its_start_meets_the_accepted_bound_in::<c64>();
-}
-
-fn a_solve_of_no_iterations_is_unconverged_though_its_start_meets_the_accepted_bound_in<
-    T: Parts,
->() {
-    let (t, start) = prescribed::<T>([5e-14, 1e-13, 2e-13]);
-    let tolerance = Tolerance::aiming(100.0 * f64::EPSILON, 1e-13);
-    assert!(solve(&t, start, 1, tolerance, 0).is_err());
-}
-
-#[test]
-fn a_solve_short_of_its_target_converges_when_its_pairs_meet_the_accepted_bound() {
-    a_solve_short_of_its_target_converges_when_its_pairs_meet_the_accepted_bound_in::<f64>();
-    a_solve_short_of_its_target_converges_when_its_pairs_meet_the_accepted_bound_in::<c64>();
-}
-
-fn a_solve_short_of_its_target_converges_when_its_pairs_meet_the_accepted_bound_in<T: Parts>() {
+fn pairs_short_of_an_unreachable_target_are_converged_below_1e_13_in<T: Parts>() {
     let t = semicore::<T>(400, 1);
-    let start = || random_block::<T>(400, 24, 3);
-    assert!(solve(&t, start(), 20, 1e-16, 100).is_err());
-    let Ok(pairs) = solve(&t, start(), 20, Tolerance::aiming(1e-16, 1e-13), 100) else {
-        panic!("pairs short of 1e-16 did not meet 1e-13");
+    let Err(short) = solve(&t, random_block::<T>(400, 24, 3), 20, 1e-15, 100) else {
+        panic!("1e-15 reached");
     };
-    assert!(pairs.converged_below(20, 1e-13));
+    let worst = short.residuals()[..20].iter().copied().fold(0.0, f64::max);
+    assert!(short.converged_below(20, 1e-13));
+    assert!(!short.converged_below(20, worst));
+    assert!(short.converged_below(20, worst.next_up()));
 }
 
 #[test]

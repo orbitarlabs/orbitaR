@@ -11,8 +11,8 @@ use crate::model::{KPoints, Solver, Spec, operations};
 use crate::paw::{Dataset, FormFactors, Projectors, Sampled, Species, Sphere, total_occupancies};
 use crate::pw::{
     Basis, Complex64, Grid, Guess, Hartree, Kinetic, Mat, MatRef, Pairs, Pencil, Pool, Scalar,
-    SphereFft, Spins, Tolerance, Workspace, Xc, c64, dense, exchange_correlation, grid_points,
-    hartree, kinetic_strain, lowest, per_point, pool_threads, ritz_start, ritz_start_paired,
+    SphereFft, Spins, Workspace, Xc, c64, dense, exchange_correlation, grid_points, hartree,
+    kinetic_strain, lowest, per_point, pool_threads, ritz_start, ritz_start_paired,
 };
 use crate::xc::Variable;
 use std::collections::HashMap;
@@ -111,6 +111,12 @@ struct Symmetry {
 pub(super) enum Start {
     Atoms { columns: usize, seed: u64 },
     Warm(Mat<c64>),
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct Tolerance {
+    pub(super) target: f64,
+    pub(super) accepted: f64,
 }
 
 pub(super) struct Bands {
@@ -1006,9 +1012,13 @@ impl<'a> Crystal<'a> {
                 .unwrap_or_else(PoisonError::into_inner)
         };
         let mut work = lock_workspace_list().pop().unwrap_or_default();
-        let solved = lowest(pencil, guess, converged, tolerance, ITERATIONS, &mut work);
+        let Tolerance { target, accepted } = tolerance;
+        let solved = lowest(pencil, guess, converged, target, ITERATIONS, &mut work);
         lock_workspace_list().push(work);
-        let converged = solved.is_ok();
+        let converged = match &solved {
+            Ok(_) => true,
+            Err(pairs) => pairs.converged_below(converged, accepted),
+        };
         let (values, vectors) = solved.unwrap_or_else(|pairs| pairs).into_parts();
         (values, vectors, converged)
     }
