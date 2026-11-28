@@ -113,6 +113,12 @@ pub(super) enum Start {
     Warm(Mat<c64>),
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct Tolerance {
+    pub(super) target: f64,
+    pub(super) accepted: f64,
+}
+
 pub(super) struct Bands {
     pub(super) values: Vec<f64>,
     pub(super) vectors: Mat<c64>,
@@ -578,7 +584,7 @@ impl<'a> Crystal<'a> {
         field: &Field,
         starts: Vec<Vec<Start>>,
         converged: usize,
-        tolerance: f64,
+        tolerance: Tolerance,
     ) -> Vec<Vec<Bands>> {
         let solve =
             |spin, point, start| self.solve(field, spin, point, start, converged, tolerance);
@@ -998,7 +1004,7 @@ impl<'a> Crystal<'a> {
         pencil: &Pencil<T>,
         guess: Guess<T>,
         converged: usize,
-        tolerance: f64,
+        tolerance: Tolerance,
     ) -> (Vec<f64>, Mat<T>, bool) {
         let lock_workspace_list = || {
             free_workspaces
@@ -1006,9 +1012,13 @@ impl<'a> Crystal<'a> {
                 .unwrap_or_else(PoisonError::into_inner)
         };
         let mut work = lock_workspace_list().pop().unwrap_or_default();
-        let solved = lowest(pencil, guess, converged, tolerance, ITERATIONS, &mut work);
+        let Tolerance { target, accepted } = tolerance;
+        let solved = lowest(pencil, guess, converged, target, ITERATIONS, &mut work);
         lock_workspace_list().push(work);
-        let converged = solved.is_ok();
+        let converged = match &solved {
+            Ok(_) => true,
+            Err(pairs) => pairs.converged_below(converged, accepted),
+        };
         let (values, vectors) = solved.unwrap_or_else(|pairs| pairs).into_parts();
         (values, vectors, converged)
     }
@@ -1020,7 +1030,7 @@ impl<'a> Crystal<'a> {
         point: &Point,
         start: Start,
         converged: usize,
-        tolerance: f64,
+        tolerance: Tolerance,
     ) -> Bands {
         let projectors = self.projectors(point);
         let atoms = (self.atoms.iter().zip(&projectors).zip(&field.d))
