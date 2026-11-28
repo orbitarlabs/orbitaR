@@ -1,4 +1,4 @@
-# harness reviewer=captain after codex-review3-19 (tests for CI mutants) reason=repro-wheels: the Mac wheel build turns off rustc's post-link strip (rust-objcopy loads libLLVM only through DYLD_FALLBACK_LIBRARY_PATH, so the strip ran on CI and failed on a Mac), builds the data wheel with the hash-pinned uv 0.13.7 (uv_build==0.13.7), wheel --check holds the Mac engine to SDK 27.2 and exactly one ld record, ld 27106.1, of the Command Line Tools 27.2.0.0.1792721180 that CI's mac-wheel job selects on xcode-27; wheel --same passes only when the two files are one byte stream that reads as a release wheel: local headers, stored data, central headers and the end record cover every byte, no member uses a data descriptor or a ZIP64 extra field (maturin and uv_build write neither), and Python's zipfile reads each member with its CRC; that equal-input check and the hash listing report a zipfile failure in one line; on a difference --same names the first differing byte with its member and field and each differing local header, stored data, central header and end record by field name, never by value; member names print escaped; --same conflicts with --check and --target; CI's same-jth job runs it on the Linux and the Mac data wheel; publish allows xcode-27 and actions/download-artifact; listed is public so a test holds its findings
+# harness reviewer=PENDING reason=tiled-products: .cargo/mutants.toml names product's || to && equivalent: past the guard, a 0 × n or n × 0 target gets one empty tile, and faer's matmul returns at M == 0 || N == 0 before any read or write; tests/pw/parallel.rs an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size passes with the mutant
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -86,7 +86,7 @@ fe88881970ec5f9d3b865b5ed9e64eb29d2101b42464dc988b06e376974a718b  xtask/tests/ve
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/version-steps.toml
 58b0f7c77d7a0c419f735992e0842b9d7bb01907bebbab5f845f2139bf62ab3c  tests/benchmarks.rs
 723b736ee8533242449ef9bbe402443475473d89ec67a4a0157b41d354a92f55  .cargo/config.toml
-97bd5b34436beb4d8297090b11c1e169fa231b05520549f9dcac056caf029e49  .cargo/mutants.toml
+555a2666511729afeaad1d4860dc2994b32fa97d82826ffcec401684a5b40100  .cargo/mutants.toml
 25c05a1ee1c58ca7a2667e5a94eeffe983abf96c387d0c81e6eff62cbe2fe5f0  .config/nextest.toml
 170e990fbecd92a2790e88cd82074156a7d9a28482a2be86cdabbc8110f06632  clippy.toml
 1b163dc0af0ee6ec9ccd7608ec3d27d85e642bc0fc218b693a3b3600bf1cfb61  .github/workflows/ci.yml
