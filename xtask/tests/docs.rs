@@ -1619,3 +1619,228 @@ fn docs_base_finds_a_comment_after_a_yaml_single_quoted_value() {
     assert!(has(&findings, "a.yaml:1: an added comment"), "{findings:?}");
     assert_eq!(comment_findings(&findings).len(), 1, "{findings:?}");
 }
+
+const NOTEBOOK: &str = "notebooks/quickstart.ipynb";
+const ASE: [&str; 6] = [
+    "from ase.build import bulk",
+    "## Get energy: a comment, no heading",
+    "atoms = bulk(\"Si\")  # a ``` inside",
+    "",
+    "energy = 1",
+    "forces = stress = 2",
+];
+
+fn ase_tree(name: &str, block: &[&str], extra: &[(&str, &str)]) -> Tree {
+    let mut lines = vec!["## ASE", "", "```python"];
+    lines.extend_from_slice(block);
+    lines.extend([" ```", "", "## After", "", "```python", "after = 1", "```"]);
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let mut files = vec![
+        ("README.md", readme.as_str()),
+        (
+            "tests/ase.rs",
+            "readme_block(\"ASE\") readme_block(\"After\")\n",
+        ),
+    ];
+    files.extend_from_slice(extra);
+    let root = docs_tree(name, "# A\n", &format!("# R\n{GATES}"), STACK, &files);
+    tracked(&root);
+    root
+}
+
+fn written(root: &Tree) -> String {
+    assert_eq!(lever(&["notebook", "--write"], root), Vec::<String>::new());
+    std::fs::read_to_string(root.join(NOTEBOOK)).unwrap()
+}
+
+fn sources(text: &str) -> Vec<String> {
+    let book: serde_json::Value = serde_json::from_str(text).unwrap();
+    (book["cells"].as_array().unwrap().iter())
+        .map(|cell| {
+            (cell["source"].as_array().unwrap().iter())
+                .map(|line| line.as_str().unwrap())
+                .collect()
+        })
+        .collect()
+}
+
+#[test]
+fn the_written_quickstart_installs_runs_the_readme_ase_block_whole_and_prints_and_passes_the_docs_lever()
+ {
+    let root = ase_tree("notebook-written", &ASE, &[]);
+    let text = written(&root);
+    assert_eq!(
+        sources(&text),
+        [
+            "%pip install orbitar".to_owned(),
+            ASE.join("\n"),
+            "print(\"energy (eV):\", energy)\nprint(\"forces (eV/Å):\", forces)\nprint(\"stress (eV/Å³):\", stress)".to_owned(),
+        ]
+    );
+    let book: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        (&book["nbformat"], &book["nbformat_minor"]),
+        (&4.into(), &4.into())
+    );
+    for cell in book["cells"].as_array().unwrap() {
+        assert_eq!(cell["outputs"], serde_json::json!([]));
+        assert!(cell["execution_count"].is_null() && cell.get("id").is_none());
+    }
+    assert!(text.starts_with("{\n \"cells\": [\n  {\n") && text.ends_with("}\n"));
+    assert_eq!(lever(&["docs"], &root), Vec::<String>::new());
+    assert_eq!(lever(&["notebook"], &root), Vec::<String>::new());
+}
+
+#[test]
+fn a_quickstart_off_the_written_bytes_or_missing_beside_a_readme_ase_block_fails() {
+    let off = "is not what `cargo xtask notebook --write` writes from README.md's `## ASE` block, byte for byte";
+    let root = ase_tree("notebook-off", &ASE, &[]);
+    let text = written(&root);
+    for changed in [
+        text.replace("bulk(\\\"Si\\\")", "bulk(\\\"Ge\\\")"),
+        text.replace("\"outputs\": []", "\"outputs\": [{}]"),
+        text.replace(
+            "\"nbformat_minor\": 4\n}",
+            "\"nbformat_minor\": 4,\n \"x\": 1\n}",
+        ),
+        text.trim_end().to_owned(),
+        String::new(),
+    ] {
+        assert_ne!(changed, text);
+        std::fs::write(root.join(NOTEBOOK), &changed).unwrap();
+        for args in [&["docs"][..], &["notebook"]] {
+            let f = lever(args, &root);
+            assert!(has(&f, &format!("{NOTEBOOK} {off}")), "{args:?}: {f:?}");
+        }
+    }
+    std::fs::remove_file(root.join(NOTEBOOK)).unwrap();
+    let f = lever(&["docs"], &root);
+    assert!(has(&f, &format!("{NOTEBOOK} cannot be read")), "{f:?}");
+}
+
+#[test]
+fn a_quickstart_without_a_readme_ase_python_block_or_another_notebook_fails() {
+    let f = readme_findings(
+        "notebook-sourceless",
+        &[],
+        &[(NOTEBOOK, "{}\n"), ("notebooks/other.ipynb", "{}\n")],
+    );
+    assert!(
+        has(
+            &f,
+            &format!("{NOTEBOOK} has no source: README.md has no python block under `## ASE`")
+        ),
+        "{f:?}"
+    );
+    assert!(has(&f, "notebooks/other.ipynb is extra prose"), "{f:?}");
+    assert!(!has(&f, &format!("{NOTEBOOK} is extra prose")), "{f:?}");
+    let f = readme_findings("notebook-none", &[], &[]);
+    assert_eq!(f, Vec::<String>::new());
+    let root = docs_tree(
+        "notebook-no-block",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &[],
+    );
+    let f = lever(&["notebook", "--write"], tracked(&root));
+    assert!(
+        has(
+            &f,
+            "notebook: notebooks/quickstart.ipynb: README.md has no python block"
+        ),
+        "{f:?}"
+    );
+}
+
+#[test]
+fn writing_the_quickstart_refuses_a_symlink_or_a_directory_at_its_path_and_writes_nothing() {
+    let root = ase_tree("notebook-symlink", &ASE, &[("target.txt", "kept\n")]);
+    std::fs::create_dir_all(root.join("notebooks")).unwrap();
+    std::os::unix::fs::symlink(root.join("target.txt"), root.join(NOTEBOOK)).unwrap();
+    let f = lever(&["notebook", "--write"], &root);
+    assert_eq!(
+        f,
+        [format!(
+            "notebook: {NOTEBOOK}: is no regular file (a symlink?); nothing is written"
+        )]
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("target.txt")).unwrap(),
+        "kept\n"
+    );
+    std::fs::remove_file(root.join(NOTEBOOK)).unwrap();
+    std::fs::create_dir(root.join(NOTEBOOK)).unwrap();
+    let f = lever(&["notebook", "--write"], &root);
+    assert!(has(&f, "is no regular file"), "{f:?}");
+    let root = ase_tree("notebook-dir-symlink", &ASE, &[("elsewhere/keep", "")]);
+    std::os::unix::fs::symlink(root.join("elsewhere"), root.join("notebooks")).unwrap();
+    let f = lever(&["notebook", "--write"], &root);
+    assert!(has(&f, "its directory is no real directory"), "{f:?}");
+    assert!(!root.join("elsewhere/quickstart.ipynb").exists());
+}
+
+#[test]
+fn a_python_block_outside_the_ase_section_or_under_an_ase_title_of_another_level_is_not_the_quickstart_source()
+ {
+    let before = ["## Before", "", "```python", "before = 1", "```", ""];
+    let mut lines = before.to_vec();
+    lines.extend(["## ASE", "", "```python", "ase = 2", "```"]);
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let proofs = "readme_block(\"Before\") readme_block(\"ASE\")\n";
+    let files = [("README.md", readme.as_str()), ("tests/ase.rs", proofs)];
+    let root = docs_tree(
+        "notebook-before",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &files,
+    );
+    let text = written(tracked(&root));
+    assert_eq!(sources(&text)[1], "ase = 2");
+    let mut lines = before.to_vec();
+    lines.extend(["# ASE", "", "```python", "ase = 2", "```"]);
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let files = [("README.md", readme.as_str()), ("tests/ase.rs", proofs)];
+    let root = docs_tree(
+        "notebook-title",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &files,
+    );
+    let f = lever(&["notebook", "--write"], tracked(&root));
+    assert_eq!(
+        f,
+        [format!(
+            "notebook: {NOTEBOOK}: README.md has no python block under `## ASE`"
+        )]
+    );
+}
+
+#[test]
+fn a_python_block_below_a_subheading_of_the_ase_section_is_the_quickstart_source() {
+    let lines = [
+        "## ASE",
+        "",
+        "### Run it",
+        "",
+        "```python",
+        "ase = 2",
+        "```",
+    ];
+    let readme = format!("{README}\n{}\n", lines.join("\n"));
+    let files = [
+        ("README.md", readme.as_str()),
+        ("tests/ase.rs", "readme_block(\"ASE\")\n"),
+    ];
+    let root = docs_tree(
+        "notebook-sub",
+        "# A\n",
+        &format!("# R\n{GATES}"),
+        STACK,
+        &files,
+    );
+    let text = written(tracked(&root));
+    assert_eq!(sources(&text)[1], "ase = 2");
+}

@@ -7,5 +7,7 @@ abstract: >-
   for researchers who need a PAW code that they can read, change, and verify.
 authors:
   - name: The orbitaR developers
+repository-code: "https://github.com/orbitarlabs/orbitaR"
+url: "https://orbitarlabs.org"
 version: 0.0.1
 license: PolyForm-Noncommercial-1.0.0
