@@ -56,10 +56,6 @@ impl<T> Eigenpairs<T> {
         &self.residuals
     }
 
-    pub fn converged_below(&self, bands: usize, residual: f64) -> bool {
-        self.residuals[..bands].iter().all(|&r| r < residual)
-    }
-
     pub fn into_parts(self) -> (Vec<f64>, Mat<T>) {
         (self.values, self.vectors)
     }

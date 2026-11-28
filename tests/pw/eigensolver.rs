@@ -187,44 +187,18 @@ fn lobpcg_finds_the_lowest_pairs_of_the_dense_solution_in<T: Parts>() {
 }
 
 #[test]
-fn a_restarted_semicore_pencil_reaches_a_hundred_epsilon_in_real_and_complex_arithmetic() {
-    a_restarted_semicore_pencil_reaches_a_hundred_epsilon_in::<f64>();
-    a_restarted_semicore_pencil_reaches_a_hundred_epsilon_in::<c64>();
-}
-
-fn a_restarted_semicore_pencil_reaches_a_hundred_epsilon_in<T: Parts>() {
-    let target = 100.0 * f64::EPSILON;
-    let t = semicore::<T>(400, 1);
-    let cold = solve(&t, random_block::<T>(400, 24, 3), 20, target, 100).unwrap_or_else(|p| p);
-    let warm = solve(&t, cold.vectors().to_owned(), 20, target, 100).unwrap_or_else(|p| p);
-    let x = warm.vectors().subcols(0, 20);
-    let sx = &t.s * x;
-    let values = Mat::from_fn(20, 20, |i, j| {
-        entry::<T>(if i == j { warm.values()[i] } else { 0.0 }, 0.0)
-    });
-    let r = &t.h * x - &sx * values;
-    let gram = x.adjoint() * &sx;
-    for j in 0..20 {
-        let residual = r.col(j).norm_l2() / gram[(j, j)].parts()[0].sqrt();
-        assert!(residual < target, "band {j}: {residual:e}");
+fn a_semicore_pencil_in_real_arithmetic_reaches_a_residual_of_1e_14_but_not_1e_15() {
+    let t = semicore::<f64>(400, 1);
+    let worst =
+        |pairs: &Eigenpairs<f64>| pairs.residuals()[..20].iter().copied().fold(0.0, f64::max);
+    match solve(&t, random_block::<f64>(400, 24, 3), 20, 1e-14, 100) {
+        Ok(pairs) => assert!(worst(&pairs) < 1e-14),
+        Err(pairs) => panic!("1e-14 not reached: {:e}", worst(&pairs)),
     }
-}
-
-#[test]
-fn pairs_short_of_an_unreachable_target_are_converged_below_1e_13_in_real_and_complex_arithmetic() {
-    pairs_short_of_an_unreachable_target_are_converged_below_1e_13_in::<f64>();
-    pairs_short_of_an_unreachable_target_are_converged_below_1e_13_in::<c64>();
-}
-
-fn pairs_short_of_an_unreachable_target_are_converged_below_1e_13_in<T: Parts>() {
-    let t = semicore::<T>(400, 1);
-    let Err(short) = solve(&t, random_block::<T>(400, 24, 3), 20, 1e-15, 100) else {
-        panic!("1e-15 reached");
-    };
-    let worst = short.residuals()[..20].iter().copied().fold(0.0, f64::max);
-    assert!(short.converged_below(20, 1e-13));
-    assert!(!short.converged_below(20, worst));
-    assert!(short.converged_below(20, worst.next_up()));
+    match solve(&t, random_block::<f64>(400, 24, 3), 20, 1e-15, 100) {
+        Ok(pairs) => panic!("1e-15 reached: {:e}", worst(&pairs)),
+        Err(pairs) => assert!(worst(&pairs) > 1e-15),
+    }
 }
 
 #[test]

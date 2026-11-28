@@ -1,4 +1,4 @@
-use super::crystal::{Crystal, Density, Field, Start, Tolerance};
+use super::crystal::{Crystal, Density, Field, Start};
 use super::diagnosis::Diagnosis;
 use super::{Discretization, Failure, Mixer, Scf, Weight, occupy};
 use crate::model::{Draft, KPoints, Smearing, Spec};
@@ -10,8 +10,8 @@ const FIRST_EIGENSOLVER_RESIDUAL_TOLERANCE: f64 = 2.5e-2;
 const EIGENSOLVER_TOLERANCE_PER_DENSITY_CHANGE: f64 = 0.02;
 const EIGENSOLVER_TOLERANCE_CEILING: f64 = 5e-3;
 const EIGENSOLVER_FLOOR_PER_DENSITY_STOP: f64 = 0.1;
-const LOWEST_EIGENSOLVER_FLOOR: f64 = 100.0 * f64::EPSILON;
-const ACCEPTED_EIGENSOLVER_RESIDUAL: f64 = 1e-13;
+const LOWEST_EIGENSOLVER_FLOOR: f64 = 1e-14;
+const HIGHEST_EIGENSOLVER_FLOOR: f64 = 1e-13;
 const EXTRA_BANDS_AT_REPORTED_EDGE: usize = 3;
 const ATOMS_PER_BAND: usize = 2;
 const MOMENT_PER_EXTRA_BAND: f64 = 2.0;
@@ -139,7 +139,7 @@ pub(super) fn ground_state(
             .map(|(v, _)| v)
             .collect()
     };
-    let (mut target, mut smallest) = (FIRST_EIGENSOLVER_RESIDUAL_TOLERANCE, f64::INFINITY);
+    let (mut tolerance, mut smallest) = (FIRST_EIGENSOLVER_RESIDUAL_TOLERANCE, f64::INFINITY);
     let (density_stop, onsite_stop, kinetic_stop) = (
         draft.energy_tolerance_ha / DENSITY_RESIDUAL_TOLERANCE_DIVISOR,
         draft.energy_tolerance_ha / ONSITE_RESIDUAL_TOLERANCE_DIVISOR,
@@ -151,10 +151,6 @@ pub(super) fn ground_state(
         let field = on(pool.as_ref(), || {
             crystal.field(&input, &crystal.fine(&input))
         });
-        let tolerance = Tolerance {
-            target,
-            accepted: target.max(ACCEPTED_EIGENSOLVER_RESIDUAL),
-        };
         let bands = crystal.bands(pool.as_ref(), &field, guesses, reported, tolerance);
         let eigenvalues: Vec<Vec<Vec<f64>>> = (bands.iter())
             .map(|spin| {
@@ -267,7 +263,7 @@ pub(super) fn ground_state(
         let added = grown - reported;
         if added == 0 {
             smallest = smallest.min(change.0);
-            target = (EIGENSOLVER_TOLERANCE_PER_DENSITY_CHANGE * smallest).clamp(
+            tolerance = (EIGENSOLVER_TOLERANCE_PER_DENSITY_CHANGE * smallest).clamp(
                 eigensolver_floor(density_stop),
                 EIGENSOLVER_TOLERANCE_CEILING,
             );
@@ -330,7 +326,7 @@ pub(super) fn ground_state(
 
 pub fn eigensolver_floor(density_stop: f64) -> f64 {
     (EIGENSOLVER_FLOOR_PER_DENSITY_STOP * density_stop)
-        .clamp(LOWEST_EIGENSOLVER_FLOOR, ACCEPTED_EIGENSOLVER_RESIDUAL)
+        .clamp(LOWEST_EIGENSOLVER_FLOOR, HIGHEST_EIGENSOLVER_FLOOR)
 }
 
 fn pool(threads: NonZeroUsize) -> Result<Option<Pool>, String> {
