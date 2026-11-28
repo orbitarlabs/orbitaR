@@ -11,6 +11,10 @@ requires-python = ">=3.12"
 license = "GPL-3.0-only"
 license-files = ["LICENSE", "NOTICE"]
 
+[project.urls]
+Homepage = "https://orbitarlabs.org"
+Source = "https://github.com/orbitarlabs/orbitaR"
+
 [project.entry-points."orbitar.datasets"]
 "jth-2.0" = "orbitar_jth"
 

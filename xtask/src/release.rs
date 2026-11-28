@@ -229,15 +229,28 @@ pub fn linker(bytes: &[u8]) -> Option<Linker> {
     })
 }
 
-const PERSONAL: [&str; 6] = [
-    "Author-email:",
-    "Maintainer:",
-    "Maintainer-email:",
-    "Home-page:",
-    "Project-URL:",
-    "Download-URL:",
+const HEADERS: [&str; 10] = [
+    "Metadata-Version",
+    "Name",
+    "Version",
+    "Summary",
+    "Author",
+    "License-Expression",
+    "License-File",
+    "Requires-Python",
+    "Requires-Dist",
+    "Project-URL",
 ];
-const AUTHOR: &str = "Author: The orbitaR developers";
+pub(crate) const HOMEPAGE: &str = "https://orbitarlabs.org";
+pub(crate) const SOURCE: &str = "https://github.com/orbitarlabs/orbitaR";
+pub(crate) const LINKS: [(&str, &str); 3] = [
+    ("Homepage", HOMEPAGE),
+    ("Source", SOURCE),
+    ("Issues", "https://github.com/orbitarlabs/orbitaR/issues"),
+];
+const JTH_LINKS: [(&str, &str); 2] = [LINKS[0], LINKS[1]];
+const PROJECT_URL: &str = "Project-URL";
+const DEVELOPERS: &str = "The orbitaR developers";
 const DATASET_SUFFIXES: [&str; 3] = ["-JTH.xml", ".UPF", ".upf"];
 
 const LICENSE: &str = "LICENSE";
@@ -271,6 +284,116 @@ struct Listing {
     entry_points: Option<String>,
     #[serde(default)]
     paw: Vec<String>,
+}
+
+type Header = (String, String);
+
+fn headers(what: &str, metadata: &str) -> (Vec<Header>, Findings) {
+    let mut headers = Vec::new();
+    let mut findings = Vec::new();
+    for (n, line) in (1..).zip(metadata.lines().take_while(|l| !l.is_empty())) {
+        let header = (line.split_once(": ")).filter(|(name, value)| {
+            HEADERS.contains(name) && !value.is_empty() && value.trim() == *value
+        });
+        match header {
+            Some((name, value)) => headers.push((name.to_owned(), value.to_owned())),
+            None => findings.push(format!(
+                "{what}: METADATA line {n} `{line}` is no `Name: value` header of {HEADERS:?}; no person, address, or URL"
+            )),
+        }
+    }
+    (headers, findings)
+}
+
+fn values<'a>(headers: &'a [Header], name: &str) -> Vec<&'a str> {
+    (headers.iter())
+        .filter(|(held, _)| held == name)
+        .map(|(_, value)| value.as_str())
+        .collect()
+}
+
+fn once(what: &str, headers: &[Header], name: &str, want: &str) -> Findings {
+    let held = values(headers, name);
+    if held == [want] {
+        return Vec::new();
+    }
+    vec![format!(
+        "{what}: METADATA does not hold `{name}: {want}` once: it holds {held:?}"
+    )]
+}
+
+fn project_urls(what: &str, headers: &[Header], links: &[(&str, &str)]) -> Findings {
+    let held = values(headers, PROJECT_URL);
+    let wanted: Vec<String> = (links.iter())
+        .map(|(label, url)| format!("{label}, {url}"))
+        .collect();
+    let mut findings = Vec::new();
+    for (name, entry) in headers {
+        if name == PROJECT_URL && !wanted.contains(entry) {
+            findings.push(format!(
+                "{what}: METADATA holds `{name}: {entry}`; no person, address, or URL but the project links (release.rs LINKS)"
+            ));
+        }
+    }
+    for entry in &wanted {
+        let count = held.iter().filter(|h| **h == entry).count();
+        if count != 1 {
+            findings.push(format!(
+                "{what}: METADATA holds `{PROJECT_URL}: {entry}` {count} times, not once (release.rs LINKS)"
+            ));
+        }
+    }
+    findings
+}
+
+pub(crate) fn project_tables(root: &Path) -> Findings {
+    let mut findings = Vec::new();
+    for (path, links) in [
+        ("pyproject.toml".to_owned(), &LINKS[..]),
+        (format!("{JTH}/pyproject.toml"), &JTH_LINKS[..]),
+    ] {
+        let manifest = match toml::from_str::<toml::Table>(&walk::read(root, &path)) {
+            Ok(manifest) => manifest,
+            Err(e) => {
+                findings.push(format!("release: {path} does not parse: {e}"));
+                continue;
+            }
+        };
+        let Some(project) = manifest.get("project") else {
+            continue;
+        };
+        let held: BTreeMap<&str, Option<&str>> = (project.get("urls"))
+            .and_then(toml::Value::as_table)
+            .into_iter()
+            .flatten()
+            .map(|(label, url)| (label.as_str(), url.as_str()))
+            .collect();
+        let wanted: BTreeMap<&str, Option<&str>> = links
+            .iter()
+            .map(|&(label, url)| (label, Some(url)))
+            .collect();
+        if held != wanted {
+            findings.push(format!(
+                "release: {path} [project.urls] is {held:?}, not the project links {wanted:?} (release.rs LINKS)"
+            ));
+        }
+        let developers = toml::Value::Array(vec![toml::Value::Table(toml::Table::from_iter([(
+            "name".to_owned(),
+            toml::Value::String(DEVELOPERS.to_owned()),
+        )]))]);
+        if project.get("authors") != Some(&developers) {
+            findings.push(format!(
+                "release: {path} [project] authors is {:?}, not [{{ name = \"{DEVELOPERS}\" }}] alone",
+                project.get("authors").map(ToString::to_string)
+            ));
+        }
+        if let Some(maintainers) = project.get("maintainers") {
+            findings.push(format!(
+                "release: {path} [project] names maintainers {maintainers}; {DEVELOPERS} alone"
+            ));
+        }
+    }
+    findings
 }
 
 fn version(root: &Path) -> Result<String, String> {
@@ -491,32 +614,12 @@ fn contents(
             ));
         }
     }
-    let fields: Vec<&str> = listing
-        .metadata
-        .lines()
-        .take_while(|l| !l.is_empty())
-        .collect();
-    if !fields.contains(&format!("Version: {version}").as_str()) {
-        findings.push(format!(
-            "wheel: METADATA does not hold Version: {version} (Cargo.toml)"
-        ));
-    }
-    for field in &fields {
-        if PERSONAL.iter().any(|p| field.starts_with(p)) {
-            findings.push(format!(
-                "wheel: METADATA holds `{field}`; no person, address, or URL"
-            ));
-        }
-        if field.starts_with("Author:") && *field != AUTHOR {
-            findings.push(format!("wheel: METADATA holds `{field}`, not `{AUTHOR}`"));
-        }
-    }
-    let expression = license(root);
-    if !fields.contains(&format!("License-Expression: {expression}").as_str()) {
-        findings.push(format!(
-            "wheel: METADATA does not hold License-Expression: {expression} (Cargo.toml)"
-        ));
-    }
+    let (fields, malformed) = headers("wheel", &listing.metadata);
+    findings.extend(malformed);
+    findings.extend(once("wheel", &fields, "Version", &version));
+    findings.extend(project_urls("wheel", &fields, &LINKS));
+    findings.extend(once("wheel", &fields, "Author", DEVELOPERS));
+    findings.extend(once("wheel", &fields, "License-Expression", &license(root)));
     let text = fs::read_to_string(root.join(LICENSE)).unwrap_or_default();
     if listing.license.as_deref() != Some(text.as_str()) {
         findings.push(format!(
@@ -538,17 +641,7 @@ fn contents(
         }
     }
     let mut requires = BTreeSet::new();
-    for field in &fields {
-        if let Some(extra) = field.strip_prefix("Provides-Extra: ") {
-            findings.push(format!(
-                "wheel: METADATA provides the extra `{extra}`; the wheel has none"
-            ));
-        }
-    }
-    for dist in fields
-        .iter()
-        .filter_map(|f| f.strip_prefix("Requires-Dist: "))
-    {
+    for dist in values(&fields, "Requires-Dist") {
         let dist = dist.replace([' ', '"'], "").replace('\'', "");
         if dist.contains(';') {
             findings.push(format!(
@@ -817,27 +910,22 @@ fn jth_contents(root: &Path, file: &str, listing: &Listing) -> Findings {
             ));
         }
     }
-    let fields: Vec<&str> = (listing.metadata.lines())
-        .take_while(|l| !l.is_empty())
-        .collect();
-    for field in [
-        "Name: orbitar-jth".to_owned(),
-        format!("Version: {version}"),
-        format!("License-Expression: {JTH_LICENSE}"),
-        AUTHOR.to_owned(),
+    let what = format!("wheel {file}");
+    let (fields, malformed) = headers(&what, &listing.metadata);
+    findings.extend(malformed);
+    for (name, want) in [
+        ("Name", "orbitar-jth"),
+        ("Version", version.as_str()),
+        ("License-Expression", JTH_LICENSE),
     ] {
-        if !fields.contains(&field.as_str()) {
-            findings.push(format!("wheel {file}: METADATA does not hold `{field}`"));
-        }
+        findings.extend(once(&what, &fields, name, want));
     }
-    for field in &fields {
-        let personal = PERSONAL.iter().any(|p| field.starts_with(p));
-        let author = field.starts_with("Author:") && *field != AUTHOR;
-        if personal || author || field.starts_with("Requires-Dist:") {
-            findings.push(format!(
-                "wheel {file}: METADATA holds `{field}`; one author, no person, URL, or dependency"
-            ));
-        }
+    findings.extend(project_urls(&what, &fields, &JTH_LINKS));
+    findings.extend(once(&what, &fields, "Author", DEVELOPERS));
+    for dist in values(&fields, "Requires-Dist") {
+        findings.push(format!(
+            "{what}: METADATA holds `Requires-Dist: {dist}`; the data wheel has no dependency"
+        ));
     }
     let entry = format!("{JTH_FAMILY} = {JTH_MODULE}");
     let points = listing.entry_points.as_deref().unwrap_or_default();
@@ -1338,12 +1426,57 @@ fn is_domain(domain: &str) -> bool {
         && tld.chars().all(|c| c.is_ascii_alphabetic())
 }
 
+fn percent_decoded(text: &str) -> Option<String> {
+    let mut bytes = Vec::new();
+    let mut rest = text.as_bytes();
+    while let Some((&byte, after)) = rest.split_first() {
+        if byte == b'%' {
+            let hex = std::str::from_utf8(after.get(..2)?).ok()?;
+            bytes.push(u8::from_str_radix(hex, 16).ok()?);
+            rest = &after[2..];
+        } else {
+            bytes.push(byte);
+            rest = after;
+        }
+    }
+    String::from_utf8(bytes).ok()
+}
+
+fn normalized(bare: &str) -> Option<String> {
+    let url = &bare[..bare.find(['?', '#']).unwrap_or(bare.len())];
+    let (authority, path) = url.split_once('/').unwrap_or((url, ""));
+    let path = percent_decoded(path)?;
+    if path.contains(['%', '\\']) {
+        return None;
+    }
+    let parts: Vec<&str> = path.split('/').collect();
+    let mut segments = Vec::new();
+    for (k, part) in parts.iter().enumerate() {
+        match *part {
+            "." => {}
+            ".." => {
+                segments.pop()?;
+            }
+            "" if k + 1 == parts.len() => {}
+            "" => return None,
+            part => segments.push(part),
+        }
+    }
+    let trailing = if path.ends_with('/') { "/" } else { "" };
+    Some(format!("{authority}/{}{trailing}", segments.join("/")))
+}
+
 fn account(word: &str, binary: bool) -> bool {
     let lower = word.to_lowercase();
     let bare = lower
         .split_once("://")
         .map_or(lower.as_str(), |(_, rest)| rest);
-    if SOURCES.iter().any(|s| bare.starts_with(s)) {
+    let own = (SOURCE.split_once("://").map_or(SOURCE, |(_, rest)| rest)).to_lowercase();
+    if normalized(bare).is_some_and(|url| {
+        SOURCES.iter().any(|s| url.starts_with(s))
+            || url == own
+            || url.starts_with(&format!("{own}/"))
+    }) {
         return false;
     }
     let (authority, path) = bare.split_once('/').unwrap_or((bare, ""));
