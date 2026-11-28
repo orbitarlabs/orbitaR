@@ -12,7 +12,7 @@ use std::{
     time::SystemTime,
 };
 
-pub(crate) const SCHEMA: u64 = 4;
+pub(crate) const SCHEMA: u64 = 5;
 
 pub(crate) fn judge(tolerance: &BTreeMap<String, f64>, metrics: &Metrics) -> Vec<String> {
     let mut failures = Vec::new();
@@ -167,6 +167,23 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
     }
     let outcome = record["outcome"].as_str().unwrap_or("unreadable");
     let filtered = record["filter"].as_array().is_some_and(|f| !f.is_empty());
+    if tier == Tier::Claim && (outcome == "shard" || !record["filter"].is_null()) {
+        findings.push(format!(
+            "{}: {id} record says {outcome} with the filter {}; only the node tier runs a filtered or candidate-table shard",
+            tier.name(),
+            record["filter"]
+        ));
+    }
+    let pinned =
+        (record["schema"].as_u64()).and_then(speed::Logs::of_schema) == Some(speed::Logs::Pinned);
+    if tier == Tier::Claim
+        && outcome == "pass"
+        && !filtered
+        && pinned
+        && let Err(e) = super::replay(root, record)
+    {
+        findings.push(format!("{}: {id}: {e}", tier.name()));
+    }
     if (filtered || candidate) != (outcome == "shard") && ["pass", "shard"].contains(&outcome) {
         findings.push(format!(
             "{}: {id} record says {outcome}, but its filter is {}; only a filtered run or a candidate-table run is a shard",
@@ -430,7 +447,11 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
             record["failures"]
         )),
     }
-    if record["schema"].as_u64() != Some(SCHEMA) || record["case"].as_str() != Some(id) {
+    let readable = record["schema"]
+        .as_u64()
+        .and_then(speed::Logs::of_schema)
+        .is_some();
+    if !readable || record["case"].as_str() != Some(id) {
         findings.push(format!(
             "{}: {id} record has the wrong schema or case",
             tier.name()
@@ -739,9 +760,13 @@ pub fn readout(dir: &Path, id: &str) -> Findings {
     if record["case"].as_str() != Some(id) {
         return vec![format!("readout: {at}: case {}, not {id}", record["case"])];
     }
-    if record["schema"].as_u64() != Some(SCHEMA) {
+    if record["schema"]
+        .as_u64()
+        .and_then(speed::Logs::of_schema)
+        .is_none()
+    {
         return vec![format!(
-            "readout: {at}: schema {}, not {SCHEMA}: another harness wrote it",
+            "readout: {at}: schema {}, not 4 or {SCHEMA}: another harness wrote it",
             record["schema"]
         )];
     }

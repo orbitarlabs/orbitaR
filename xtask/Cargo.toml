@@ -11,6 +11,7 @@ autotests = false
 clap = { version = "=4.6.7", features = ["derive"] }
 gauss-quad = "=0.3.2"
 libtest-mimic = "=0.8.2"
+libm = "=0.2.16"
 nalgebra = { version = "=0.35.0", default-features = false, features = ["alloc", "libm"] }
 nix = { version = "=0.31.3", default-features = false, features = ["signal"] }
 pulldown-cmark = { version = "=0.13.4", default-features = false }

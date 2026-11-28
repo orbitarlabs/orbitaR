@@ -1368,7 +1368,7 @@ fn readout_of_a_record_it_cannot_read_as_this_harness_writes_it_is_a_finding() {
             CLAIM
                 .replace("\"schema\": 4", "\"schema\": 2")
                 .replace("11_x", "13_s"),
-            "schema 2, not 4: another harness wrote it",
+            "schema 2, not 4 or 5: another harness wrote it",
         ),
         (
             "14_p",

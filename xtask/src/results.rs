@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
@@ -21,7 +21,7 @@ pub(crate) const RESULTS: &str = "benchmarks/RESULTS.toml";
 pub(crate) const WHAT: &str = "benchmarks/results-what.toml";
 pub(crate) const PAGE: &str = "benchmarks/README.md";
 pub(crate) const RECORDS: &str = "benchmarks/RECORDS.jsonl";
-const HISTORY: [u64; 1] = [4];
+const HISTORY: [u64; 2] = [4, 5];
 pub(crate) const LIGHT: &str = "assets/benchmarks/results-light.svg";
 pub(crate) const DARK: &str = "assets/benchmarks/results-dark.svg";
 const SCHEMA: u32 = 1;
@@ -178,6 +178,7 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
         Ok(lines) => lines,
         Err(e) => return vec![e],
     };
+    let mut fresh = BTreeSet::new();
     for tier in chosen {
         let dir = base.join(tier.name());
         let files = jsons(&dir);
@@ -196,11 +197,25 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
             match row(root, tier, line, &cases, &whats) {
                 Ok(Some(row)) => {
                     evidence.insert(row.id.clone(), line.to_owned());
+                    fresh.insert(row.id.clone());
                     rows.insert(row.id.clone(), row);
                 }
                 Ok(None) => {}
                 Err(e) => findings.push(format!("results: {}: {e}", path.display())),
             }
+        }
+    }
+    for (id, kept) in rows.iter_mut().filter(|(id, _)| !fresh.contains(*id)) {
+        let (Some(run), Some(_), Some(line)) = (kept.run, &kept.record_sha256, evidence.get(id))
+        else {
+            continue;
+        };
+        match row(root, run, line, &cases, &whats) {
+            Ok(Some(made)) => *kept = made,
+            Ok(None) => {}
+            Err(e) => findings.push(format!(
+                "results: {RESULTS}: {id}: its kept record in {RECORDS} is refused: {e}"
+            )),
         }
     }
     let mut kept = Vec::new();
@@ -321,6 +336,13 @@ fn row(
             tier.name()
         ));
     }
+    if !tier.includes(case.tier()) {
+        return Err(format!(
+            "{id} is a {} case, which a {} run does not cover",
+            case.tier().name(),
+            tier.name()
+        ));
+    }
     let hex = |s: &str, n: usize| s.len() == n && s.bytes().all(|b| b.is_ascii_hexdigit());
     let commit = record["commit"].as_str().unwrap_or("");
     if !hex(commit, 40) {
@@ -380,6 +402,12 @@ fn row(
             "{id} passes without a measure of each bound of its case's [tolerance]"
         ));
     }
+    let claim = match (tier, outcome) {
+        (Tier::Claim, Outcome::Pass) => {
+            Some(claim::read(root, id, case, &record).map_err(|e| format!("{id}: {e}"))?)
+        }
+        _ => None,
+    };
     let mut metrics = Vec::new();
     for (key, limit) in tolerance {
         let (name, bound) = case::bounded(&key).ok_or(format!("{id}: [tolerance].{key}"))?;
@@ -394,12 +422,6 @@ fn row(
         });
     }
     headline(&mut metrics, &whats[&number].metric).map_err(|e| format!("{id}: {e}"))?;
-    let claim = match (tier, outcome) {
-        (Tier::Claim, Outcome::Pass) => {
-            Some(claim::read(root, id, case, &record).map_err(|e| format!("{id}: {e}"))?)
-        }
-        _ => None,
-    };
     Ok(Some(Row {
         number,
         id: id.to_owned(),

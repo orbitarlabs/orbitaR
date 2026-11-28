@@ -1498,6 +1498,7 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "gauss-quad",
+ "libm",
  "libtest-mimic",
  "nalgebra",
  "nix",

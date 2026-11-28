@@ -428,19 +428,18 @@ pub(crate) fn time(
     Ok((timed, fatal))
 }
 
-pub(crate) fn memory(blocks: &[Block], timed: &[Timed]) -> Metrics {
-    let rss =
-        |i: usize| (timed[i].record.timing.as_ref()).map_or(f64::NAN, |t| t.median_peak_rss_bytes);
+pub(crate) fn memory(records: &[&BlockRecord], logs: Logs) -> Metrics {
     let mut by_atoms: BTreeMap<usize, f64> = BTreeMap::new();
-    for i in (0..blocks.len())
-        .filter(|&i| blocks[i].rival.is_none() && timed[i].record.refused.is_none())
-    {
-        let worst = by_atoms.entry(blocks[i].atoms).or_insert(rss(i));
-        *worst = super::worst(*worst, rss(i));
+    for r in (records.iter()).filter(|r| r.code == Code::Orbitar && r.refused.is_none()) {
+        let rss = (r.timing.as_ref()).map_or(f64::NAN, |t| t.median_peak_rss_bytes);
+        let worst = by_atoms.entry(r.atoms).or_insert(rss);
+        *worst = super::worst(*worst, rss);
     }
     let mut sizes = by_atoms.iter().rev();
     let exponent = match (sizes.next(), sizes.next()) {
-        (Some((&n, &big)), Some((&m, &small))) => (big / small).ln() / (n as f64 / m as f64).ln(),
+        (Some((&n, &big)), Some((&m, &small))) => {
+            logs.ln(big / small) / logs.ln(n as f64 / m as f64)
+        }
         _ => f64::NAN,
     };
     Metrics::from([(RSS_EXPONENT.to_owned(), exponent)])
@@ -486,7 +485,7 @@ pub(crate) struct Series {
     pub(crate) holes: Vec<String>,
 }
 
-pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series {
+pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected], logs: Logs) -> Series {
     let mut codes: Vec<Code> = expected.iter().map(|e| e.code).collect();
     codes.sort();
     codes.dedup();
@@ -532,7 +531,7 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
                 .filter_map(|p| Some((p.expected.atoms, y(p)?)))
                 .map(|(atoms, value)| Some((NonZeroU64::new(u64::try_from(atoms).ok()?)?, value)))
                 .collect();
-            sized.map_or(f64::NAN, |sized| log_log_slope(&sized))
+            sized.map_or(f64::NAN, |sized| log_log_slope(&sized, logs))
         };
         let (t_alpha, pss_alpha) = (fit(|p| p.t_delta_s), fit(|p| p.pss_bytes));
         exponents.insert(format!("{T_DELTA_EXPONENT}_{code}"), t_alpha);
@@ -560,9 +559,48 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
     }
 }
 
-pub fn log_log_slope(sized: &[(NonZeroU64, f64)]) -> f64 {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Logs {
+    Platform,
+    Pinned,
+}
+
+impl Logs {
+    pub fn of_schema(schema: u64) -> Option<Logs> {
+        match schema {
+            4 => Some(Logs::Platform),
+            5 => Some(Logs::Pinned),
+            _ => None,
+        }
+    }
+
+    fn ln(self, x: f64) -> f64 {
+        match self {
+            Logs::Platform => x.ln(),
+            Logs::Pinned => libm::log(x),
+        }
+    }
+
+    fn exp(self, x: f64) -> f64 {
+        match self {
+            Logs::Platform => x.exp(),
+            Logs::Pinned => libm::exp(x),
+        }
+    }
+
+    pub fn geometric_mean(self, values: &[f64]) -> f64 {
+        let (mut count, mut sum) = (0.0, 0.0);
+        for &x in values {
+            count += 1.0;
+            sum += self.ln(x);
+        }
+        self.exp(sum / count)
+    }
+}
+
+pub fn log_log_slope(sized: &[(NonZeroU64, f64)], logs: Logs) -> f64 {
     let points: Vec<(f64, f64)> = (sized.iter())
-        .map(|&(atoms, y)| ((atoms.get() as f64).ln(), y.ln()))
+        .map(|&(atoms, y)| (logs.ln(atoms.get() as f64), logs.ln(y)))
         .collect();
     let n = points.len() as f64;
     let (mx, my) = (
@@ -671,7 +709,7 @@ pub(crate) struct Compared {
     pub(crate) lines: Vec<String>,
 }
 
-pub(crate) fn versus(records: &[&BlockRecord], milestone: Milestone) -> Compared {
+pub(crate) fn versus(records: &[&BlockRecord], milestone: Milestone, logs: Logs) -> Compared {
     let timed = records;
     let lost = |i: usize, values: Vec<f64>| -> Vec<f64> {
         let losses = timed[i].losses.len();
@@ -740,8 +778,11 @@ pub(crate) fn versus(records: &[&BlockRecord], milestone: Milestone) -> Compared
             }));
         }
         let (n, long) = (pairs.len(), pss_ratios.len());
-        let (g, r) = (t_ratios.geometric_mean(), pss_ratios.geometric_mean());
-        let [low, high] = g_interval(&t_runs, G_RESAMPLES, G_SEED);
+        let (g, r) = (
+            logs.geometric_mean(&t_ratios),
+            logs.geometric_mean(&pss_ratios),
+        );
+        let [low, high] = g_interval(&t_runs, G_RESAMPLES, G_SEED, logs);
         let name = Code::Rival(code);
         if long == 0 {
             failures.push(format!(
@@ -811,7 +852,7 @@ pub(crate) fn r_holds(r: f64) -> bool {
     r >= R_MIN
 }
 
-pub fn g_interval(pairs: &[[Vec<f64>; 2]], resamples: usize, seed: u64) -> [f64; 2] {
+pub fn g_interval(pairs: &[[Vec<f64>; 2]], resamples: usize, seed: u64, logs: Logs) -> [f64; 2] {
     let mut state = seed;
     let mut draw = |runs: &[f64]| -> f64 {
         let n = runs.len() as u128;
@@ -822,10 +863,10 @@ pub fn g_interval(pairs: &[[Vec<f64>; 2]], resamples: usize, seed: u64) -> [f64;
     };
     let mut g: Vec<f64> = (0..resamples)
         .map(|_| {
-            (pairs.iter())
+            let ratios: Vec<f64> = (pairs.iter())
                 .map(|[rival, ours]| draw(rival) / draw(ours))
-                .collect::<Vec<_>>()
-                .geometric_mean()
+                .collect();
+            logs.geometric_mean(&ratios)
         })
         .collect();
     g.sort_by(f64::total_cmp);
