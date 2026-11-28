@@ -484,3 +484,98 @@ fn lock_and_s5_refuse_a_case_family_named_dot_dot_or_empty_whose_table_is_absent
         assert!(has(&f, &format!("S5 {named}")), "{f:?}");
     }
 }
+
+#[test]
+fn a_tuning_input_edit_needs_a_review_of_its_own_block() {
+    let root = tree(
+        "lock-tuning",
+        &[
+            ("benchmarks/1_a/case.toml", CASE),
+            ("xtask/src/harness.rs", "// judge\n"),
+            ("tuning/mixer/slab.toml", "schema = 1\n"),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    assert!(has(
+        &lever(&["science"], &root),
+        "S5 tuning/mixer is not in benchmarks/LOCK"
+    ));
+    let f = lever(
+        &["lock", "--reviewer", "owner", "--reason", "initial"],
+        &root,
+    );
+    assert!(f.is_empty(), "{f:?}");
+    let text = fs::read_to_string(root.join("benchmarks/LOCK")).unwrap();
+    assert!(
+        text.contains("# tuning/mixer reviewer=owner reason=initial"),
+        "{text}"
+    );
+    assert!(text.contains("  tuning/mixer/slab.toml\n"), "{text}");
+    assert!(text.contains("  tuning/mixer/cells.py\n"), "{text}");
+    assert!(!has(&lever(&["science"], &root), "S5"));
+    for (path, body) in [
+        ("tuning/mixer/slab.toml", "schema = 2\n"),
+        ("tuning/mixer/cells.py", "print(1)\n"),
+        ("tuning/mixer/bulk.toml", "schema = 1\n"),
+    ] {
+        write(&root, path, body);
+        let found = lever(&["science"], &root);
+        assert!(
+            has(&found, "S5 tuning/mixer changed since its LOCK review"),
+            "{path}: {found:?}"
+        );
+        assert!(
+            !has(&found, "S5 harness") && !has(&found, "S5 1_a"),
+            "{found:?}"
+        );
+        assert!(lever(&["lock", "--reviewer", "owner", "--reason", "edit"], &root).is_empty());
+    }
+}
+
+#[test]
+fn a_tuned_setting_never_disappears() {
+    let root = tree(
+        "lock-tuning-gone",
+        &[
+            ("benchmarks/1_a/case.toml", CASE),
+            ("tuning/mixer/slab.toml", "schema = 1\n"),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    assert!(
+        lever(
+            &["lock", "--reviewer", "owner", "--reason", "initial"],
+            &root
+        )
+        .is_empty()
+    );
+    fs::remove_dir_all(root.join("tuning")).unwrap();
+    assert!(has(
+        &lever(&["lock", "--reviewer", "owner", "--reason", "drop"], &root),
+        "lock: tuning/mixer disappeared; restore the inputs it was tuned on"
+    ));
+    assert!(has(
+        &lever(&["science"], &root),
+        "S5 locked tuning/mixer disappeared"
+    ));
+}
+
+#[test]
+fn lock_refuses_a_setting_name_that_its_header_cannot_hold_and_writes_nothing() {
+    let root = tree(
+        "lock-tuning-name",
+        &[
+            ("benchmarks/1_a/case.toml", CASE),
+            ("tuning/mixer setting/slab.toml", "schema = 1\n"),
+            ("tuning/mixer setting/cells.py", "print()\n"),
+        ],
+    );
+    assert!(has(
+        &lever(
+            &["lock", "--reviewer", "owner", "--reason", "initial"],
+            &root
+        ),
+        "lock: \"tuning/mixer setting\" is no setting name"
+    ));
+    assert!(!root.join("benchmarks/LOCK").exists());
+}

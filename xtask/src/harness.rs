@@ -1538,10 +1538,13 @@ impl Session {
         };
         let sha = |text: &str| crate::lock::hex(&Sha256::digest(text));
         let mut known: BTreeMap<String, String> = BTreeMap::new();
-        for cell in cells {
+        let committed = (crate::walk::files(&self.root, "benchmarks").into_iter())
+            .chain(crate::walk::files(&self.root, crate::layout::TUNING))
+            .filter(|file| file.ends_with(".toml"));
+        for file in cells.into_iter().cloned().chain(committed) {
             let text =
-                fs::read_to_string(self.root.join(cell)).map_err(|e| format!("{cell}: {e}"))?;
-            known.insert(sha(&text), cell.clone());
+                fs::read_to_string(self.root.join(&file)).map_err(|e| format!("{file}: {e}"))?;
+            known.entry(sha(&text)).or_insert(file);
         }
         for (name, text) in &inputs {
             known.insert(sha(text), format!("input {name}"));

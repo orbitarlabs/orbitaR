@@ -766,6 +766,59 @@ fn s9_catches_a_rewritten_measure_that_keeps_the_old_review_line() {
     assert!(!has(&f, "S9 the harness changed"), "{f:?}");
 }
 
+fn tuned(name: &str) -> Tree {
+    let root = tree(
+        name,
+        &[
+            ("benchmarks/1_a/case.toml", ACTIVE),
+            ("xtask/src/harness.rs", "// judge\n"),
+            ("tuning/mixer/slab.toml", "schema = 1\n"),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    assert!(lever(&["lock", "--reviewer", "owner", "--reason", "base"], &root).is_empty());
+    git(&root, &["init", "-q"]);
+    git(&root, &["add", "-A"]);
+    git(&root, &["commit", "-qm", "base"]);
+    root
+}
+
+#[test]
+fn s9_catches_a_tuning_input_edit_that_keeps_the_old_review_line() {
+    let root = tuned("s9-tuning-edit");
+    let f = eased(&root, "tuning/mixer/slab.toml", "schema = 2\n");
+    assert!(
+        has(&f, "S9 tuning/mixer changed without a new LOCK review line"),
+        "{f:?}"
+    );
+    assert!(!has(&f, "S9 1_a") && !has(&f, "S9 the harness"), "{f:?}");
+}
+
+#[test]
+fn s9_accepts_a_tuning_edit_with_a_new_review_line_and_catches_a_lost_setting() {
+    let root = tuned("s9-tuning-gone");
+    write(&root, "tuning/mixer/slab.toml", "schema = 2\n");
+    assert!(
+        lever(
+            &["lock", "--reviewer", "second", "--reason", "retuned"],
+            &root
+        )
+        .is_empty()
+    );
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(!has(&f, "S9"), "{f:?}");
+    std::fs::remove_dir_all(root.join("tuning")).unwrap();
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(
+        has(
+            &f,
+            "S9 tuning/mixer exists at HEAD but not here; a tuned setting keeps the inputs it was tuned on"
+        ),
+        "{f:?}"
+    );
+    assert!(!has(&f, "retire a case"), "{f:?}");
+}
+
 #[test]
 fn s1_folds_through_a_cast_and_reads_exponents_inside_strings() {
     let body = "pub fn m() -> f64 {\n    1 as f64 + 0.747_564_594_633_182\n}\npub fn n() -> &'static str {\n    \"m = 17.475_645_946_331_82e-1, then 1.0e+0\"\n}\npub fn k() -> f32 {\n    1 as f32 + 0.747_564_594_633_182\n}\n";

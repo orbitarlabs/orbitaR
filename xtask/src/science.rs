@@ -852,10 +852,15 @@ fn easier(root: &Path, base: &str, ids: &[String]) -> Findings {
         .filter_map(|id| case::parse_id(id).ok())
         .max()
         .unwrap_or(0);
+    let tuning = crate::layout::tuning_settings(root);
     for id in old_lock.keys().filter(|id| *id != lock::HARNESS) {
-        if !ids.contains(id) {
+        if case::parse_id(id).is_ok() && !ids.contains(id) {
             findings.push(format!(
                 "science: S9 {id} exists at {base} but not here; retire a case, never delete or renumber it"
+            ));
+        } else if case::parse_id(id).is_err() && !tuning.contains(id) {
+            findings.push(format!(
+                "science: S9 {id} exists at {base} but not here; a tuned setting keeps the inputs it was tuned on"
             ));
         }
     }
@@ -868,6 +873,11 @@ fn easier(root: &Path, base: &str, ids: &[String]) -> Findings {
     }
     if changed(lock::HARNESS) && !reviewed(lock::HARNESS) {
         findings.push("science: S9 the harness changed without a new LOCK review line".into());
+    }
+    for id in tuning.iter().filter(|id| changed(id) && !reviewed(id)) {
+        findings.push(format!(
+            "science: S9 {id} changed without a new LOCK review line"
+        ));
     }
     for id in ids {
         let path = format!("benchmarks/{id}/case.toml");

@@ -1,4 +1,4 @@
-# harness reviewer=captain after codex-review3-19 (tests for CI mutants) reason=repro-wheels: the Mac wheel build turns off rustc's post-link strip (rust-objcopy loads libLLVM only through DYLD_FALLBACK_LIBRARY_PATH, so the strip ran on CI and failed on a Mac), builds the data wheel with the hash-pinned uv 0.13.7 (uv_build==0.13.7), wheel --check holds the Mac engine to SDK 27.2 and exactly one ld record, ld 27106.1, of the Command Line Tools 27.2.0.0.1792721180 that CI's mac-wheel job selects on xcode-27; wheel --same passes only when the two files are one byte stream that reads as a release wheel: local headers, stored data, central headers and the end record cover every byte, no member uses a data descriptor or a ZIP64 extra field (maturin and uv_build write neither), and Python's zipfile reads each member with its CRC; that equal-input check and the hash listing report a zipfile failure in one line; on a difference --same names the first differing byte with its member and field and each differing local header, stored data, central header and end record by field name, never by value; member names print escaped; --same conflicts with --check and --target; CI's same-jth job runs it on the Linux and the Mac data wheel; publish allows xcode-27 and actions/download-artifact; listed is public so a test holds its findings
+# harness reviewer=PENDING reason=insulator-preconditioner: tuning/<setting>/ holds the inputs an engine setting was tuned on and their one generator, each an engine input (schema 1, a structure) under a one-word name (layout); LOCK hashes each setting as its own block, which never disappears; S9 asks a new review line for a changed tuning block; a held-out variant differs from every committed input; tuning/mixer holds the MgO(001) and Al(111) slab tuning cells of the SCF preconditioner and slab.py, which writes them and --check rebuilds them
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -6,7 +6,7 @@ b801d44f73e3e9107711b16fb32be4c5964d9bc68cd0e41528e73321d08a7f32  xtask/src/benc
 9751048a2cf1395e6989b114f58866315fa87096f2ad07bf95b4c8d8d17321e6  xtask/src/case.rs
 e3becfebc6a03be1f6d0b8029f114692ffa8d92f69150d99d8e74155f4bdb9aa  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
-8e794811ad010a287b565f2840d49c196aef0348c3b881963429cedf13ad30b9  xtask/src/harness.rs
+13204122ca61f98e8828bf8d140010c264bbdfc470c1a2643d5847413c86afc3  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 e8cb26daf243b219bb2b0f013a88632212c8a04eb867a085ff067fc7fb5f8086  xtask/src/harness/datasets.rs
 9c2c75e70f8b5ec234a6e1e00b4701489bcb517a46f03b9d2452ea026a70b9a0  xtask/src/harness/engine.rs
@@ -18,9 +18,9 @@ c2b08a66c21dbf30aff36c1fbe641120f5964eea9a1ef373481abb8728f8c1cb  xtask/src/harn
 f2424ba3c9b293ab3dd8e5c9b813954ee39cc58665f68334f5e22313a8c5faa8  xtask/src/harness/rival/qe.rs
 ec4c980211c7243e37508ee3af8f242b298661ef4684a599f4ba93559a607b76  xtask/src/harness/speed.rs
 638759a7893daccbd39e432172f6e468d5e2239a2b91510a18d9a95773163bf7  xtask/src/layers.rs
-ff936fd34a6883ed4df73c157861d8909640282d128bf5244a0bf53cd727034f  xtask/src/layout.rs
+6e1af9d9f0c4ef29b57278e1983e7fa983220bc1f89c2357dd5a50e6679778e8  xtask/src/layout.rs
 d7768397efdd07b5dcf41e79b461da61d4de0d1844a3e61c33ba7c01a95a4861  xtask/src/lib.rs
-d22b6943574d4d8a49ec7542089b6bf2efe39b9526f5cf16158c577742c1b7e7  xtask/src/lock.rs
+87feca350f509f58d4886ac74095ca0fff5915093df2a9bec354c5ff2970cbcd  xtask/src/lock.rs
 fefe62a1b071d61241e3620ad0f71a9c0bbfa527daa73d52b8571cdf79bf467c  xtask/src/main.rs
 2b58f8e3540663096cd813943b0d53081eb01f45d03fb994e18d0b787829eaf8  xtask/src/manifest.rs
 7b9668521afebc2a339451a67f56046865cf41b19322ead20b100f1ba493da20  xtask/src/native.rs
@@ -33,7 +33,7 @@ e39c9e39f45f11364aeca1051ee4e75e5122dae7d62459ce9b7dd919d2ad56a3  xtask/src/rele
 a2ae05cac6223f81baafb78ba336884daa152fa29dc497943f59fcb82f5af89a  xtask/src/reproduce.rs
 70747986eb676692dccad69e5b12b3417d6b7e19e9adb7fdcb8a2b7e0240cdff  xtask/src/results.rs
 0ae1508724aecc0270cdee93ee50d335329a255e76d1c9cd4a7f0cb2394346ae  xtask/src/same.rs
-bccc20364a7a8d88ea892b748a373ac7668e870c0da87623f00bf2f6cf32c3eb  xtask/src/science.rs
+9f3614dffcf25d238bf1858b999b08a17e28dc99ebc9e569dde52f38d071c41e  xtask/src/science.rs
 1f77f549104d7bb10ee346a2867f61be1af44e270eab8c1ddb715873f2e65bd9  xtask/src/strain.rs
 59f3ea400a6cd2d7eae6d79ecfd90ed8996aea5d7a6bcdc9eeebfcb51cef227d  xtask/src/syntax.rs
 39cd82d8fd5698798315ccb7e261862946f68d22829b81d1df2ccb629a238004  xtask/src/tune.rs
@@ -47,7 +47,7 @@ b4fd3f21977d709171cf9211eedc52d2450ecaab3a41f75a2fd8e3754c65e2e6  xtask/src/walk
 37b583c74afbcb9447d5e2cca80288e5737a8a0c43296aaa1f1d1e43c02e7275  xtask/tests/case.rs
 b7eeebba385d0d02a1867c7b9c39b97336923dc72ddaf878fe4f40517187bde7  xtask/tests/docs.rs
 772ee4dd6c984dc80fe4e3ee883829d412adab4475a4a9729d74afa24ab7b9a3  xtask/tests/family.rs
-9a1d4c30dfed7b1d3425ea96e6a0b11533c191f4558c0013fe62fee9cb734ebc  xtask/tests/harness.rs
+99e5a888e6ada3b20a55960dadffc95311b616c390e3087fcb72d1da67cd3d8a  xtask/tests/harness.rs
 7a188329c9fe152550f06365112a0e932ec0fb993211f10f98f9f3fd1e8013e4  xtask/tests/harness/acwf.rs
 34bb356c822a8e35907af2fdbd5033f4fb84d7525f941599a30694a0995cf02e  xtask/tests/harness/datasets.rs
 3a76633569c2153ae6114e2157563e635df9c12c3204da6d4cbcab29a0118629  xtask/tests/harness/engine.rs
@@ -59,9 +59,9 @@ ed9fe52a3b2e1ae9d301a4aa219735f0bf359e31142382588b96fcb92151bced  xtask/tests/ha
 fe41e1794efbb1194f3d93833d764a4cd441ff037d27686a380aee5f794ab74c  xtask/tests/harness/rival/qe.rs
 164a2198a3f120433365858b1c3a6d291e7c89919c818ed73444cd9e8c409898  xtask/tests/harness/speed.rs
 33467b75f6e238946868cd25d6d62922bbb10c6d99ee156bab47117d798cbae5  xtask/tests/layers.rs
-749f8ec5618c7c1d46dda9faec5dc7fc4a987489d187a4c5b57f1654439a58dc  xtask/tests/layout.rs
+89098a945a319a10dff6f46b19a7b7ec374421d36ae0ba7ffc954b3a69cf9d25  xtask/tests/layout.rs
 933c6330d7d6ff1bf6d6ab6c39ae0ac94039b853ddfa6736edf39a8179891d26  xtask/tests/lib.rs
-78cc662c6553e99274fece32b948b3b677d47050d6d2c420816b515e248d4274  xtask/tests/lock.rs
+4d8e13aeda15882bbaf3a43b00b94ac5f0adcffba25088ebeb3d34e038748b7a  xtask/tests/lock.rs
 0861973ee38c653fad11c1fc4616d892e83660b4a72b38b77ac224a0083176c4  xtask/tests/main.rs
 3c8ed3ae61bb2ef2aa2617da2d978b114e58861988bce0d9bf22d5530be9e050  xtask/tests/manifest.rs
 c42a2e5450ddcbdc637f26637bcd8a869c26f3a206edf8fe0d5d1e802a8b3087  xtask/tests/native.rs
@@ -74,7 +74,7 @@ fc2f0e2d82c9a12dcd8947f645e4eafd8eaea82d55fe6a80853c3e15383976ca  xtask/tests/re
 c95f49c4db5ff19902c450be5ef93ea93b5d80293b0b4f151a13a0a0b23ed474  xtask/tests/reproduce.rs
 2fa5406c310212330ec85de4db654fd788127734cfa88b654f4ebae7dd28e3ae  xtask/tests/results.rs
 830a1dd7ff8024b5dd4bb93394a481f1aa5d3ac06293f108cab5f6484219db48  xtask/tests/same.rs
-2bf0a126bec3b439381931c88bc4dcaebd8eeeedeb8171a25e5682e1a2126a74  xtask/tests/science.rs
+b4e8a0f0f0e4dde3482e8cc5c97e2b964540bab65fb857274290f0be7d330be8  xtask/tests/science.rs
 6bcca93c807b7b6679490eaed489d281586f529b98f819daea4489957b337a57  xtask/tests/strain.rs
 e2b6a50e1224807abd1ac83a4f67ae1c6acad001a9452c8ea0561ea3576a2dcd  xtask/tests/syntax.rs
 9ac9c824c083466e3477a3112e3f992928304d6e4340021b4726a8d6486ff690  xtask/tests/tune.rs
@@ -491,3 +491,7 @@ b5f49fc91196dc15aa90362317091b94261aff874f65a5911cd177380eec49f3  benchmarks/22_
 08aed7944ed192b105ad96e6ee9833cc64241b7570e38acebea237356c1cc0bd  benchmarks/22_r2scan_derivatives/inputs/gaas-volume-plus.toml
 5e99666c7e5d28d672ce2c7fcf533ce8ffacd76e8d1d1a8246d5ce245232e28d  benchmarks/22_r2scan_derivatives/reference/SOURCE.toml
 03ab7635546450c497ceb4fdf4e8e48bae6ee508341cdaaf187070e5daddad4c  tests/benchmarks/22_r2scan_derivatives/case.rs
+# tuning/mixer reviewer=PENDING reason=insulator-preconditioner: tuning/<setting>/ holds the inputs an engine setting was tuned on and their one generator, each an engine input (schema 1, a structure) under a one-word name (layout); LOCK hashes each setting as its own block, which never disappears; S9 asks a new review line for a changed tuning block; a held-out variant differs from every committed input; tuning/mixer holds the MgO(001) and Al(111) slab tuning cells of the SCF preconditioner and slab.py, which writes them and --check rebuilds them
+46c1a4d740c9ff8c41253cb0369ecc17d79cb9531f7fd8d8640759a4986b2e78  tuning/mixer/al111_slab.toml
+ec1dce7c93102af1b15af59b1c9e2a3794c328be980b66b40aa8c87a3fe6c4b2  tuning/mixer/mgo001_slab.toml
+170aab24fa60e0dd0a97534911040263f596683bdb8ac46d6f849f32de81da36  tuning/mixer/slab.py

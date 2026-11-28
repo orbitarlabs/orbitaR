@@ -420,3 +420,113 @@ fn a_module_hidden_by_cfg_or_a_comment_is_not_declared() {
         "{findings:?}"
     );
 }
+
+const CELL: &str = "schema = 1\n\n[structure]\ncell_bohr = [[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]]\nspecies = [\"Si\"]\npositions_fractional = [[0.0, 0.0, 0.0]]\n";
+
+#[test]
+fn a_tuning_setting_holds_its_inputs_and_exactly_one_generator() {
+    let root = tree(
+        "layout-tuning",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/slab.toml", CELL),
+            ("tuning/mixer/bulk.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let clean = lever(&["layout"], &root);
+    assert!(clean.is_empty(), "{clean:?}");
+    for (path, needle) in [
+        (
+            "tuning/mixer/README.md",
+            "tuning/mixer/README.md is neither tuning/<setting>/<input>.toml",
+        ),
+        (
+            "tuning/mixer/old/slab.toml",
+            "tuning/mixer/old/slab.toml is neither",
+        ),
+        ("tuning/slab.toml", "tuning/slab.toml is neither"),
+        (
+            "tuning/mixer/second.py",
+            "tuning/mixer holds 2 input(s) and 2 generator(s)",
+        ),
+        (
+            "tuning/history/cells.py",
+            "tuning/history holds 0 input(s) and 1 generator(s)",
+        ),
+    ] {
+        write(&root, path, CELL);
+        assert!(has(&lever(&["layout"], &root), needle), "{path}");
+        std::fs::remove_file(root.join(path)).unwrap();
+    }
+    std::fs::remove_file(root.join("tuning/mixer/cells.py")).unwrap();
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer holds 2 input(s) and 0 generator(s)"
+    ));
+}
+
+#[test]
+fn a_tuning_input_is_an_engine_input_and_a_setting_name_is_one_word() {
+    let root = tree(
+        "layout-tuning-inputs",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/slab.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let claim =
+        "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"correctness\"]\n";
+    for (body, needle) in [
+        (claim.to_owned(), "it sets no schema = 1"),
+        (format!("{CELL}\n{claim}"), "a [case] table belongs in"),
+        ("# notes only\n".to_owned(), "it sets no schema = 1"),
+        (
+            CELL.replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]"),
+            "its [structure] needs 3 cell_bohr rows and one position per species",
+        ),
+        (
+            CELL.replace("schema = 1", "schema = 2"),
+            "it sets no schema = 1",
+        ),
+        ("schema = 1\n[structure\n".to_owned(), "TOML parse error"),
+    ] {
+        write(&root, "tuning/mixer/extra.toml", &body);
+        let found = lever(&["layout"], &root);
+        assert!(
+            has(
+                &found,
+                &format!("tuning/mixer/extra.toml is no engine input: {needle}")
+            ),
+            "{body}: {found:?}"
+        );
+    }
+    std::fs::remove_file(root.join("tuning/mixer/extra.toml")).unwrap();
+    std::fs::remove_file(root.join("tuning/mixer/slab.toml")).unwrap();
+    write(&root, "tuning/mixer/case.toml", claim);
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer holds 0 input(s) and 1 generator(s)"
+    ));
+    std::fs::remove_dir_all(root.join("tuning/mixer")).unwrap();
+    write(&root, "tuning/mixer setting/slab.toml", CELL);
+    write(&root, "tuning/mixer setting/cells.py", "print()\n");
+    assert!(has(
+        &lever(&["layout"], &root),
+        "\"tuning/mixer setting\" is no setting name"
+    ));
+}
+
+#[test]
+fn a_symlinked_tuning_input_is_caught() {
+    let root = tree(
+        "layout-tuning-link",
+        &[("benchmarks/.keep", ""), ("tuning/mixer/cells.py", "")],
+    );
+    std::os::unix::fs::symlink("/etc/hosts", root.join("tuning/mixer/slab.toml")).unwrap();
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer/slab.toml is a symlink"
+    ));
+}

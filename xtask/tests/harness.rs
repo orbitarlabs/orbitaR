@@ -1265,15 +1265,21 @@ fn a_claim_beside_rivals_runs_each_held_out_variant_and_names_its_hash_and_the_t
 }
 
 #[test]
-fn a_held_out_variant_with_the_bytes_of_a_case_input_or_a_tuning_cell_is_refused() {
+fn a_held_out_variant_with_the_bytes_of_any_committed_input_is_refused() {
     use rival::{ABINIT, INPUT, PW, RIVALS, TUNED, rivals_tree};
     let cell = INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 2.5");
+    let slab = INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 3.5");
+    let other = INPUT.replace("cutoff_ha = 1.0", "cutoff_ha = 4.5");
     for (variant, same) in [
         (INPUT.to_owned(), "input input"),
         (cell.clone(), "benchmarks/9_x/cell.toml"),
+        (slab.clone(), "tuning/mixer/slab.toml"),
+        (other.clone(), "benchmarks/6_y/inputs/al.toml"),
     ] {
         let root = rivals_tree("held-out-copy", INPUT, TUNED, PW, ABINIT);
         crate::write(&root, "benchmarks/9_x/cell.toml", &cell);
+        crate::write(&root, "tuning/mixer/slab.toml", &slab);
+        crate::write(&root, "benchmarks/6_y/inputs/al.toml", &other);
         crate::write(
             &root,
             "benchmarks/RIVALS.toml",
