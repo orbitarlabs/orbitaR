@@ -3,7 +3,6 @@ FNV_OFFSET = "Fowler, Noll, Vo: the 64-bit FNV-1a offset basis (IETF draft-eastl
 FNV_PRIME = "Fowler, Noll, Vo: the 64-bit FNV prime 2⁴⁰ + 2⁸ + 0xb3 (IETF draft-eastlake-fnv, section 5)."
 
 ["src/ks/mixer.rs"]
-HARTREE_KERNEL_NUMERATOR = "QE 7.5 PW/src/scf_mod.f90 rho_ddot: each nonzero-G charge residual weighs e2·fpi/G², 4π/G² in Ha (bohr²); G = 0 keeps the volume weight, since the mixed ñ lacks the compensation charge and its mean moves with ρ_ij."
 KERKER_SCREENING_LENGTH_BOHR = "ABINIT 10.0.3 m_invars1.F90 dielng."
 MIXING_DAMPING = "ABINIT 10.0.3 diemix for PAW (m_invars1.F90): the damping of each residual."
 OLDER_RESIDUAL_STEPS = "ABINIT 10.0.3 npulayit (m_invars1.F90): the steps that one mixing step combines, besides the newest."

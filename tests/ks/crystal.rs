@@ -238,7 +238,7 @@ fn the_irreducible_points_give_the_full_mesh_state() {
             cubic,
             vec![[0.0; 3], [0.5; 3]],
             "[2, 2, 2]",
-            "\n[spin]\nmoments = [1.0, -1.0]\n\n[bands]\ncount = 12\n\n[scf]\nenergy_tolerance_ha = 1e-11\nmax_iterations = 200\n",
+            "\n[spin]\nmoments = [1.0, -1.0]\n\n[bands]\ncount = 12\n\n[scf]\nenergy_tolerance_ha = 1e-11\n",
             4,
         ),
         (

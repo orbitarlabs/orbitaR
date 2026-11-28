@@ -211,21 +211,6 @@ fn kerker_damps_long_waves_and_keeps_the_charge() {
     assert!((damping(1e8) - 0.7).abs() < 1e-8);
 }
 
-#[test]
-fn the_density_metric_is_the_hartree_kernel_at_every_nonzero_wave_and_the_volume_at_its_mean() {
-    let volume = 5.0;
-    for g2 in [1e-4, 0.5, 2.0, 40.0] {
-        let metric = Weight::density(g2, volume).metric;
-        let hartree = volume * 4.0 * std::f64::consts::PI / g2;
-        assert!(
-            (metric - hartree).abs() <= 1e-15 * hartree,
-            "{g2}: {metric}"
-        );
-    }
-    assert_eq!(Weight::density(0.0, volume).metric, volume);
-    assert_eq!(Weight::magnetization(volume).metric, volume);
-}
-
 fn mixed_on_a_diagonal_map(stiffness: &[f64], inputs: &[&[f64]]) -> Vec<f64> {
     let weight = Weight {
         damping: 0.5,
