@@ -2499,7 +2499,7 @@ pub use record::{readout, union, verify};
 pub use reuse::PROTOCOL_FILES as REUSE_PROTOCOL;
 pub use speed::{
     G_MIN, G_RESAMPLES, G_SEED, ORBITAR_SOLVES_IN_FLIGHT, PEAK_PSS_GUARD_BYTES, Peak,
-    estimated_peak, g_interval, log_log_slope,
+    estimated_peak, g_interval, log_log_slope, past_the_guard,
 };
 
 pub struct Summaries {

@@ -1,6 +1,6 @@
 use super::claim::{
-    Cell, Claims, RECORD, cells, claim_cases, claim_record, collected, measured_record, skipping,
-    summed,
+    Cell, Claims, RECORD, cells, claim_cases, claim_record, collected, lost, measured_record,
+    skipping, solo_memory_case, summed,
 };
 use super::{WHAT, cases, commit, read, s11};
 use crate::{has, lever, write};
@@ -485,22 +485,61 @@ fn each_bar_names_its_time_and_its_peak_in_the_unit_of_their_range() {
 }
 
 #[test]
-fn a_size_series_flat_at_one_power_of_ten_spans_a_decade_and_words_a_ratio_of_one_as_a_quotient() {
+fn a_size_series_flat_at_one_power_of_ten_spans_one_decade_above_it() {
     let mut flat = cells();
     for cell in &mut flat {
         cell.runs = [Some((10.0, 400_000_000)); 3];
     }
     let cards = rendered("cards-flat", &flat, Claims::Memory);
+    holds(&cards[4], &[">10 s</text>", ">100 s</text>"]);
+    assert!(!cards[4].contains(">1 s</text>"), "{}", cards[4]);
+    assert!(!cards[4].contains("NaN"), "{}", cards[4]);
+}
+
+#[test]
+fn a_ratio_of_exactly_one_at_the_largest_size_is_worded_as_a_plain_quotient() {
+    let mut even = cells();
+    even[3].runs[1] = Some((512.0, 12_864_000_000));
+    let cards = rendered("cards-even", &even, Claims::Memory);
     holds(
         &cards[4],
         &[
             ">1.00×</text>",
             ">QE time ÷ orbitaR time at 128 atoms</text>",
-            ">10 s</text>",
-            ">100 s</text>",
         ],
     );
-    assert!(!cards[4].contains("NaN"), "{}", cards[4]);
+    assert!(!cards[4].contains("faster than QE"), "{}", cards[4]);
+}
+
+#[test]
+fn a_size_series_of_orbitar_alone_draws_no_scaling_card() {
+    let root = super::cases("cards-solo");
+    let head = commit(&root, "solo");
+    solo_memory_case(&root, &head);
+    commit(&root, "solo case");
+    assert_eq!(lever(&["results", "collect"], &root), Vec::<String>::new());
+    assert!(lever(&["results", "render"], &root).is_empty());
+    assert!(cards_of(&root)[4].is_empty());
+}
+
+#[test]
+fn the_scaling_card_takes_the_first_row_with_orbitars_and_a_rivals_series() {
+    let root = claim_cases("cards-two-rows", &cells(), Claims::Memory);
+    let head = commit(&root, "head");
+    solo_memory_case(&root, &head);
+    let head = commit(&root, "solo case");
+    let found = collected(&root, &claim_record(&root, &head, &cells()));
+    assert_eq!(found, Vec::<String>::new());
+    let results = read(&root, "benchmarks/RESULTS.toml");
+    assert!(
+        results.find("id = \"4_d\"") < results.find("id = \"5_e\""),
+        "{results}"
+    );
+    assert!(lever(&["results", "render"], &root).is_empty());
+    holds(
+        &cards_of(&root)[4],
+        &[">faster than QE at 128 atoms</text>"],
+    );
 }
 
 #[test]
@@ -520,44 +559,46 @@ fn a_size_series_of_two_sizes_draws_its_scaling_card() {
 }
 
 #[test]
-fn a_rival_that_lost_every_run_of_the_representative_cell_shows_a_lost_run_bar() {
+fn a_rival_that_lost_every_run_of_the_representative_cell_shows_a_lost_run_bar_on_each_card() {
     let root = claim_cases("cards-lost", &cells(), Claims::Speed);
     let head = commit(&root, "head");
     let mut record = measured_record(&head, &cells());
-    for b in (record["speed"].as_array_mut().unwrap().iter_mut()).filter(|b| b["code"] == "qe") {
-        for key in [
-            "t_delta_s",
-            "wall_s",
-            "peak_rss_bytes",
-            "peak_pss_bytes",
-            "steps",
-        ] {
-            b[key] = serde_json::json!([]);
-        }
-        b["losses"] = serde_json::json!(vec!["qe: lost"; 5]);
-        let block = b.as_object_mut().unwrap();
-        for key in [
-            "median_t_delta_s",
-            "range_t_delta_s",
-            "cv_t_delta",
-            "median_peak_rss_bytes",
-            "median_peak_pss_bytes",
-        ] {
-            block.remove(key);
-        }
-    }
+    lost(&mut record, "qe");
     let found = collected(&root, &summed(&root, record));
     assert_eq!(found, Vec::<String>::new());
     assert!(lever(&["results", "render"], &root).is_empty());
-    let speed = &cards_of(&root)[0];
+    let cards = cards_of(&root);
+    let qe_bar = "width=\"540.0\" height=\"38.0\" rx=\"6.0\" fill=\"#2f7f78\"";
+    for card in [&cards[0], &cards[2]] {
+        holds(card, &[">lost run</text>", qe_bar]);
+        assert!(!card.contains("inf"), "{card}");
+    }
+}
+
+#[test]
+fn a_card_whose_finite_bars_are_all_zero_draws_them_at_full_length() {
+    let mut zero = cells();
+    for cell in &mut zero {
+        let (t, _) = cell.runs[0].unwrap();
+        cell.runs[0] = Some((t, 0));
+    }
+    let root = claim_cases("cards-zero", &zero, Claims::Speed);
+    let head = commit(&root, "head");
+    let mut record = measured_record(&head, &zero);
+    lost(&mut record, "qe");
+    lost(&mut record, "abinit");
+    let found = collected(&root, &summed(&root, record));
+    assert_eq!(found, Vec::<String>::new());
+    assert!(lever(&["results", "render"], &root).is_empty());
+    let memory = &cards_of(&root)[2];
     holds(
-        speed,
+        memory,
         &[
-            ">lost run</text>",
-            "width=\"540.0\" height=\"38.0\" rx=\"6.0\" fill=\"#2f7f78\"",
+            "<rect x=\"240.0\" y=\"358.0\" width=\"540.0\" height=\"38.0\" rx=\"6.0\" fill=\"#bf6038\"/>",
+            "<text x=\"792.0\" y=\"383.0\" font-size=\"17.0\" font-weight=\"600\" fill=\"#171817\">0 MB</text>",
         ],
     );
-    assert!(!speed.contains("inf"), "{speed}");
+    assert!(!memory.contains("NaN"), "{memory}");
 }
 
 #[test]
@@ -566,4 +607,49 @@ fn the_identical_tile_needs_each_quantity_bound_at_zero_or_no_verification_card_
     checks[1].1 = "term_difference_ha_max = 1e-12\nfermi_level_difference_ha_max = 0.0";
     let (root, _) = verified_with("verification-loose", &checks);
     assert!(cards_of(&root).iter().all(String::is_empty));
+}
+
+#[test]
+fn the_scaling_card_skips_a_row_whose_series_lack_orbitar_and_takes_the_next_eligible_row() {
+    let root = claim_cases("cards-no-orbitar-row", &cells(), Claims::Memory);
+    let head = commit(&root, "head");
+    assert!(collected(&root, &claim_record(&root, &head, &cells())).is_empty());
+    let mut results: toml::Table = toml::from_str(&read(&root, "benchmarks/RESULTS.toml")).unwrap();
+    let rows = results["case"].as_array_mut().unwrap();
+    let ours = rows
+        .iter()
+        .position(|r| r["id"].as_str() == Some("5_e"))
+        .unwrap();
+    let early = rows
+        .iter()
+        .position(|r| r["id"].as_str() == Some("4_d"))
+        .unwrap();
+    let mut rivals_only = rows[ours].clone();
+    let row = rivals_only.as_table_mut().unwrap();
+    row.insert("number".into(), 4.into());
+    row.insert("id".into(), "4_d".into());
+    let series = row["claim"]["series"].as_array().unwrap().clone();
+    let kept: Vec<toml::Value> = (series.into_iter())
+        .filter(|s| s["code"].as_str() != Some("orbitar"))
+        .collect();
+    assert_eq!(kept.len(), 2);
+    row["claim"]
+        .as_table_mut()
+        .unwrap()
+        .insert("series".into(), kept.into());
+    rows[early] = rivals_only;
+    write(
+        &root,
+        "benchmarks/RESULTS.toml",
+        &toml::to_string(&results).unwrap(),
+    );
+    assert_eq!(lever(&["results", "render"], &root), Vec::<String>::new());
+    holds(
+        &cards_of(&root)[4],
+        &[
+            ">faster than QE at 128 atoms</text>",
+            ">N<tspan dy=\"-22\" font-size=\"30\">1.84</tspan></text>",
+            ">case 5 · orbitaR at commit ",
+        ],
+    );
 }

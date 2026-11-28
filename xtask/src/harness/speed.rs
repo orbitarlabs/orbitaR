@@ -8,7 +8,11 @@ use crate::case::Speed;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use statrs::statistics::{Data, Median, Statistics};
-use std::{cell::RefCell, collections::BTreeMap, num::NonZeroUsize};
+use std::{
+    cell::RefCell,
+    collections::BTreeMap,
+    num::{NonZeroU64, NonZeroUsize},
+};
 
 pub(crate) const DELTA_HA_PER_ATOM: f64 = 1e-4 / 27.211_386_245_988;
 pub(crate) const TIGHTER: f64 = 10.0;
@@ -536,10 +540,11 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
         }
         points.sort_by_key(|p| (p.expected.atoms, p.expected.input));
         let fit = |y: fn(&Point) -> Option<f64>| {
-            let xy: Vec<(f64, f64)> = (points.iter())
-                .filter_map(|p| Some(((p.expected.atoms as f64).ln(), y(p)?.ln())))
+            let sized: Option<Vec<(NonZeroU64, f64)>> = (points.iter())
+                .filter_map(|p| Some((p.expected.atoms, y(p)?)))
+                .map(|(atoms, value)| Some((NonZeroU64::new(u64::try_from(atoms).ok()?)?, value)))
                 .collect();
-            log_log_slope(&xy)
+            sized.map_or(f64::NAN, |sized| log_log_slope(&sized))
         };
         let (t_alpha, pss_alpha) = (fit(|p| p.t_delta_s), fit(|p| p.pss_bytes));
         exponents.insert(format!("{T_DELTA_EXPONENT}_{code}"), t_alpha);
@@ -567,10 +572,17 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
     }
 }
 
-pub fn log_log_slope(points: &[(f64, f64)]) -> f64 {
-    let mx = points.iter().map(|p| p.0).sum::<f64>() / points.len() as f64;
-    let sxx: f64 = points.iter().map(|p| (p.0 - mx) * p.0).sum();
-    let sxy: f64 = points.iter().map(|p| (p.0 - mx) * p.1).sum();
+pub fn log_log_slope(sized: &[(NonZeroU64, f64)]) -> f64 {
+    let points: Vec<(f64, f64)> = (sized.iter())
+        .map(|&(atoms, y)| ((atoms.get() as f64).ln(), y.ln()))
+        .collect();
+    let n = points.len() as f64;
+    let (mx, my) = (
+        points.iter().map(|p| p.0).sum::<f64>() / n,
+        points.iter().map(|p| p.1).sum::<f64>() / n,
+    );
+    let sxx: f64 = points.iter().map(|p| (p.0 - mx) * (p.0 - mx)).sum();
+    let sxy: f64 = points.iter().map(|p| (p.0 - mx) * (p.1 - my)).sum();
     match sxx > 0.0 {
         true => sxy / sxx,
         false => f64::NAN,
@@ -602,7 +614,7 @@ pub fn estimated_peak(smaller: &[Peak], atoms: usize, in_flight: usize) -> Optio
     Some(m.bytes * dense.max(fitted))
 }
 
-fn past_the_guard(bytes: f64, limit: f64) -> bool {
+pub fn past_the_guard(bytes: f64, limit: f64) -> bool {
     bytes > limit
 }
 

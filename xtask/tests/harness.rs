@@ -1842,3 +1842,46 @@ fn a_discretization_record_with_one_zero_grid_or_one_malformed_signature_is_refu
     let e = operations(&one("[[-1, 0, 0], [0, -1, 0], [0, 0, 1]]")).unwrap_err();
     assert!(e.contains("operations without the identity"), "{e}");
 }
+
+#[test]
+fn dispatch_12_memory_scaling() {
+    if std::env::var_os("XTASK_DISPATCH_CHILD").is_some() {
+        xtask::harness::main(&[("12_memory_scaling", speed::both)]);
+    }
+}
+
+fn dispatched(tier: &str) -> (bool, String) {
+    let dir = tree(&format!("dispatch-{tier}"), &[]);
+    std::fs::create_dir_all(dir.join("no-tools")).unwrap();
+    let out = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["12_memory_scaling", "--test-threads", "1"])
+        .env_clear()
+        .env("XTASK_DISPATCH_CHILD", "1")
+        .env("ORBITAR_TIER", tier)
+        .env("ORBITAR_BIN", dir.join("no-engine"))
+        .env("ORBITAR_RECORD_DIR", dir.join("records"))
+        .env("PATH", dir.join("no-tools"))
+        .output()
+        .unwrap();
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    (out.status.success(), text)
+}
+
+#[test]
+fn the_benchmarks_entry_fails_each_trial_of_an_uncontained_claim_and_runs_a_push_session() {
+    let (passed, text) = dispatched("claim");
+    assert!(!passed, "{text}");
+    assert!(
+        text.contains(
+            "runs each timed process tree in a `systemd-run --user --scope` with MemoryMax"
+        ),
+        "{text}"
+    );
+    let (passed, text) = dispatched("push");
+    assert!(passed, "{text}");
+    assert!(text.contains("12_memory_scaling"), "{text}");
+}
