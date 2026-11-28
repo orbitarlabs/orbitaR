@@ -798,3 +798,37 @@ pub(super) fn solo_memory_case(root: &Tree, head: &str) {
         &summed(root, record).to_string(),
     );
 }
+
+const FROZEN_PINNED: &str = r#"{"series":[{"code":"orbitar","coverage":"full","points":[{"atoms":2,"input":"input","median_peak_pss_bytes":100000000.0,"median_t_delta_s":69.983,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":8,"input":"b","median_peak_pss_bytes":400000000.0,"median_t_delta_s":35.712,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":32,"input":"c","median_peak_pss_bytes":1600000000.0,"median_t_delta_s":7.74,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":128,"input":"d","median_peak_pss_bytes":6400000000.0,"median_t_delta_s":37.195,"pss_polled_runs":[5,5],"status":"measured"}],"pss_exponent":0.9999999999999994,"t_delta_exponent":-0.24708454499490368},{"code":"qe","coverage":"full","points":[{"atoms":2,"input":"input","median_peak_pss_bytes":200000000.0,"median_t_delta_s":279.932,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":8,"input":"b","median_peak_pss_bytes":800000000.0,"median_t_delta_s":142.848,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":32,"input":"c","median_peak_pss_bytes":3200000000.0,"median_t_delta_s":30.96,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":128,"input":"d","median_peak_pss_bytes":12864000000.0,"median_t_delta_s":148.78,"pss_polled_runs":[5,5],"status":"measured"}],"pss_exponent":1.001079325210631,"t_delta_exponent":-0.2470845449949035},{"code":"abinit","coverage":"full","points":[{"atoms":2,"input":"input","median_peak_pss_bytes":300000000.0,"median_t_delta_s":209.949,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":8,"input":"b","median_peak_pss_bytes":900000000.0,"median_t_delta_s":107.13600000000001,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":32,"input":"c","median_peak_pss_bytes":2700000000.0,"median_t_delta_s":23.22,"pss_polled_runs":[5,5],"status":"measured"},{"atoms":128,"input":"d","median_peak_pss_bytes":10800000000.0,"median_t_delta_s":111.58500000000001,"pss_polled_runs":[5,5],"status":"measured"}],"pss_exponent":0.8547368752524047,"t_delta_exponent":-0.24708454499490368}],"skipped":[],"versus":[{"code":"qe","g":4.0,"g_ci":[4.0,4.0],"g_judged":true,"g_min":1.0,"g_point_min":null,"g_resamples":10000,"g_seed":2316557831640514561,"milestone":"m3","pairs":[{"in_r":true,"input":"input","losses":0,"medians_peak_pss_bytes":[200000000.0,100000000.0],"medians_t_delta_s":[279.932,69.983],"pss_ratio":2.0,"shortest_run_s":70.283,"t_ratio":4.0,"threads":8},{"in_r":true,"input":"b","losses":0,"medians_peak_pss_bytes":[800000000.0,400000000.0],"medians_t_delta_s":[142.848,35.712],"pss_ratio":2.0,"shortest_run_s":36.712,"t_ratio":4.0,"threads":8},{"in_r":true,"input":"c","losses":0,"medians_peak_pss_bytes":[3200000000.0,1600000000.0],"medians_t_delta_s":[30.96,7.74],"pss_ratio":2.0,"shortest_run_s":8.74,"t_ratio":4.0,"threads":8},{"in_r":true,"input":"d","losses":0,"medians_peak_pss_bytes":[12864000000.0,6400000000.0],"medians_t_delta_s":[148.78,37.195],"pss_ratio":2.01,"shortest_run_s":38.195,"t_ratio":4.0,"threads":8},{"in_r":true,"input":"held-out-b","losses":0,"medians_peak_pss_bytes":[840000000.0,420000000.0],"medians_t_delta_s":[144.0,36.0],"pss_ratio":2.0,"shortest_run_s":37.0,"t_ratio":4.0,"threads":8}],"r":2.001996011958159,"r_min":1.0},{"code":"abinit","g":2.9999999999999996,"g_ci":[2.9999999999999996,2.9999999999999996],"g_judged":true,"g_min":1.0,"g_point_min":null,"g_resamples":10000,"g_seed":2316557831640514561,"milestone":"m3","pairs":[{"in_r":true,"input":"input","losses":0,"medians_peak_pss_bytes":[300000000.0,100000000.0],"medians_t_delta_s":[209.949,69.983],"pss_ratio":3.0,"shortest_run_s":70.283,"t_ratio":3.0,"threads":8},{"in_r":true,"input":"b","losses":0,"medians_peak_pss_bytes":[900000000.0,400000000.0],"medians_t_delta_s":[107.13600000000001,35.712],"pss_ratio":2.25,"shortest_run_s":36.712,"t_ratio":3.0,"threads":8},{"in_r":true,"input":"c","losses":0,"medians_peak_pss_bytes":[2700000000.0,1600000000.0],"medians_t_delta_s":[23.22,7.74],"pss_ratio":1.6875,"shortest_run_s":8.74,"t_ratio":2.9999999999999996,"threads":8},{"in_r":true,"input":"d","losses":0,"medians_peak_pss_bytes":[10800000000.0,6400000000.0],"medians_t_delta_s":[111.58500000000001,37.195],"pss_ratio":1.6875,"shortest_run_s":38.195,"t_ratio":3.0,"threads":8},{"in_r":true,"input":"held-out-b","losses":0,"medians_peak_pss_bytes":[1260000000.0,420000000.0],"medians_t_delta_s":[108.0,36.0],"pss_ratio":3.0,"shortest_run_s":37.0,"t_ratio":3.0,"threads":8}],"r":2.2500000000000004,"r_min":1.0}]}"#;
+
+fn uneven() -> Vec<Cell> {
+    let mut uneven = cells();
+    for (cell, t) in uneven.iter_mut().zip([69.983, 35.712, 7.740, 37.195, 36.0]) {
+        let pss = cell.runs.map(|r| r.unwrap().1);
+        cell.runs = [
+            Some((t, pss[0])),
+            Some((4.0 * t, pss[1])),
+            Some((3.0 * t, pss[2])),
+        ];
+    }
+    uneven
+}
+
+#[test]
+fn a_schema_5_claim_summary_made_on_one_platform_collects_bit_for_bit_on_another() {
+    let root = claim_cases("claim-pinned", &uneven(), Claims::Memory);
+    let head = commit(&root, "head");
+    let mut record = measured_record(&head, &uneven());
+    record["schema"] = json!(5);
+    let frozen: Value = serde_json::from_str(FROZEN_PINNED).unwrap();
+    for key in ["versus", "series", "skipped"] {
+        record[key] = frozen[key].clone();
+    }
+    assert_eq!(collected(&root, &record), Vec::<String>::new());
+    record["schema"] = json!(6);
+    let refused = xtask::harness::claim_summaries(&root, &record).err();
+    assert_eq!(
+        refused.as_deref(),
+        Some("the record's schema 6 has no summary arithmetic")
+    );
+}

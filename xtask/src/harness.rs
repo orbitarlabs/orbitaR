@@ -1337,6 +1337,12 @@ impl Session {
     }
 
     fn attempt(&self, id: &str, case: &Case, measure: Measure, trace: &mut Trace) -> Vec<String> {
+        let Some(logs) = speed::Logs::of_schema(record::SCHEMA) else {
+            return vec![format!(
+                "the harness writes record schema {}, which names no summary arithmetic",
+                record::SCHEMA
+            )];
+        };
         let dir = self.root.join("benchmarks").join(id);
         let (inputs, own) = match inputs(&self.root, &dir, self.table.as_deref()) {
             Ok((inputs, _)) if inputs.is_empty() => {
@@ -1590,13 +1596,13 @@ impl Session {
                             spin,
                         ));
                         let records: Vec<&speed::BlockRecord> = timed.iter().map(|t| &t.record).collect();
-                        let compared = speed::versus(&records, case.milestone());
+                        let compared = speed::versus(&records, case.milestone(), logs);
                         compared.lines.iter().for_each(|line| println!("{line}"));
                         trace.versus = compared.entries;
                         failures.extend(compared.failures);
                     }
                     if case.claims().contains(&Claim::Memory) {
-                        reserved = speed::memory(&blocks, &timed);
+                        reserved = speed::memory(&blocks, &timed, logs);
                         let mut codes = vec![speed::Code::Orbitar];
                         if rivals.is_some() {
                             codes.extend(case.rivals().iter().map(|&r| speed::Code::Rival(r)));
@@ -1620,7 +1626,7 @@ impl Session {
                             })
                             .collect();
                         let records: Vec<&speed::BlockRecord> = timed.iter().map(|t| &t.record).collect();
-                        let series = speed::series(&records, &expected);
+                        let series = speed::series(&records, &expected, logs);
                         trace.series = series.entries;
                         reserved.extend(series.exponents);
                         if !self.pilot && !series.holes.is_empty() {
@@ -2358,7 +2364,7 @@ impl Discretization {
 
 pub use record::{readout, union, verify};
 pub use speed::{
-    G_MIN, G_RESAMPLES, G_SEED, ORBITAR_SOLVES_IN_FLIGHT, PEAK_PSS_GUARD_BYTES, Peak,
+    G_MIN, G_RESAMPLES, G_SEED, Logs, ORBITAR_SOLVES_IN_FLIGHT, PEAK_PSS_GUARD_BYTES, Peak,
     estimated_peak, g_interval, log_log_slope, past_the_guard,
 };
 
@@ -2370,6 +2376,12 @@ pub struct Summaries {
 
 pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String> {
     let id = record["case"].as_str().ok_or("the record names no case")?;
+    let logs = (record["schema"].as_u64())
+        .and_then(speed::Logs::of_schema)
+        .ok_or(format!(
+            "the record's schema {} has no summary arithmetic",
+            record["schema"]
+        ))?;
     let case = Case::load(root, id)?;
     let settings = rival::settings(root)?;
     let sweep = (Tier::Claim.policy().speed).map_or(&[][..], |s| &s.threads[..]);
@@ -2467,7 +2479,7 @@ pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String>
         ));
     }
     let records: Vec<&speed::BlockRecord> = blocks.iter().collect();
-    let compared = speed::versus(&records, case.milestone());
+    let compared = speed::versus(&records, case.milestone(), logs);
     if !compared.failures.is_empty() {
         return Err(compared.failures.join("; "));
     }
@@ -2489,7 +2501,7 @@ pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String>
                     },
                 })
                 .collect();
-            speed::series(&records, &expected).entries
+            speed::series(&records, &expected, logs).entries
         }
     };
     Ok(Summaries {

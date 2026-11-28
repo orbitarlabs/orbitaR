@@ -430,7 +430,7 @@ fn a_record_that_names_no_pilot_flag_false_or_an_unread_schema_is_refused() {
         ),
         (
             one.replace("\"schema\":4", "\"schema\":3"),
-            "1_a has record schema 3; results reads schema [4]",
+            "1_a has record schema 3; results reads schema [4, 5]",
         ),
         (
             one.replace("\"share_min\":0.1", "\"share_min\":0.2"),

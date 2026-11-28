@@ -621,7 +621,7 @@ fn a_memory_claim_records_each_codes_medians_per_size_and_their_least_squares_ex
             })
             .collect();
         let (expected, alpha) = (
-            xtask::harness::log_log_slope(&sized),
+            xtask::harness::log_log_slope(&sized, xtask::harness::Logs::Pinned),
             &record["metrics"][format!("{metric}_orbitar")],
         );
         match expected.is_finite() {
@@ -797,17 +797,17 @@ fn a_measured_peak_past_the_guard_stops_every_later_launch_of_its_block() {
 #[test]
 fn the_least_squares_slope_weighs_every_point_and_needs_two_sizes() {
     use std::num::NonZeroU64;
-    use xtask::harness::log_log_slope;
+    use xtask::harness::{Logs, log_log_slope};
     let at = |atoms: u64, y: f64| (NonZeroU64::new(atoms).unwrap(), y);
     let power: Vec<(NonZeroU64, f64)> = [2_u64, 8, 16, 32]
         .iter()
         .map(|&n| at(n, 3.0 * (n as f64).powf(1.7)))
         .collect();
-    assert!((log_log_slope(&power) - 1.7).abs() < 1e-12);
+    assert!((log_log_slope(&power, Logs::Pinned) - 1.7).abs() < 1e-12);
     let bent = [at(1, 1.0), at(2, 4.0), at(8, 8.0)];
-    assert!((log_log_slope(&bent) - 39.0 / 42.0).abs() < 1e-12);
-    assert!(log_log_slope(&[at(2, 2.0), at(2, 3.0)]).is_nan());
-    assert!(log_log_slope(&[]).is_nan());
+    assert!((log_log_slope(&bent, Logs::Pinned) - 39.0 / 42.0).abs() < 1e-12);
+    assert!(log_log_slope(&[at(2, 2.0), at(2, 3.0)], Logs::Pinned).is_nan());
+    assert!(log_log_slope(&[], Logs::Pinned).is_nan());
 }
 
 #[test]
@@ -1283,7 +1283,12 @@ fn noisy_pairs() -> Vec<[Vec<f64>; 2]> {
 }
 
 fn interval(pairs: &[[Vec<f64>; 2]]) -> [f64; 2] {
-    xtask::harness::g_interval(pairs, xtask::harness::G_RESAMPLES, xtask::harness::G_SEED)
+    xtask::harness::g_interval(
+        pairs,
+        xtask::harness::G_RESAMPLES,
+        xtask::harness::G_SEED,
+        xtask::harness::Logs::Pinned,
+    )
 }
 
 #[test]
@@ -1322,22 +1327,25 @@ fn a_rival_s_lost_run_pushes_g_s_interval_up() {
 
 #[test]
 fn the_same_seed_rebuilds_g_s_interval_and_another_seed_draws_another() {
-    use xtask::harness::{G_RESAMPLES, G_SEED, g_interval};
+    use xtask::harness::{G_RESAMPLES, G_SEED, Logs, g_interval};
     let pairs = noisy_pairs();
-    let again = g_interval(&pairs, G_RESAMPLES, G_SEED);
+    let again = g_interval(&pairs, G_RESAMPLES, G_SEED, Logs::Pinned);
     assert_eq!(interval(&pairs), again);
-    assert_ne!(g_interval(&pairs, G_RESAMPLES, G_SEED + 1), again);
+    assert_ne!(
+        g_interval(&pairs, G_RESAMPLES, G_SEED + 1, Logs::Pinned),
+        again
+    );
 }
 
 #[test]
 fn g_s_interval_is_nan_without_runs_and_its_lower_bound_is_nan_under_forty_resamples() {
-    use xtask::harness::{G_SEED, g_interval};
+    use xtask::harness::{G_SEED, Logs, g_interval};
     let [low, high] = interval(&[[vec![4.0; 5], vec![]]]);
     assert!(low.is_nan() && high.is_nan(), "{low} {high}");
     let pairs = noisy_pairs();
-    let [low, high] = g_interval(&pairs, 39, G_SEED);
+    let [low, high] = g_interval(&pairs, 39, G_SEED, Logs::Pinned);
     assert!(low.is_nan() && high.is_finite(), "{low} {high}");
-    let [low, high] = g_interval(&pairs, 40, G_SEED);
+    let [low, high] = g_interval(&pairs, 40, G_SEED, Logs::Pinned);
     assert!(low.is_finite() && low < high, "{low} {high}");
 }
 
