@@ -14,7 +14,7 @@ pub use faer::{Mat, MatRef, c64};
 pub use grid::{Grid, SphereFft, kinetic_density, kinetic_strain};
 pub use parallel::{
     Pool, accumulate, per_chunk, per_column, per_point, per_point_with, pool_threads, product,
-    times,
+    product_tiles, times,
 };
 pub use poisson::{Hartree, hartree};
 pub use ritz::{ritz_start, ritz_start_paired};

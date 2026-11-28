@@ -1,4 +1,4 @@
-# harness reviewer=captain after the 3522ef2 review reason=PR #32 CI mutants shard 3: a publish test pins that an empty inner path segment in a project URL loses the repository exemption and one trailing slash keeps it (kills the guard-true mutant of normalized); no code, bound, or reference changed
+# harness reviewer=PENDING reason=merge of main a2a460c (#32, metadata: project links, citation URLs, a Colab quickstart; captain after the 3522ef2 review) into #34 (tiled products; captain after the review of b4ff727)
 66ca4eb7aa7f15fed061f4717cd560faf69139719c8922f9204a3586b3f17468  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -86,7 +86,7 @@ aaf554b658d5e8c0aeb2fb2b4395d086f17dcef7d2b2436a790a1900f5af214d  xtask/tests/tu
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/version-steps.toml
 58b0f7c77d7a0c419f735992e0842b9d7bb01907bebbab5f845f2139bf62ab3c  tests/benchmarks.rs
 723b736ee8533242449ef9bbe402443475473d89ec67a4a0157b41d354a92f55  .cargo/config.toml
-97bd5b34436beb4d8297090b11c1e169fa231b05520549f9dcac056caf029e49  .cargo/mutants.toml
+555a2666511729afeaad1d4860dc2994b32fa97d82826ffcec401684a5b40100  .cargo/mutants.toml
 25c05a1ee1c58ca7a2667e5a94eeffe983abf96c387d0c81e6eff62cbe2fe5f0  .config/nextest.toml
 170e990fbecd92a2790e88cd82074156a7d9a28482a2be86cdabbc8110f06632  clippy.toml
 1b163dc0af0ee6ec9ccd7608ec3d27d85e642bc0fc218b693a3b3600bf1cfb61  .github/workflows/ci.yml

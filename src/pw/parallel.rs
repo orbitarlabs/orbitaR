@@ -208,6 +208,9 @@ fn pooled() -> bool {
 const NANO: usize = 16 * 16 * 16;
 const TALL: usize = 256;
 const SHORT: usize = 8;
+const SQUARE: usize = 64;
+const WIDE: usize = 64;
+const ENOUGH_TILES: usize = 16;
 
 fn block_rows(rows: usize, columns: usize, inners: &[usize]) -> (usize, usize) {
     let size = if rows >= 2 * TALL { TALL } else { SHORT };
@@ -232,16 +235,87 @@ fn per_block<T: Send>(
     per_part(parts, || (), |(), (start, block)| f(start, block));
 }
 
+fn spans(length: usize, size: usize) -> Vec<(usize, usize)> {
+    let count = (length / size.max(1)).max(1);
+    (0..count)
+        .map(|i| {
+            let start = i * size;
+            (start, if i + 1 == count { length - start } else { size })
+        })
+        .collect()
+}
+
+pub fn product_tiles(rows: usize, columns: usize, inner: usize) -> [Vec<(usize, usize)>; 2] {
+    let shape = |row: usize| {
+        let few = rows / row < ENOUGH_TILES;
+        let column = if few && columns >= 2 * WIDE {
+            WIDE
+        } else {
+            columns
+        };
+        (row, column, (rows / row) * (columns / column.max(1)).max(1))
+    };
+    let candidates = [TALL, SQUARE, SHORT]
+        .into_iter()
+        .filter(|&row| rows >= 2 * row);
+    let (row, column, _) = (candidates.map(shape))
+        .find(|&(row, _, count)| count >= ENOUGH_TILES || row == SHORT)
+        .unwrap_or_else(|| shape(rows.max(1)));
+    if rows * columns * inner <= NANO {
+        return [vec![(0, rows)], vec![(0, columns)]];
+    }
+    if row * column * inner <= NANO {
+        let width = (NANO / (rows * inner) + 1)
+            .next_multiple_of(WIDE)
+            .min(columns);
+        return [vec![(0, rows)], spans(columns, width)];
+    }
+    [spans(rows, row), spans(columns, column)]
+}
+
 pub fn product<T, A, B>(target: MatMut<'_, T>, a: MatRef<'_, A>, b: MatRef<'_, B>)
 where
     T: ComplexField,
     A: Conjugate<Canonical = T>,
     B: Conjugate<Canonical = T>,
 {
-    per_block(target, &[a.ncols()], |start, block| {
-        let a = a.subrows(start, block.nrows());
-        matmul(block, Accum::Replace, a, b, one::<T>(), Par::Seq);
-    });
+    assert!(
+        target.nrows() == a.nrows() && target.ncols() == b.ncols() && a.ncols() == b.nrows(),
+        "a {}×{} target for a {}×{} · {}×{} product",
+        target.nrows(),
+        target.ncols(),
+        a.nrows(),
+        a.ncols(),
+        b.nrows(),
+        b.ncols()
+    );
+    if target.nrows() == 0 || target.ncols() == 0 {
+        return;
+    }
+    let [rows, columns] = product_tiles(target.nrows(), target.ncols(), a.ncols());
+    let mut parts = Vec::with_capacity(rows.len() * columns.len());
+    let mut below = target;
+    for &(row, height) in &rows {
+        let (band, rest) = below.split_at_row_mut(height);
+        below = rest;
+        let mut right = band;
+        for &(column, width) in &columns {
+            let (tile, rest) = right.split_at_col_mut(width);
+            right = rest;
+            parts.push((row, column, tile));
+        }
+    }
+    per_part(
+        parts,
+        || (),
+        |(), (row, column, tile)| {
+            let (a, b) = (
+                a.subrows(row, tile.nrows()),
+                b.subcols(column, tile.ncols()),
+            );
+            matmul(tile, Accum::Replace, a, b, one::<T>(), Par::Seq);
+        },
+    );
 }
 
 pub fn times<T, A, B>(a: MatRef<'_, A>, b: MatRef<'_, B>) -> Mat<T>

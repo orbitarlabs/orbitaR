@@ -1,7 +1,7 @@
 use super::{Parts, bits, entry};
 use orbitar::pw::{
     Mat, Pool, accumulate, c64, per_chunk, per_column, per_point, per_point_with, pool_threads,
-    product, random, times,
+    product, product_tiles, random, times,
 };
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
@@ -108,6 +108,7 @@ fn a_product_in_blocks_has_the_bits_of_faers_whole_product_at_any_thread_count_i
         (128, 40, 4),
         (3000, 18, 1),
         (600, 1, 1000),
+        (1500, 300, 300),
     ]
     .into_iter()
     .enumerate()
@@ -214,6 +215,126 @@ fn accumulate_adds_each_term_in_order_with_the_bits_of_one_sum_per_term_in<T: Pa
     for _ in 0..10 {
         assert_eq!(bits(pool.install(sum).as_ref()), bits(expected.as_ref()));
     }
+}
+
+#[test]
+fn a_product_has_the_same_bits_at_any_thread_count() {
+    within(|| {
+        a_product_has_the_same_bits_at_any_thread_count_in::<c64>();
+        a_product_has_the_same_bits_at_any_thread_count_in::<f64>();
+    });
+}
+
+fn a_product_has_the_same_bits_at_any_thread_count_in<T: Parts>() {
+    let pools: Vec<_> = [1, 2, 3, 4, 8]
+        .into_iter()
+        .map(|n| ThreadPoolBuilder::new().num_threads(n).build().unwrap())
+        .collect();
+    let cancelling = Mat::from_fn(20_000, 4, |_, j| {
+        entry::<T>([1e16, 1.0, -1e16, 1.0][j], 0.0)
+    });
+    let ones = Mat::from_fn(4, 1, |_, _| entry::<T>(1.0, 0.0));
+    let mut cases: Vec<(Mat<T>, Mat<T>, bool)> = vec![(cancelling, ones, false)];
+    for (seed, (n, k, q)) in [
+        (4000, 200, 200),
+        (1500, 300, 300),
+        (20_000, 4, 1),
+        (3000, 1, 700),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let seed = 2 * seed as u64 + 31;
+        cases.push((random::<T>(n, k, seed), random::<T>(n, q, seed + 1), true));
+    }
+    for (seed, (m, k, n)) in [(4097, 17, 131), (4097, 21, 1), (120, 8, 16_384)]
+        .into_iter()
+        .enumerate()
+    {
+        let seed = 2 * seed as u64 + 71;
+        cases.push((random::<T>(m, k, seed), random::<T>(k, n, seed + 1), false));
+    }
+    for (a, b, adjoint) in &cases {
+        let product = || match adjoint {
+            true => times(a.adjoint(), b.as_ref()),
+            false => times(a.as_ref(), b.as_ref()),
+        };
+        let (rows, columns) = match adjoint {
+            true => (a.ncols(), a.nrows()),
+            false => (a.nrows(), a.ncols()),
+        };
+        let alone = bits(product().as_ref());
+        for pool in &pools {
+            assert_eq!(
+                bits(pool.install(product).as_ref()),
+                alone,
+                "{rows}×{columns}·{}×{} on {} threads",
+                b.nrows(),
+                b.ncols(),
+                pool.current_num_threads()
+            );
+        }
+    }
+}
+
+#[test]
+fn an_empty_target_stays_empty_and_an_empty_inner_dimension_zeroes_the_target() {
+    let empty: Mat<f64> = times(
+        random::<f64>(0, 65, 1).as_ref(),
+        random::<f64>(65, 4096, 2).as_ref(),
+    );
+    assert_eq!((empty.nrows(), empty.ncols()), (0, 4096));
+    let (a, b) = (Mat::<f64>::zeros(3, 0), Mat::<f64>::zeros(0, 4));
+    let mut target = Mat::from_fn(3, 4, |_, _| 7.0);
+    product(target.as_mut(), a.as_ref(), b.as_ref());
+    assert!((0..3).all(|i| (0..4).all(|j| target[(i, j)] == 0.0)));
+}
+
+#[test]
+fn an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size() {
+    within(|| {
+        an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size_in::<c64>();
+        an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size_in::<f64>();
+    });
+}
+
+fn an_empty_target_view_leaves_every_entry_around_it_at_any_inner_size_in<T: Parts>() {
+    let pool = Pool::try_from(4).unwrap();
+    let shapes = [(0, 0), (0, 1), (0, 64), (0, 300), (1, 0), (64, 0), (300, 0)];
+    for (rows, columns) in shapes {
+        for inner in [0, 1, 17, 300, 4097, 20_000] {
+            let (a, b) = (random::<T>(rows, inner, 3), random::<T>(inner, columns, 4));
+            let mut around = Mat::from_fn(rows + 2, columns + 2, |i, j| {
+                entry::<T>((7 * i + j) as f64 + 0.5, 1.0)
+            });
+            let before = bits(around.as_ref());
+            product(
+                around.as_mut().submatrix_mut(1, 1, rows, columns),
+                a.as_ref(),
+                b.as_ref(),
+            );
+            pool.run(|| {
+                product(
+                    around.as_mut().submatrix_mut(1, 1, rows, columns),
+                    a.as_ref(),
+                    b.as_ref(),
+                )
+            });
+            assert_eq!(
+                bits(around.as_ref()),
+                before,
+                "{rows}×{inner} · {inner}×{columns}"
+            );
+        }
+    }
+}
+
+#[test]
+#[should_panic(expected = "a 10×3 target for a 10×5 · 5×4 product")]
+fn a_product_into_a_target_of_another_shape_is_refused() {
+    let (a, b) = (random::<f64>(10, 5, 1), random::<f64>(5, 4, 2));
+    let mut target = Mat::<f64>::zeros(10, 3);
+    product(target.as_mut(), a.as_ref(), b.as_ref());
 }
 
 fn within<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
@@ -437,4 +558,38 @@ fn many_short_parallel_steps_in_a_run_do_not_wait_for_idle_threads_to_stop_looki
         took < Duration::from_millis(500),
         "{took:?} for {steps} steps"
     );
+}
+
+#[test]
+fn a_target_with_few_tall_tiles_takes_the_first_row_height_that_gives_sixteen() {
+    let rows: Vec<(usize, usize)> = (0..8).map(|i| (64 * i, 64)).chain([(512, 88)]).collect();
+    assert_eq!(
+        product_tiles(600, 191, 1000),
+        [rows, vec![(0, 64), (64, 127)]]
+    );
+}
+
+#[test]
+fn eight_row_tiles_stay_apart_while_each_holds_more_than_sixteen_cubed_multiply_adds() {
+    let rows: Vec<(usize, usize)> = (0..11).map(|i| (8 * i, 8)).chain([(88, 12)]).collect();
+    assert_eq!(product_tiles(100, 10, 100), [rows, vec![(0, 10)]]);
+}
+
+#[test]
+fn sixteen_tall_row_tiles_keep_the_columns_whole_and_fifteen_split_them_in_sixty_fours() {
+    let bands = |count: usize| (0..count).map(|i| (256 * i, 256)).collect::<Vec<_>>();
+    assert_eq!(product_tiles(16 * 256, 128, 8), [bands(16), vec![(0, 128)]]);
+    assert_eq!(
+        product_tiles(15 * 256, 128, 8),
+        [bands(15), vec![(0, 64), (64, 64)]]
+    );
+}
+
+#[test]
+fn a_target_too_thin_for_row_tiles_splits_its_columns_at_the_first_multiple_of_sixty_four_past_sixteen_cubed()
+ {
+    let past_64: Vec<(usize, usize)> = (0..6).map(|i| (128 * i, 128)).chain([(768, 232)]).collect();
+    assert_eq!(product_tiles(8, 1000, 8), [vec![(0, 8)], past_64]);
+    let past_256 = vec![(0, 320), (320, 320), (640, 360)];
+    assert_eq!(product_tiles(8, 1000, 2), [vec![(0, 8)], past_256]);
 }
