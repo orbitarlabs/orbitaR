@@ -1,7 +1,7 @@
 use super::{Parts, bits, entry};
 use orbitar::pw::{
-    Mat, Pool, accumulate, c64, per_chunk, per_column, per_point, per_point_with, pool_threads,
-    product, random, times,
+    Mat, Pool, accumulate, c64, per_chunk, per_column, per_column_pair, per_point, per_point_with,
+    pool_threads, product, random, times,
 };
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
@@ -213,6 +213,34 @@ fn accumulate_adds_each_term_in_order_with_the_bits_of_one_sum_per_term_in<T: Pa
     assert_eq!(bits(sum().as_ref()), bits(expected.as_ref()));
     for _ in 0..10 {
         assert_eq!(bits(pool.install(sum).as_ref()), bits(expected.as_ref()));
+    }
+}
+
+#[test]
+fn per_column_pair_hands_out_pairs_and_a_last_single_column_inside_and_outside_a_pool() {
+    let run = || {
+        let mut target = Mat::<f64>::zeros(3, 5);
+        per_column_pair(
+            target.as_mut(),
+            || (),
+            |(), first, mut pair| {
+                for j in 0..pair.ncols() {
+                    pair[(0, j)] = (first + j) as f64;
+                    pair[(1, j)] = first as f64;
+                    pair[(2, j)] = pair.ncols() as f64;
+                }
+            },
+        );
+        target
+    };
+    let pool = ThreadPoolBuilder::new().num_threads(3).build().unwrap();
+    for target in [run(), pool.install(run)] {
+        let want = [[0, 1, 2, 3, 4], [0, 0, 2, 2, 4], [2, 2, 2, 2, 1]];
+        for (i, row) in want.iter().enumerate() {
+            for (j, &v) in row.iter().enumerate() {
+                assert_eq!(target[(i, j)], v as f64, "({i}, {j})");
+            }
+        }
     }
 }
 

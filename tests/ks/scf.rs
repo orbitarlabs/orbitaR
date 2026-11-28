@@ -723,7 +723,7 @@ fn a_step_energy_lies_within_the_second_order_of_the_step_from_its_outputs_own_e
     }
 }
 
-type Datasets = fn(u8) -> Result<Dataset, Failure>;
+pub(super) type Datasets = fn(u8) -> Result<Dataset, Failure>;
 
 const PAIR: [[f64; 3]; 2] = [[0.1, 0.2, 0.3], [0.55, 0.6, 0.7]];
 

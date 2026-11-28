@@ -1,4 +1,4 @@
-use super::scf::{ONE, input, solve, synthetic, synthetic_meta};
+use super::scf::{Datasets, ONE, input, solve, synthetic, synthetic_meta};
 use crate::{synthetic_3d_draft, synthetic_draft, synthetic_meta_draft};
 use orbitar::io::read_spec;
 use orbitar::ks::{Diagnosis, Failure, GridGap, Outcome, ewald_energy_ha, run, run_diagnosed};
@@ -132,6 +132,47 @@ fn the_dense_solver_gives_the_iterative_ground_state() {
         let iterative = solve(&at("")).unwrap();
         let dense = solve(&at("\n[bands]\nsolver = \"dense\"\n")).unwrap();
         assert!(difference(&iterative, &dense) < 1e-10, "{k}");
+    }
+}
+
+fn largest_gap(a: impl IntoIterator<Item = f64>, b: impl IntoIterator<Item = f64>) -> f64 {
+    (a.into_iter().zip(b))
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f64::max)
+}
+
+#[test]
+fn at_real_k_points_two_bands_per_transform_give_the_dense_complex_state_forces_and_stress() {
+    let two = [[0.1, 0.2, 0.3], [0.62, 0.55, 0.83]];
+    let rows: [(&str, Datasets); 3] = [
+        ("", synthetic),
+        ("\n[spin]\nmoments = [1.5, -1.0]\n", synthetic),
+        ("\n[xc]\nfunctional = \"r2scan\"\n", synthetic_meta),
+    ];
+    for (extra, dataset) in rows {
+        let at = |solver: &str| {
+            let outputs = "\n[outputs]\nforces = true\nstress = true\n";
+            let text = input(
+                &two,
+                &format!("{extra}{outputs}\n[bands]\nsolver = \"{solver}\"\n"),
+            );
+            run(&read_spec(&text).unwrap(), dataset, |_, _| {}).unwrap()
+        };
+        let (paired, dense) = (at("lobpcg"), at("dense"));
+        let state = difference(&paired, &dense);
+        let force = largest_gap(
+            forces(&paired).into_iter().flatten(),
+            forces(&dense).into_iter().flatten(),
+        );
+        let sigma = largest_gap(
+            stress(&paired).into_iter().flatten(),
+            stress(&dense).into_iter().flatten(),
+        );
+        eprintln!("{extra:?}: state {state:e} forces {force:e} stress {sigma:e}");
+        assert!(
+            state < 1e-10 && force < 1e-10 && sigma < 1e-11,
+            "{extra:?}: state {state:e}, forces {force:e}, stress {sigma:e}"
+        );
     }
 }
 

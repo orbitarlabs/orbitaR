@@ -1,5 +1,5 @@
 pub(super) use super::density::Density;
-use super::density::{Occupied, Sums};
+use super::density::{Columns, Occupied, Sums};
 use super::diagnosis::{Diagnosis, SphereState};
 pub(super) use super::field::Field;
 use super::run::Discretization;
@@ -12,9 +12,10 @@ use crate::paw::{Dataset, FormFactors, Projectors, Sampled, Species, Sphere, tot
 use crate::pw::{
     Basis, Complex64, Grid, Guess, Hartree, Kinetic, Mat, MatRef, Pairs, Pencil, Pool, Scalar,
     SphereFft, Spins, Workspace, Xc, c64, dense, exchange_correlation, grid_points, hartree,
-    kinetic_strain, lowest, per_point, pool_threads, ritz_start, ritz_start_paired,
+    kinetic_strain, lowest, per_point, pool_threads, random, ritz_start, ritz_start_paired,
 };
 use crate::xc::Variable;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -89,7 +90,34 @@ pub(super) struct Point {
     basis: Basis,
     pub(super) fft: SphereFft,
     projectors: Vec<Sampled>,
-    pairs: Option<Pairs>,
+    real: Option<RealForm>,
+}
+
+struct RealForm {
+    pairs: Pairs,
+    phases: Vec<Complex64>,
+}
+
+impl Point {
+    fn columns<'b>(&'b self, vectors: &'b Vectors) -> Columns<'b> {
+        match (vectors, &self.real) {
+            (Vectors::Complex(x), _) => Columns::Complex(x.as_ref()),
+            (Vectors::Real(x), Some(real)) => Columns::Real {
+                vectors: x.as_ref(),
+                pairs: &real.pairs,
+                phases: &real.phases,
+            },
+            (Vectors::Real(_), None) => unreachable!("real vectors come from a point with pairs"),
+        }
+    }
+
+    fn complex<'b>(&self, vectors: &'b Vectors, columns: usize) -> Cow<'b, Mat<c64>> {
+        match (vectors, &self.real) {
+            (Vectors::Complex(x), _) => Cow::Borrowed(x),
+            (Vectors::Real(x), Some(real)) => Cow::Owned(real.pairs.complex(x.subcols(0, columns))),
+            (Vectors::Real(_), None) => unreachable!("real vectors come from a point with pairs"),
+        }
+    }
 }
 
 pub(super) struct Fine {
@@ -110,12 +138,42 @@ struct Symmetry {
 
 pub(super) enum Start {
     Atoms { columns: usize, seed: u64 },
-    Warm(Mat<c64>),
+    Warm(Vectors),
+}
+
+#[derive(Clone)]
+pub(super) enum Vectors {
+    Complex(Mat<c64>),
+    Real(Mat<f64>),
+}
+
+impl Vectors {
+    pub(super) fn ncols(&self) -> usize {
+        match self {
+            Self::Complex(x) => x.ncols(),
+            Self::Real(x) => x.ncols(),
+        }
+    }
+
+    pub(super) fn widened(&self, added: usize, seed: u64) -> Self {
+        fn widened<T: Scalar>(x: &Mat<T>, added: usize, seed: u64) -> Mat<T> {
+            let (rows, kept) = (x.nrows(), x.ncols());
+            let mut wide = Mat::zeros(rows, kept + added);
+            wide.subcols_mut(0, kept).copy_from(x);
+            wide.subcols_mut(kept, added)
+                .copy_from(random::<T>(rows, added, seed));
+            wide
+        }
+        match self {
+            Self::Complex(x) => Self::Complex(widened(x, added, seed)),
+            Self::Real(x) => Self::Real(widened(x, added, seed)),
+        }
+    }
 }
 
 pub(super) struct Bands {
     pub(super) values: Vec<f64>,
-    pub(super) vectors: Mat<c64>,
+    pub(super) vectors: Vectors,
     pub(super) converged: bool,
 }
 
@@ -279,9 +337,15 @@ impl<'a> Crystal<'a> {
             let projectors = (kinds.iter())
                 .map(|kind| kind.projectors.sampled(cell, k, &basis))
                 .collect();
+            let real = basis.pairs(k).map(|pairs| RealForm {
+                pairs,
+                phases: (coarse.points().iter())
+                    .map(|r| c64::from_polar(1.0, TAU * (0..3).map(|i| k[i] * r[i]).sum::<f64>()))
+                    .collect(),
+            });
             Point {
                 k,
-                pairs: basis.pairs(k),
+                real,
                 basis,
                 fft,
                 projectors,
@@ -695,7 +759,8 @@ impl<'a> Crystal<'a> {
                 .zip(bands.iter().zip(occupations))
                 .zip(weights);
             for (((point, &k), (b, f)), &weight) in solved {
-                let x = b.vectors.subcols(0, f.len());
+                let x = point.complex(&b.vectors, f.len());
+                let x = x.subcols(0, f.len());
                 for (a, projectors) in self.projectors(point).iter().enumerate() {
                     let m = self.residual_projections(field, spin, a, projectors, x, &b.values);
                     for (axis, force) in forces[a].iter_mut().enumerate() {
@@ -846,7 +911,8 @@ impl<'a> Crystal<'a> {
                 .zip(bands.iter().zip(occupations))
                 .zip(weights);
             for (((point, &k), (b, f)), &weight) in solved {
-                let x = b.vectors.subcols(0, f.len());
+                let x = point.complex(&b.vectors, f.len());
+                let x = x.subcols(0, f.len());
                 for (g, m) in point.basis.millers().iter().enumerate() {
                     let q = cell.wavevector(std::array::from_fn(|i| k[i] + f64::from(m[i])));
                     let held: f64 = (f.iter().enumerate())
@@ -1057,12 +1123,12 @@ impl<'a> Crystal<'a> {
             .expect("S = 1 + Σ P q Pᴴ is positive definite");
             return Bands {
                 values: values[..m].to_vec(),
-                vectors: vectors.subcols(0, m).to_owned(),
+                vectors: Vectors::Complex(vectors.subcols(0, m).to_owned()),
                 converged: true,
             };
         }
         let kinetic_ha = point.basis.kinetic_ha();
-        if let Some(pairs) = &point.pairs {
+        if let Some(RealForm { pairs, .. }) = &point.real {
             let paired = (h.paired(pairs)).expect("a dataset's projectors are real functions");
             let (apply_h, apply_s) = (
                 |x: MatRef<'_, f64>| paired.h(x),
@@ -1074,7 +1140,8 @@ impl<'a> Crystal<'a> {
                 kinetic_ha,
             };
             let guess = match start {
-                Start::Warm(guess) => Guess::Vectors(pairs.real(guess.as_ref())),
+                Start::Warm(Vectors::Real(guess)) => Guess::Vectors(guess),
+                Start::Warm(Vectors::Complex(guess)) => Guess::Vectors(pairs.real(guess.as_ref())),
                 Start::Atoms { columns, seed } => {
                     let block = self.orbitals(point);
                     ritz_start_paired(&pencil, block.as_ref(), pairs, columns, seed)
@@ -1089,7 +1156,7 @@ impl<'a> Crystal<'a> {
             );
             return Bands {
                 values,
-                vectors: pairs.complex(vectors.as_ref()),
+                vectors: Vectors::Real(vectors),
                 converged,
             };
         }
@@ -1100,7 +1167,8 @@ impl<'a> Crystal<'a> {
             kinetic_ha,
         };
         let guess = match start {
-            Start::Warm(guess) => Guess::Vectors(guess),
+            Start::Warm(Vectors::Complex(guess)) => Guess::Vectors(guess),
+            Start::Warm(real) => Guess::Vectors(point.complex(&real, real.ncols()).into_owned()),
             Start::Atoms { columns, seed } => {
                 ritz_start(&pencil, self.orbitals(point).as_ref(), columns, seed)
             }
@@ -1109,7 +1177,7 @@ impl<'a> Crystal<'a> {
             Self::lowest(&self.workspaces, &pencil, guess, converged, tolerance);
         Bands {
             values,
-            vectors,
+            vectors: Vectors::Complex(vectors),
             converged,
         }
     }
@@ -1157,7 +1225,7 @@ impl<'a> Crystal<'a> {
                 let k = Occupied {
                     fft: &point.fft,
                     basis: &point.basis,
-                    vectors: b.vectors.as_ref(),
+                    vectors: point.columns(&b.vectors),
                     occupations: f,
                     weight,
                     projectors: &projectors,

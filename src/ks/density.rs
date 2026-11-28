@@ -1,5 +1,6 @@
 use crate::pw::{
-    Basis, Complex64, Mat, MatRef, SphereFft, c64, kinetic_density, per_chunk, per_point,
+    Basis, Complex64, Mat, MatRef, Pairs, SphereFft, c64, kinetic_density, kinetic_density_of_pair,
+    per_chunk, per_point,
 };
 
 #[derive(Clone)]
@@ -61,10 +62,46 @@ impl Density {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(super) enum Columns<'a> {
+    Complex(MatRef<'a, c64>),
+    Real {
+        vectors: MatRef<'a, f64>,
+        pairs: &'a Pairs,
+        phases: &'a [Complex64],
+    },
+}
+
+impl Columns<'_> {
+    fn coefficient(&self, g: usize, band: usize) -> c64 {
+        match self {
+            Self::Complex(x) => x[(g, band)],
+            Self::Real { vectors, pairs, .. } => pairs.coefficient(|row| vectors[(row, band)], g),
+        }
+    }
+
+    fn square(&self, g: usize, band: usize) -> f64 {
+        match self {
+            Self::Complex(x) => x[(g, band)].norm_sqr(),
+            Self::Real { vectors, .. } => vectors[(g, band)] * vectors[(g, band)],
+        }
+    }
+
+    fn projections(&self, projectors: &Mat<c64>, bands: usize) -> Mat<c64> {
+        match self {
+            Self::Complex(x) => projectors.adjoint() * x.subcols(0, bands),
+            Self::Real { vectors, pairs, .. } => {
+                let p = pairs.real(projectors.as_ref()).transpose() * vectors.subcols(0, bands);
+                Mat::from_fn(p.nrows(), p.ncols(), |i, j| c64::new(p[(i, j)], 0.0))
+            }
+        }
+    }
+}
+
 pub(super) struct Occupied<'a> {
     pub(super) fft: &'a SphereFft,
     pub(super) basis: &'a Basis,
-    pub(super) vectors: MatRef<'a, c64>,
+    pub(super) vectors: Columns<'a>,
     pub(super) occupations: &'a [f64],
     pub(super) weight: f64,
     pub(super) projectors: &'a [Mat<c64>],
@@ -90,32 +127,66 @@ impl Sums {
     pub(super) fn add(&mut self, k: &Occupied<'_>, volume: f64, slab: &mut [Complex64]) {
         let n = self.density.len();
         let scale = (n * n) as f64 / volume;
-        let (x, f) = (k.vectors.subcols(0, k.occupations.len()), k.occupations);
+        let (x, f) = (k.vectors, k.occupations);
         let occupied: Vec<(usize, f64)> = (f.iter().enumerate())
             .filter(|&(_, &f)| f != 0.0)
             .map(|(band, &occupation)| (band, k.weight * occupation))
             .collect();
         for &(band, w) in &occupied {
             for (g, t) in k.basis.kinetic_ha().iter().enumerate() {
-                self.kinetic_ha += w * t * x[(g, band)].norm_sqr();
+                self.kinetic_ha += w * t * x.square(g, band);
             }
         }
         let tau = self.kinetic.is_some();
-        for bands in occupied.chunks(slab.len() / n) {
+        let per_transform = match x {
+            Columns::Complex(_) => 1,
+            Columns::Real { .. } => 2,
+        };
+        let tasks: Vec<&[(usize, f64)]> = occupied.chunks(per_transform).collect();
+        let rows = k.basis.millers().len();
+        for bands in tasks.chunks(slab.len() / n) {
             let slab = &mut slab[..bands.len() * n];
             per_chunk(
                 slab,
                 n,
                 || tau.then(|| (vec![Complex64::default(); n], vec![0.0; n])),
-                |buffers, i, u| {
-                    let (band, w) = bands[i];
-                    (k.fft).inverse((0..x.nrows()).map(|g| x[(g, band)]), u);
-                    u.iter_mut()
-                        .for_each(|z| *z = (w * scale * z.norm_sqr()).into());
-                    if let Some((buffer, share)) = buffers {
-                        let c = |g: usize| x[(g, band)];
-                        kinetic_density(k.fft, k.basis, c, w / volume, buffer, share);
-                        u.iter_mut().zip(share.iter()).for_each(|(z, t)| z.im = *t);
+                |buffers, i, u| match (bands[i], x) {
+                    (
+                        &[(a, wa), (b, wb)],
+                        Columns::Real {
+                            vectors,
+                            pairs,
+                            phases,
+                        },
+                    ) => {
+                        let packed = |g: usize| {
+                            pairs.packed(|row| vectors[(row, a)], |row| vectors[(row, b)], g)
+                        };
+                        (k.fft).inverse((0..rows).map(packed), u);
+                        for (z, phase) in u.iter_mut().zip(phases) {
+                            let y = phase * *z;
+                            *z = (scale * (wa * y.re * y.re + wb * y.im * y.im)).into();
+                        }
+                        if let Some((buffer, share)) = buffers {
+                            let scales = [wa / volume, wb / volume];
+                            kinetic_density_of_pair(
+                                k.fft, k.basis, packed, scales, phases, buffer, share,
+                            );
+                            u.iter_mut().zip(share.iter()).for_each(|(z, t)| z.im = *t);
+                        }
+                    }
+                    (task, _) => {
+                        let [(band, w)] = task else {
+                            unreachable!("two bands share a transform only in the real form")
+                        };
+                        let c = |g: usize| x.coefficient(g, *band);
+                        (k.fft).inverse((0..rows).map(c), u);
+                        u.iter_mut()
+                            .for_each(|z| *z = (w * scale * z.norm_sqr()).into());
+                        if let Some((buffer, share)) = buffers {
+                            kinetic_density(k.fft, k.basis, c, w / volume, buffer, share);
+                            u.iter_mut().zip(share.iter()).for_each(|(z, t)| z.im = *t);
+                        }
                     }
                 },
             );
@@ -131,7 +202,7 @@ impl Sums {
             }
         }
         let added = per_point(k.projectors.len(), |atom| {
-            let p = k.projectors[atom].adjoint() * x;
+            let p = x.projections(&k.projectors[atom], f.len());
             Mat::from_fn(p.nrows(), p.nrows(), |i, j| {
                 (0..f.len())
                     .map(|band| k.weight * f[band] * (p[(i, band)] * p[(j, band)].conj()).re)

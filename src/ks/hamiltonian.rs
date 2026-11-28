@@ -1,7 +1,7 @@
 use super::Local;
 use crate::pw::{
-    Basis, Complex64, Grid, Mat, MatRef, Pairs, SphereFft, accumulate, c64, per_column, per_point,
-    times,
+    Basis, Complex64, Grid, Mat, MatRef, Pairs, SphereFft, accumulate, c64, per_column,
+    per_column_pair, per_point, times,
 };
 
 const REAL_FUNCTION: f64 = 1e-12;
@@ -211,17 +211,33 @@ pub struct Paired<'a> {
 
 impl Paired<'_> {
     pub fn h(&self, x: MatRef<'_, f64>) -> Mat<f64> {
-        let whole = self.whole;
+        let (whole, pairs) = (self.whole, self.pairs);
         let mut out = self.nonlocal(x, |(_, d, _)| d);
-        per_column(
+        let column = |j: usize| move |row: usize| x[(row, j)];
+        per_column_pair(
             out.as_mut(),
-            || whole.scratch(),
-            |scratch, j, mut out| {
+            || (whole.scratch(), Vec::new()),
+            |(scratch, applied), first, mut columns| {
+                let kinetic = |g: usize, j: usize| x[(g, first + j)] * whole.kinetic[g];
+                if columns.ncols() == 1 {
+                    whole.apply_local(
+                        |g| pairs.coefficient(column(first), g),
+                        scratch,
+                        |g, v| columns[(g, 0)] += pairs.entry(g, v) + kinetic(g, 0),
+                    );
+                    return;
+                }
+                applied.clear();
                 whole.apply_local(
-                    |g| self.pairs.coefficient(|row| x[(row, j)], g),
+                    |g| pairs.packed(column(first), column(first + 1), g),
                     scratch,
-                    |g, v| out[g] += self.pairs.entry(g, v) + x[(g, j)] * whole.kinetic[g],
+                    |_, v| applied.push(v),
                 );
+                for g in 0..applied.len() {
+                    let [a, b] = pairs.halves(applied, g);
+                    columns[(g, 0)] += pairs.entry(g, a) + kinetic(g, 0);
+                    columns[(g, 1)] += pairs.entry(g, b) + kinetic(g, 1);
+                }
             },
         );
         out

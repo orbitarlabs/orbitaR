@@ -1,9 +1,9 @@
-use super::crystal::{Crystal, Density, Field, Start};
+use super::crystal::{Crystal, Density, Field, Start, Vectors};
 use super::diagnosis::Diagnosis;
 use super::{Discretization, Failure, Mixer, Scf, Weight, occupy};
 use crate::model::{Draft, KPoints, Smearing, Spec};
 use crate::paw::Dataset;
-use crate::pw::{Mat, Pool, c64, random};
+use crate::pw::Pool;
 use std::num::NonZeroUsize;
 
 const FIRST_EIGENSOLVER_RESIDUAL_TOLERANCE: f64 = 2.5e-2;
@@ -59,7 +59,7 @@ pub(super) struct Warm {
     settings: Draft,
     kpoints: KPoints,
     reported: usize,
-    vectors: Vec<Vec<Mat<c64>>>,
+    vectors: Vec<Vec<Vectors>>,
     output: Density,
     free: Density,
 }
@@ -267,18 +267,8 @@ pub(super) fn ground_state(
         }
         guesses = (bands.into_iter())
             .map(|spin| {
-                (spin.into_iter().zip(&crystal.points).zip(seeds.by_ref()))
-                    .map(|((b, p), seed)| {
-                        let kept = b.vectors.ncols();
-                        let mut guess = Mat::zeros(p.fft.len(), kept + added);
-                        guess.subcols_mut(0, kept).copy_from(&b.vectors);
-                        guess.subcols_mut(kept, added).copy_from(random::<c64>(
-                            p.fft.len(),
-                            added,
-                            seed,
-                        ));
-                        Start::Warm(guess)
-                    })
+                (spin.into_iter().zip(seeds.by_ref()))
+                    .map(|(b, seed)| Start::Warm(b.vectors.widened(added, seed)))
                     .collect()
             })
             .collect();
