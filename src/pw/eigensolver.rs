@@ -36,6 +36,25 @@ pub struct Pencil<'a, T> {
     pub kinetic_ha: &'a [f64],
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Tolerance {
+    target: f64,
+    accepted: f64,
+}
+
+impl Tolerance {
+    pub fn aiming(target: f64, accepted: f64) -> Self {
+        assert!(target <= accepted, "accept no tighter than the target");
+        Tolerance { target, accepted }
+    }
+}
+
+impl From<f64> for Tolerance {
+    fn from(residual: f64) -> Self {
+        Tolerance::aiming(residual, residual)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Eigenpairs<T> {
     values: Vec<f64>,
@@ -57,7 +76,7 @@ impl<T> Eigenpairs<T> {
     }
 
     pub fn converged_below(&self, bands: usize, residual: f64) -> bool {
-        self.residuals[..bands].iter().all(|&r| r < residual)
+        lowest_below(&self.values, &self.residuals, bands, residual)
     }
 
     pub fn into_parts(self) -> (Vec<f64>, Mat<T>) {
@@ -144,10 +163,11 @@ pub fn lowest<T: Scalar>(
     pencil: &Pencil<T>,
     guess: impl Into<Guess<T>>,
     converged: usize,
-    tolerance: f64,
+    tolerance: impl Into<Tolerance>,
     max_iterations: usize,
     work: &mut Workspace<T>,
 ) -> Result<Eigenpairs<T>, Eigenpairs<T>> {
+    let Tolerance { target, accepted } = tolerance.into();
     let guess = guess.into();
     let (n, m) = match &guess {
         Guess::Vectors(x) => (x.nrows(), x.ncols()),
@@ -196,6 +216,7 @@ pub fn lowest<T: Scalar>(
     let mut values: Vec<f64> = (0..m).map(|j| quotient(y, j)).collect();
     let mut residuals = vec![f64::INFINITY; m];
     let (mut locked, mut iteration) = (0, 0);
+    let mut retained = None;
     let mut parts = 1;
     loop {
         let active = m - locked;
@@ -236,7 +257,7 @@ pub fn lowest<T: Scalar>(
         if iteration > 0 {
             locked += residuals[locked..]
                 .iter()
-                .take_while(|&&r| r < tolerance)
+                .take_while(|&&r| r < target)
                 .count();
         }
         let done = locked >= converged || iteration >= max_iterations;
@@ -266,13 +287,16 @@ pub fn lowest<T: Scalar>(
         if searched {
             s_reorthonormalize(y, before, m);
         }
-        if done {
-            let pairs = sorted(values, y[0].subcols(0, m), residuals);
-            return if locked >= converged {
-                Ok(pairs)
-            } else {
-                Err(pairs)
-            };
+        let acceptable = iteration > 0 && lowest_below(&values, &residuals, converged, accepted);
+        if done || acceptable {
+            let pairs = sorted(&values, y[0].subcols(0, m), &residuals);
+            if done {
+                return match (locked >= converged, acceptable) {
+                    (false, false) => retained.ok_or(pairs),
+                    _ => Ok(pairs),
+                };
+            }
+            retained = Some(pairs);
         }
         precondition(
             pencil.kinetic_ha,
@@ -376,9 +400,20 @@ fn quotient<T: Scalar>(y: &[Mat<T>; 3], j: usize) -> f64 {
     dot(&y[1]) / dot(&y[2])
 }
 
-fn sorted<T: Scalar>(values: Vec<f64>, x: MatRef<'_, T>, residuals: Vec<f64>) -> Eigenpairs<T> {
+fn by_value(values: &[f64]) -> Vec<usize> {
     let mut order: Vec<usize> = (0..values.len()).collect();
     order.sort_by(|&a, &b| values[a].total_cmp(&values[b]));
+    order
+}
+
+fn lowest_below(values: &[f64], residuals: &[f64], bands: usize, bound: f64) -> bool {
+    by_value(values)[..bands]
+        .iter()
+        .all(|&j| residuals[j] < bound)
+}
+
+fn sorted<T: Scalar>(values: &[f64], x: MatRef<'_, T>, residuals: &[f64]) -> Eigenpairs<T> {
+    let order = by_value(values);
     Eigenpairs {
         values: order.iter().map(|&j| values[j]).collect(),
         vectors: Mat::from_fn(x.nrows(), order.len(), |i, j| x[(i, order[j])]),
