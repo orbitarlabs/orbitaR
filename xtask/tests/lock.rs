@@ -993,6 +993,28 @@ fn a_move_runs_alone_and_a_retry_after_a_dead_move_clears_only_that_moves_stage(
 }
 
 #[test]
+fn a_dead_moves_stage_that_cannot_be_cleared_stops_the_move_and_keeps_the_old_lock() {
+    let (root, old) = legacy_tree("lock-move-stuck-stage", "");
+    let mut gone = std::process::Command::new("true").spawn().unwrap();
+    let dead = gone.id();
+    gone.wait().unwrap();
+    write(&root, "benchmarks/locks.move", &dead.to_string());
+    let stage = format!("benchmarks/locks.{dead}.partial");
+    write(&root, &stage, "a file where a stage directory belongs\n");
+    let f = lever(
+        &["lock", "--reviewer", "PENDING", "--reason", "moved"],
+        &root,
+    );
+    assert!(has(&f, "lock: benchmarks/locks.move: "), "{f:?}");
+    assert_eq!(
+        fs::read_to_string(root.join("benchmarks/LOCK")).unwrap(),
+        old
+    );
+    assert!(root.join(&stage).is_file());
+    assert!(!root.join("benchmarks/locks").exists());
+}
+
+#[test]
 fn an_old_lock_entry_with_a_control_character_stops_the_move_with_its_name() {
     let (root, old) = legacy_tree(
         "lock-move-tab",
