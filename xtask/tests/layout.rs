@@ -519,6 +519,32 @@ fn a_tuning_input_is_an_engine_input_and_a_setting_name_is_one_word() {
 }
 
 #[test]
+fn a_tuning_input_with_no_atoms_is_refused() {
+    let empty_cell = "schema = 1
+[structure]
+cell_bohr = [[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]]
+species = []
+positions_fractional = []
+";
+    let root = tree(
+        "layout-tuning-no-atoms",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/empty.toml", empty_cell),
+            ("tuning/mixer/cells.py", ""),
+        ],
+    );
+    let findings = lever(&["layout"], &root);
+    assert!(
+        has(
+            &findings,
+            "tuning/mixer/empty.toml is no engine input: its [structure] needs 3 cell_bohr rows and one position per species"
+        ),
+        "{findings:?}"
+    );
+}
+
+#[test]
 fn a_symlinked_tuning_input_is_caught() {
     let root = tree(
         "layout-tuning-link",
