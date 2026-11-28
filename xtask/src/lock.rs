@@ -79,10 +79,13 @@ pub(crate) fn text(root: &Path) -> Result<String, String> {
 }
 
 pub(crate) fn hashes(root: &Path, id: &str) -> Result<Vec<String>, String> {
+    let tuning = id.starts_with(&format!("{}/", crate::layout::TUNING));
     let walked: Vec<String> = if id == HARNESS {
         (HARNESS_FILES.iter())
             .filter_map(|f| f.strip_suffix('/').map(str::to_owned))
             .collect()
+    } else if tuning {
+        vec![id.to_owned()]
     } else {
         vec![format!("benchmarks/{id}"), format!("tests/benchmarks/{id}")]
     };
@@ -102,6 +105,8 @@ pub(crate) fn hashes(root: &Path, id: &str) -> Result<Vec<String>, String> {
         }
         files.extend(crate::harness::datasets::judged(root)?);
         files
+    } else if tuning {
+        walk::files(root, id)
     } else {
         let case = walk::files(root, &format!("benchmarks/{id}"));
         let named = crate::harness::datasets::case_tables(root, &case)?;
@@ -146,11 +151,22 @@ pub(crate) fn digest(root: &Path, id: &str) -> String {
 
 pub(crate) fn fingerprint(root: &Path) -> String {
     let mut text = text(root).unwrap_or_else(|e| format!("! {e}"));
-    let ids = case::ids(root).unwrap_or_default();
-    for id in std::iter::once(HARNESS).chain(ids.iter().map(String::as_str)) {
-        text.push_str(&lines(root, id));
+    for id in ids(root).unwrap_or_default() {
+        text.push_str(&lines(root, &id));
     }
     hex(&Sha256::digest(text))
+}
+
+fn ids(root: &Path) -> Result<Vec<String>, String> {
+    let cases = case::ids(root)?;
+    Ok((std::iter::once(HARNESS.to_owned()))
+        .chain(cases)
+        .chain(crate::layout::tuning_settings(root))
+        .collect())
+}
+
+fn is_case(id: &str) -> bool {
+    case::parse_id(id).is_ok()
 }
 
 pub(crate) fn state(root: &Path, id: &str) -> Result<State, String> {
@@ -174,17 +190,19 @@ pub(crate) fn findings(root: &Path) -> Findings {
         Ok(locked) => locked,
         Err(e) => return vec![format!("science: S5 {e}")],
     };
-    let ids = match case::ids(root) {
+    let ids = match ids(root) {
         Ok(ids) => ids,
         Err(e) => return vec![format!("science: S5 {e}")],
     };
     let mut findings = Vec::new();
-    for id in locked.keys() {
-        if id != HARNESS && !ids.contains(id) {
-            findings.push(format!("science: S5 locked case {id} disappeared; set status = \"retired\" instead of deleting or renaming"));
-        }
+    for id in locked.keys().filter(|id| !ids.contains(id)) {
+        findings.push(if is_case(id) {
+            format!("science: S5 locked case {id} disappeared; set status = \"retired\" instead of deleting or renaming")
+        } else {
+            format!("science: S5 locked {id} disappeared; a tuned setting keeps the inputs it was tuned on")
+        });
     }
-    for id in std::iter::once(HARNESS).chain(ids.iter().map(String::as_str)) {
+    for id in ids.iter().map(String::as_str) {
         match state_in(&locked, root, id) {
             State::Unlocked => findings.push(format!(
                 "science: S5 {id} is not in {PATH}; run `cargo xtask lock --reviewer <name> --reason <text>`"
@@ -214,7 +232,7 @@ pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
         Ok(locked) => locked,
         Err(e) => return vec![format!("lock: {e}")],
     };
-    let ids = match case::ids(root) {
+    let ids = match ids(root) {
         Ok(ids) => ids,
         Err(e) => return vec![format!("lock: {e}")],
     };
@@ -224,15 +242,14 @@ pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
         .max()
         .unwrap_or(0);
     let mut findings = Vec::new();
-    for id in locked
-        .keys()
-        .filter(|id| *id != HARNESS && !ids.contains(id))
-    {
-        findings.push(format!(
-            "lock: {id} disappeared; restore it with status = \"retired\""
-        ));
+    for id in locked.keys().filter(|id| !ids.contains(id)) {
+        findings.push(if is_case(id) {
+            format!("lock: {id} disappeared; restore it with status = \"retired\"")
+        } else {
+            format!("lock: {id} disappeared; restore the inputs it was tuned on")
+        });
     }
-    for id in ids.iter().filter(|id| !locked.contains_key(*id)) {
+    for id in (ids.iter()).filter(|id| is_case(id) && !locked.contains_key(*id)) {
         if case::parse_id(id).unwrap_or(0) <= max_locked {
             findings.push(format!(
                 "lock: new case {id} must use a number above {max_locked}"
@@ -248,7 +265,7 @@ pub(crate) fn write(root: &Path, reviewer: &str, reason: &str) -> Findings {
         reason.replace('\n', " ").trim()
     );
     let mut out = String::new();
-    for id in std::iter::once(HARNESS).chain(ids.iter().map(String::as_str)) {
+    for id in ids.iter().map(String::as_str) {
         let lines = match hashes(root, id) {
             Ok(lines) => lines,
             Err(e) => return vec![format!("lock: {id}: {e}")],

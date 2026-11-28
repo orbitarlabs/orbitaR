@@ -2,6 +2,7 @@ use faer::dyn_stack::{MemBuffer, MemStack};
 use faer::linalg::svd;
 use faer::{Col, Mat, Par};
 use std::collections::VecDeque;
+use std::f64::consts::PI;
 
 const OLDER_RESIDUAL_STEPS: usize = 7;
 const MIXING_DAMPING: f64 = 0.7;
@@ -16,15 +17,16 @@ pub struct Weight {
 
 impl Weight {
     pub fn density(g2: f64, volume: f64) -> Self {
-        let damping = if g2 == 0.0 {
-            MIXING_DAMPING
-        } else {
-            MIXING_DAMPING * g2
-                / (g2 + 1.0 / (KERKER_SCREENING_LENGTH_BOHR * KERKER_SCREENING_LENGTH_BOHR))
-        };
+        if g2 == 0.0 {
+            return Self {
+                damping: MIXING_DAMPING,
+                metric: volume,
+            };
+        }
         Self {
-            damping,
-            metric: volume,
+            damping: MIXING_DAMPING * g2
+                / (g2 + 1.0 / (KERKER_SCREENING_LENGTH_BOHR * KERKER_SCREENING_LENGTH_BOHR)),
+            metric: volume * 4.0 * PI / g2,
         }
     }
 

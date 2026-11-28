@@ -420,3 +420,59 @@ fn a_module_hidden_by_cfg_or_a_comment_is_not_declared() {
         "{findings:?}"
     );
 }
+
+#[test]
+fn a_tuning_setting_holds_its_inputs_and_exactly_one_generator() {
+    let root = tree(
+        "layout-tuning",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/slab.toml", "schema = 1\n"),
+            ("tuning/mixer/bulk.toml", "schema = 1\n"),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let clean = lever(&["layout"], &root);
+    assert!(clean.is_empty(), "{clean:?}");
+    for (path, needle) in [
+        (
+            "tuning/mixer/README.md",
+            "tuning/mixer/README.md is neither tuning/<setting>/<input>.toml",
+        ),
+        (
+            "tuning/mixer/old/slab.toml",
+            "tuning/mixer/old/slab.toml is neither",
+        ),
+        ("tuning/slab.toml", "tuning/slab.toml is neither"),
+        (
+            "tuning/mixer/second.py",
+            "tuning/mixer holds 2 input(s) and 2 generator(s)",
+        ),
+        (
+            "tuning/history/cells.py",
+            "tuning/history holds 0 input(s) and 1 generator(s)",
+        ),
+    ] {
+        write(&root, path, "x\n");
+        assert!(has(&lever(&["layout"], &root), needle), "{path}");
+        std::fs::remove_file(root.join(path)).unwrap();
+    }
+    std::fs::remove_file(root.join("tuning/mixer/cells.py")).unwrap();
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer holds 2 input(s) and 0 generator(s)"
+    ));
+}
+
+#[test]
+fn a_symlinked_tuning_input_is_caught() {
+    let root = tree(
+        "layout-tuning-link",
+        &[("benchmarks/.keep", ""), ("tuning/mixer/cells.py", "")],
+    );
+    std::os::unix::fs::symlink("/etc/hosts", root.join("tuning/mixer/slab.toml")).unwrap();
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer/slab.toml is a symlink"
+    ));
+}
