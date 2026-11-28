@@ -4,8 +4,11 @@ use crate::{
     walk,
 };
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
-use pulldown_cmark::{BrokenLink, CowStr, Event, LinkType, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{
+    BrokenLink, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType, Options, Parser, Tag, TagEnd,
+};
 use serde::Deserialize;
+use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Component, Path},
@@ -20,6 +23,11 @@ const PROSE: [(&str, usize); 5] = [
     ("SECURITY.md", 4),
 ];
 const LOCAL: &str = "CLAUDE.local.md";
+const NOTEBOOK: &str = "notebooks/quickstart.ipynb";
+const NOTEBOOK_INSTALL: &str = "%pip install orbitar";
+const NOTEBOOK_PRINT: &str = "print(\"energy (eV):\", energy)\nprint(\"forces (eV/Å):\", forces)\nprint(\"stress (eV/Å³):\", stress)";
+const NOTEBOOK_BLOCK: &str = "ASE";
+const NOTEBOOK_WRITE: &str = "cargo xtask notebook --write";
 const MARKER: (&str, &str) = ("<!-- local ", " -->");
 
 #[derive(Deserialize)]
@@ -120,6 +128,7 @@ pub(crate) fn check(root: &Path) -> Findings {
             || file == "CLAUDE.md"
             || file == LOCAL
             || file == results::PAGE
+            || file == NOTEBOOK
             || local.iter().any(|(path, _)| *path == file)
             || file.starts_with(".agents/skills/");
         if prose && !allowed {
@@ -189,6 +198,7 @@ pub(crate) fn check(root: &Path) -> Findings {
     }
     findings.extend(readme(root));
     let readme = walk::read(root, "README.md");
+    findings.extend(notebook(root, &readme));
     for (path, rules) in &local {
         let text = walk::read(root, path);
         if !text.is_empty() {
@@ -412,6 +422,116 @@ fn html(root: &Path, line: &str) -> bool {
         }
         _ => false,
     }
+}
+
+fn readme_block(readme: &str, heading: &str) -> Option<String> {
+    let mut title: Option<String> = None;
+    let mut under = false;
+    let mut code: Option<String> = None;
+    for event in Parser::new_ext(readme, Options::empty()) {
+        match event {
+            Event::Start(Tag::Heading { level, .. }) if level <= HeadingLevel::H2 => {
+                title = Some(String::new());
+                under = false;
+            }
+            Event::End(TagEnd::Heading(level)) if level <= HeadingLevel::H2 => {
+                under = level == HeadingLevel::H2 && title.take().as_deref() == Some(heading);
+            }
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info)))
+                if under && code.is_none() && &*info == "python" =>
+            {
+                code = Some(String::new());
+            }
+            Event::End(TagEnd::CodeBlock) if code.is_some() => return code,
+            Event::Text(text) | Event::Code(text) => {
+                if let Some(held) = title.as_mut().or(code.as_mut()) {
+                    held.push_str(&text);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn quickstart(readme: &str) -> Result<Vec<u8>, String> {
+    let block = readme_block(readme, NOTEBOOK_BLOCK).ok_or(format!(
+        "README.md has no python block under `## {NOTEBOOK_BLOCK}`"
+    ))?;
+    let cell = |source: &str| {
+        serde_json::json!({
+            "cell_type": "code",
+            "execution_count": null,
+            "metadata": {},
+            "outputs": [],
+            "source": source.split_inclusive('\n').collect::<Vec<_>>(),
+        })
+    };
+    let book = serde_json::json!({
+        "cells": [
+            cell(NOTEBOOK_INSTALL),
+            cell(block.strip_suffix('\n').unwrap_or(&block)),
+            cell(NOTEBOOK_PRINT),
+        ],
+        "metadata": {
+            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+            "language_info": {"name": "python"},
+        },
+        "nbformat": 4,
+        "nbformat_minor": 4,
+    });
+    let mut bytes = Vec::new();
+    let mut out = serde_json::Serializer::with_formatter(
+        &mut bytes,
+        serde_json::ser::PrettyFormatter::with_indent(b" "),
+    );
+    book.serialize(&mut out).map_err(|e| e.to_string())?;
+    bytes.push(b'\n');
+    Ok(bytes)
+}
+
+fn notebook(root: &Path, readme: &str) -> Findings {
+    let path = root.join(NOTEBOOK);
+    let kind = std::fs::symlink_metadata(&path).map(|m| m.file_type());
+    if kind.as_ref().is_ok_and(|k| !k.is_file()) {
+        return vec![format!("docs: {NOTEBOOK} is no regular file")];
+    }
+    match (quickstart(readme), kind.and_then(|_| std::fs::read(&path))) {
+        (Err(_), Err(_)) => Vec::new(),
+        (Err(e), Ok(_)) => vec![format!("docs: {NOTEBOOK} has no source: {e}")],
+        (Ok(_), Err(e)) => vec![format!(
+            "docs: {NOTEBOOK} cannot be read ({e}); run `{NOTEBOOK_WRITE}`"
+        )],
+        (Ok(want), Ok(held)) if held == want => Vec::new(),
+        (Ok(_), Ok(_)) => vec![format!(
+            "docs: {NOTEBOOK} is not what `{NOTEBOOK_WRITE}` writes from README.md's `## {NOTEBOOK_BLOCK}` block, byte for byte"
+        )],
+    }
+}
+
+pub(crate) fn notebook_lever(root: &Path, write: bool) -> Findings {
+    let readme = walk::read(root, "README.md");
+    if !write {
+        return notebook(root, &readme);
+    }
+    let path = root.join(NOTEBOOK);
+    let written = quickstart(&readme).and_then(|bytes| {
+        let dir = path.parent().ok_or("no notebook directory")?;
+        let kind = |at: &Path| std::fs::symlink_metadata(at).ok().map(|m| m.file_type());
+        if kind(dir).is_some_and(|k| !k.is_dir()) {
+            return Err("its directory is no real directory; nothing is written".into());
+        }
+        if kind(&path).is_some_and(|k| !k.is_file()) {
+            return Err("is no regular file (a symlink?); nothing is written".into());
+        }
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        std::fs::write(&path, bytes).map_err(|e| e.to_string())
+    });
+    written
+        .err()
+        .map(|e| format!("notebook: {NOTEBOOK}: {e}"))
+        .into_iter()
+        .collect()
 }
 
 fn readme(root: &Path) -> Findings {

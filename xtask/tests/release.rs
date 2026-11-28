@@ -21,7 +21,9 @@ const EM_AARCH64: u8 = 183;
 const CPU_ARM64: u32 = 0x0100_000c;
 const CPU_X86_64: u32 = 0x0100_0007;
 const METADATA: &str = "Metadata-Version: 2.4\nName: orbitar\nVersion: 0.1.0\nAuthor: The orbitaR developers\n\
-     License-Expression: LicenseRef-x\nRequires-Dist: ase==3.29.0\nRequires-Dist: orbitar-jth==2.0.0\n";
+     License-Expression: LicenseRef-x\nRequires-Dist: ase==3.29.0\nRequires-Dist: orbitar-jth==2.0.0\n\
+     Project-URL: Homepage, https://orbitarlabs.org\nProject-URL: Issues, https://github.com/orbitarlabs/orbitaR/issues\n\
+     Project-URL: Source, https://github.com/orbitarlabs/orbitaR\n";
 const JTH_PROJECT: &str = "[project]\nname = \"orbitar-jth\"\nversion = \"2.0.0\"\n";
 
 fn elf(machine: u8) -> String {
@@ -315,11 +317,22 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         ),
         (
             "Project-URL: Source, https://example.invalid\n".into(),
+            "no person, address, or URL but the project links",
+        ),
+        (
+            format!(
+                "Project-URL: Source, https://github.com/{}/orbitaR-fork\n",
+                "orbitarlabs"
+            ),
+            "no person, address, or URL but the project links",
+        ),
+        (
+            "Home-page: https://orbitarlabs.org\n".into(),
             "no person, address, or URL",
         ),
         (
             "Author: A Person\n".into(),
-            "not `Author: The orbitaR developers`",
+            "does not hold `Author: The orbitaR developers` once",
         ),
     ] {
         let metadata = format!("{METADATA}{field}");
@@ -329,7 +342,10 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
     let found = checked("version", NAME, |m| {
         m[5].1 = METADATA.replace("Version: 0.1.0", "Version: 0.2.0")
     });
-    assert!(has(&found, "Version: 0.1.0 (Cargo.toml)"), "{found:?}");
+    assert!(
+        has(&found, "does not hold `Version: 0.1.0` once"),
+        "{found:?}"
+    );
     let found = checked("requires", NAME, |m| {
         m[5].1 = METADATA.replace("ase==3.29.0", "ase==3.28.0")
     });
@@ -343,7 +359,10 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         assert!(has(&found, "and packages/orbitar-jth"), "{found:?}");
     }
     for (field, needle) in [
-        ("Provides-Extra: mcp\n", "provides the extra `mcp`"),
+        (
+            "Provides-Extra: mcp\n",
+            "`Provides-Extra: mcp` is no `Name: value` header",
+        ),
         (
             "Requires-Dist: mcp==2.3.0 ; extra == 'mcp'\n",
             "has a marker; the wheel has no extra",
@@ -353,6 +372,75 @@ fn a_wheel_whose_metadata_names_a_person_a_url_another_version_or_an_extra_fails
         let found = checked("extra", NAME, |m| m[5].1 = metadata.clone());
         assert!(has(&found, needle), "{field}: {found:?}");
     }
+}
+
+const SOURCE_LINK: &str = "Project-URL: Source, https://github.com/orbitarlabs/orbitaR\n";
+
+#[test]
+fn a_wheel_whose_metadata_lacks_a_project_link_or_holds_one_twice_fails() {
+    let without = METADATA.replace(SOURCE_LINK, "");
+    let found = checked("link-missing", NAME, |m| m[5].1 = without.clone());
+    assert!(
+        has(
+            &found,
+            "`Project-URL: Source, https://github.com/orbitarlabs/orbitaR` 0 times, not once"
+        ),
+        "{found:?}"
+    );
+    let twice = format!("{METADATA}{SOURCE_LINK}");
+    let found = checked("link-twice", NAME, |m| m[5].1 = twice.clone());
+    assert!(has(&found, "orbitaR` 2 times, not once"), "{found:?}");
+}
+
+const MALFORMED: [&str; 9] = [
+    "project-url: Docs, https://example.invalid",
+    "home-page: https://orbitarlabs.org",
+    "Home-page: https://orbitarlabs.org",
+    "MAINTAINER: A Person",
+    "author: A Person",
+    "Author:The orbitaR developers",
+    "Summary:  two spaces",
+    " and A Person",
+    "garbage",
+];
+
+fn malformed(line: &str) -> String {
+    format!("`{line}` is no `Name: value` header")
+}
+
+fn author_moved(metadata: &str) -> String {
+    metadata.replace("Author: The orbitaR developers\n", "") + "Author : The orbitaR developers\n"
+}
+
+#[test]
+fn a_wheel_whose_metadata_holds_a_line_off_the_canonical_header_form_fails() {
+    for line in MALFORMED {
+        let metadata = format!("{METADATA}{line}\n");
+        let found = checked("malformed", NAME, |m| m[5].1 = metadata.clone());
+        assert!(has(&found, &malformed(line)), "{line}: {found:?}");
+    }
+    let moved = author_moved(METADATA);
+    let found = checked("author-space", NAME, |m| m[5].1 = moved.clone());
+    assert!(
+        has(&found, &malformed("Author : The orbitaR developers")),
+        "{found:?}"
+    );
+    assert!(
+        has(
+            &found,
+            "does not hold `Author: The orbitaR developers` once"
+        ),
+        "{found:?}"
+    );
+    let anonymous = METADATA.replace("Author: The orbitaR developers\n", "");
+    let found = checked("no-author", NAME, |m| m[5].1 = anonymous.clone());
+    assert!(
+        has(
+            &found,
+            "does not hold `Author: The orbitaR developers` once"
+        ),
+        "{found:?}"
+    );
 }
 
 fn engine_holding(name: &str, word: &str) -> Vec<String> {
@@ -619,7 +707,10 @@ fn a_wheel_without_the_license_or_a_notice_for_a_linked_crate_fails() {
         m[5].1 = METADATA.replace("LicenseRef-x", "MIT")
     });
     assert!(
-        has(&found, "License-Expression: LicenseRef-x (Cargo.toml)"),
+        has(
+            &found,
+            "does not hold `License-Expression: LicenseRef-x` once"
+        ),
         "{found:?}"
     );
 }
@@ -1114,7 +1205,8 @@ const JTH_TABLE: &str = "url = \"https://example.invalid/pseudos\"\n\n[pbe]\n\
      Si = { sha256 = \"42b1f7186c03492b75c244346650ea638d7a85f2865ebd51356176bc8fa61769\", cutoff_hint_ha = 10.0 }\n\
      C = { sha256 = \"97846ece8c14b93164d1e820ccf589680b75e8054d77420a22e80e0b3f17a53f\" }\n";
 const JTH_METADATA: &str = "Metadata-Version: 2.4\nName: orbitar-jth\nVersion: 2.0.0\n\
-     Author: The orbitaR developers\nLicense-Expression: GPL-3.0-only\n";
+     Author: The orbitaR developers\nLicense-Expression: GPL-3.0-only\n\
+     Project-URL: Homepage, https://orbitarlabs.org\nProject-URL: Source, https://github.com/orbitarlabs/orbitaR\n";
 const JTH_POINTS: &str = "[orbitar.datasets]\njth-2.0 = orbitar_jth\n";
 
 fn jth_checked(name: &str, file: &str, change: impl Fn(&mut Vec<(&str, String)>)) -> Vec<String> {
@@ -1190,6 +1282,29 @@ fn a_data_wheel_with_each_family_file_at_its_pin_the_table_the_license_and_the_n
 }
 
 const JTH_SI: &str = "orbitar_jth/JTH-PBE-v2.0/Si/Si.GGA_PBE-JTH.xml";
+
+#[test]
+fn a_data_wheel_whose_metadata_holds_the_issues_link_or_lacks_a_project_link_fails() {
+    let issues = "Project-URL: Issues, https://github.com/orbitarlabs/orbitaR/issues\n";
+    let metadata = format!("{JTH_METADATA}{issues}");
+    let found = jth_checked("jth-issues", JTH_NAME, |m| {
+        let i = at(m, "orbitar_jth-2.0.0.dist-info/METADATA");
+        m[i].1 = metadata.clone();
+    });
+    assert!(
+        has(
+            &found,
+            "holds `Project-URL: Issues, https://github.com/orbitarlabs/orbitaR/issues`; no person"
+        ),
+        "{found:?}"
+    );
+    let without = JTH_METADATA.replace(SOURCE_LINK, "");
+    let found = jth_checked("jth-no-source", JTH_NAME, |m| {
+        let i = at(m, "orbitar_jth-2.0.0.dist-info/METADATA");
+        m[i].1 = without.clone();
+    });
+    assert!(has(&found, "orbitaR` 0 times, not once"), "{found:?}");
+}
 
 #[test]
 fn a_data_wheel_with_a_family_file_off_its_pin_fails() {
@@ -1276,7 +1391,7 @@ fn a_data_wheel_whose_metadata_names_another_license_a_person_or_a_dependency_fa
         (
             "Author: The orbitaR developers",
             "Author: A Person",
-            "holds `Author: A Person`",
+            "it holds [\"A Person\"]",
         ),
         (
             "Version: 2.0.0\n",
@@ -1290,6 +1405,35 @@ fn a_data_wheel_whose_metadata_names_another_license_a_person_or_a_dependency_fa
         });
         assert!(has(&found, needle), "{needle}: {found:?}");
     }
+}
+
+#[test]
+fn a_data_wheel_whose_metadata_holds_a_line_off_the_canonical_header_form_fails() {
+    let metadata_at = |m: &Vec<(&str, String)>| at(m, "orbitar_jth-2.0.0.dist-info/METADATA");
+    for line in MALFORMED {
+        let metadata = format!("{JTH_METADATA}{line}\n");
+        let found = jth_checked("jth-malformed", JTH_NAME, |m| {
+            let i = metadata_at(m);
+            m[i].1 = metadata.clone();
+        });
+        assert!(has(&found, &malformed(line)), "{line}: {found:?}");
+    }
+    let moved = author_moved(JTH_METADATA);
+    let found = jth_checked("jth-author-space", JTH_NAME, |m| {
+        let i = metadata_at(m);
+        m[i].1 = moved.clone();
+    });
+    assert!(
+        has(&found, &malformed("Author : The orbitaR developers")),
+        "{found:?}"
+    );
+    assert!(
+        has(
+            &found,
+            "does not hold `Author: The orbitaR developers` once"
+        ),
+        "{found:?}"
+    );
 }
 
 #[test]

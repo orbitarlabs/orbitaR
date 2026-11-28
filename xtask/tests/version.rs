@@ -7,8 +7,17 @@ fn cargo(version: &str) -> String {
     format!("[package]\nname = \"orbitar\"\nversion = \"{version}\"\nlicense = \"{LICENSE}\"\n")
 }
 
+const LINKED: &str =
+    "repository-code: \"https://github.com/orbitarlabs/orbitaR\"\nurl: https://orbitarlabs.org\n";
+const URLS: &str = "[project.urls]\nHomepage = \"https://orbitarlabs.org\"\n\
+     Source = \"https://github.com/orbitarlabs/orbitaR\"\nIssues = \"https://github.com/orbitarlabs/orbitaR/issues\"\n";
+const JTH: &str = "packages/orbitar-jth/pyproject.toml";
+const AUTHORS: &str = "authors = [{ name = \"The orbitaR developers\" }]\n";
+const JTH_URLS: &str = "[project.urls]\nHomepage = \"https://orbitarlabs.org\"\n\
+     Source = \"https://github.com/orbitarlabs/orbitaR\"\n";
+
 fn citation(version: &str, license: &str) -> String {
-    format!("cff-version: 1.2.0\ntitle: orbitaR\nversion: {version}\nlicense: {license}\n")
+    format!("cff-version: 1.2.0\ntitle: orbitaR\n{LINKED}version: {version}\nlicense: {license}\n")
 }
 
 fn stepped(name: &str, base: &str, head: &str, steps: &str) -> Vec<String> {
@@ -115,9 +124,68 @@ fn a_pyproject_with_its_own_version_fails() {
     write(
         at,
         "pyproject.toml",
-        "[project]\nname = \"orbitar\"\ndynamic = [\"version\"]\n",
+        &format!("[project]\nname = \"orbitar\"\ndynamic = [\"version\"]\n{AUTHORS}\n{URLS}"),
     );
     assert_eq!(lever(&["version"], &root), Vec::<String>::new());
+}
+
+fn linked(name: &str, pyproject: &str, jth: &str) -> Vec<String> {
+    authored(name, AUTHORS, pyproject, jth)
+}
+
+fn authored(name: &str, authors: &str, pyproject: &str, jth: &str) -> Vec<String> {
+    let project =
+        format!("[project]\nname = \"orbitar\"\ndynamic = [\"version\"]\n{authors}\n{pyproject}");
+    let jth = format!("[project]\nname = \"orbitar-jth\"\nversion = \"2.0.0\"\n{authors}\n{jth}");
+    let root = tree(
+        &format!("version-links-{name}"),
+        &[
+            ("Cargo.toml", &cargo("0.0.1")),
+            ("CITATION.cff", &citation("0.0.1", LICENSE)),
+            ("pyproject.toml", &project),
+            (JTH, &jth),
+        ],
+    );
+    let at: &Path = &root;
+    git(at, &["init", "-q"]);
+    git(at, &["add", "-A"]);
+    git(at, &["commit", "-q", "-m", "base"]);
+    git(at, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    lever(&["version"], &root)
+}
+
+#[test]
+fn pyproject_files_that_name_exactly_the_project_links_pass() {
+    assert_eq!(linked("good", URLS, JTH_URLS), Vec::<String>::new());
+}
+
+#[test]
+fn a_pyproject_with_another_url_a_missing_link_or_the_data_package_with_issues_fails() {
+    let private = URLS.replace("orbitaR\"\nIssues", "orbitaR-fork\"\nIssues");
+    let extra = format!("{URLS}Docs = \"https://example.invalid\"\n");
+    let missing = URLS.replace("Homepage = \"https://orbitarlabs.org\"\n", "");
+    for (name, urls) in [
+        ("private", private.as_str()),
+        ("extra", extra.as_str()),
+        ("missing", missing.as_str()),
+        ("none", ""),
+    ] {
+        let found = linked(name, urls, JTH_URLS);
+        assert!(
+            has(&found, "release: pyproject.toml [project.urls] is"),
+            "{name}: {found:?}"
+        );
+    }
+    let found = linked("jth-issues", URLS, URLS);
+    assert!(
+        has(&found, &format!("release: {JTH} [project.urls] is")),
+        "{found:?}"
+    );
+    let found = linked("jth-bad", URLS, "[project\n");
+    assert!(
+        has(&found, &format!("release: {JTH} does not parse")),
+        "{found:?}"
+    );
 }
 
 #[test]
@@ -136,7 +204,7 @@ fn a_citation_that_cites_another_version_or_license_than_cargo_toml_fails() {
     git(at, &["add", "-A"]);
     git(at, &["commit", "-q", "-m", "base"]);
     git(at, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-    let quoted = format!("cff-version: 1.2.0\nversion: \"0.0.1\"\nlicense: '{LICENSE}'\n");
+    let quoted = format!("cff-version: 1.2.0\n{LINKED}version: \"0.0.1\"\nlicense: '{LICENSE}'\n");
     write(at, "CITATION.cff", &quoted);
     assert_eq!(lever(&["version"], &root), Vec::<String>::new());
     for (name, text, needle) in [
@@ -146,6 +214,16 @@ fn a_citation_that_cites_another_version_or_license_than_cargo_toml_fails() {
             "CITATION.cff version",
         ),
         ("license", citation("0.0.1", "MIT"), "CITATION.cff license"),
+        (
+            "private repository",
+            citation("0.0.1", LICENSE).replace("orbitaR\"", "orbitaR-fork\""),
+            "CITATION.cff repository-code",
+        ),
+        (
+            "no url",
+            citation("0.0.1", LICENSE).replace("url: https://orbitarlabs.org\n", ""),
+            "CITATION.cff url",
+        ),
         (
             "twice",
             citation("0.0.1", LICENSE) + "version: 0.0.1\n",
@@ -165,4 +243,47 @@ fn a_citation_that_cites_another_version_or_license_than_cargo_toml_fails() {
     let found = lever(&["version"], &root);
     assert!(has(&found, "CITATION.cff version"), "{found:?}");
     assert!(has(&found, "CITATION.cff license"), "{found:?}");
+    assert!(has(&found, "CITATION.cff repository-code"), "{found:?}");
+}
+
+#[test]
+fn a_pyproject_with_another_author_an_author_address_or_a_maintainer_fails() {
+    for (name, authors) in [
+        (
+            "author-person",
+            &"authors = [{ name = \"A Person\" }]\n".to_owned(),
+        ),
+        (
+            "author-second",
+            &"authors = [{ name = \"The orbitaR developers\" }, { name = \"A Person\" }]\n"
+                .to_owned(),
+        ),
+        (
+            "author-address",
+            &format!(
+                "authors = [{{ name = \"The orbitaR developers\", email = \"x{}example.invalid\" }}]\n",
+                '@'
+            ),
+        ),
+        ("author-none", &String::new()),
+    ] {
+        let found = authored(name, authors, URLS, JTH_URLS);
+        for path in ["pyproject.toml", JTH] {
+            assert!(
+                has(&found, &format!("release: {path} [project] authors is")),
+                "{name} {path}: {found:?}"
+            );
+        }
+    }
+    let maintained = format!("{AUTHORS}maintainers = [{{ name = \"A Person\" }}]\n");
+    let found = authored("author-maintainer", &maintained, URLS, JTH_URLS);
+    for path in ["pyproject.toml", JTH] {
+        assert!(
+            has(
+                &found,
+                &format!("release: {path} [project] names maintainers")
+            ),
+            "{path}: {found:?}"
+        );
+    }
 }
