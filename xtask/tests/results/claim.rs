@@ -901,6 +901,9 @@ fn a_claim_tier_proof_refuses_a_shard_and_a_filter() {
         ("shard", json!(["input"])),
         ("shard", Value::Null),
         ("pass", json!(["input"])),
+        ("pass", json!([])),
+        ("pass", json!("input")),
+        ("pass", json!({ "input": true })),
     ] {
         record["outcome"] = json!(outcome);
         record["filter"] = filter.clone();
@@ -966,7 +969,7 @@ fn bound(root: &Tree, record: &mut Value, key: &str, limit: f64) {
     record["tolerance"][key] = json!(limit);
 }
 
-fn kept_row_refused(root: &Tree, was: &Value, is: &Value, run: &str) -> Vec<String> {
+fn pin_kept_row(root: &Tree, was: &Value, is: &Value, run: &str) {
     let (was, is) = (was.to_string(), is.to_string());
     let pinned = read(root, "benchmarks/RECORDS.jsonl");
     write(root, "benchmarks/RECORDS.jsonl", &pinned.replace(&was, &is));
@@ -978,6 +981,10 @@ fn kept_row_refused(root: &Tree, was: &Value, is: &Value, run: &str) -> Vec<Stri
         results.truncate(table.into_iter().flatten().min().unwrap() + 1);
     }
     write(root, "benchmarks/RESULTS.toml", &results);
+}
+
+fn kept_row_refused(root: &Tree, was: &Value, is: &Value, run: &str) -> Vec<String> {
+    pin_kept_row(root, was, is, run);
     let found = s11(root);
     assert!(
         has(
@@ -986,6 +993,16 @@ fn kept_row_refused(root: &Tree, was: &Value, is: &Value, run: &str) -> Vec<Stri
         ),
         "{found:?}"
     );
+    found
+}
+
+fn node_collect(root: &Tree) -> Vec<String> {
+    let head = commit(root, "a node run");
+    let node = super::record("2_b", "node", &head, false, "pass", r#"{"e_error":0.5}"#);
+    write(root, "target/benchmarks/node/2_b.json", &node);
+    let results = read(root, "benchmarks/RESULTS.toml");
+    let found = lever(&["results", "collect", "--tier", "node"], root);
+    assert_eq!(read(root, "benchmarks/RESULTS.toml"), results);
     found
 }
 
@@ -1104,4 +1121,28 @@ fn a_schema_5_replay_tells_a_negative_zero_from_a_positive_one() {
         &kept_row_refused(&root, &honest, &forged, "claim"),
         refused
     ));
+}
+
+const KEPT_PUSH_REFUSED: &str = "results: benchmarks/RESULTS.toml: 4_d: its kept record in benchmarks/RECORDS.jsonl is refused: 4_d is a claim case, which a push run does not cover";
+
+#[test]
+fn a_later_collection_refuses_a_kept_push_row_of_a_claim_case() {
+    let (root, honest, mut forged) = boundary("claim-kept-push");
+    forged["tier"] = json!("push");
+    pin_kept_row(&root, &honest, &forged, "push");
+    let found = node_collect(&root);
+    assert!(has(&found, KEPT_PUSH_REFUSED), "{found:?}");
+}
+
+#[test]
+fn a_later_collection_refuses_a_kept_push_row_whose_case_moved_to_claim() {
+    let root = cases("claim-moved");
+    let head = commit(&root, "head");
+    super::push_records(&root, &head);
+    assert!(lever(&["results", "collect"], &root).is_empty());
+    solo_memory_case(&root, &head);
+    std::fs::remove_file(root.join(SOLO)).unwrap();
+    let found = node_collect(&root);
+    assert!(has(&found, KEPT_PUSH_REFUSED), "{found:?}");
+    assert!(!has(&found, "1_a"), "{found:?}");
 }

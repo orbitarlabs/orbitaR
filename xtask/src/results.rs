@@ -11,7 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
@@ -178,6 +178,7 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
         Ok(lines) => lines,
         Err(e) => return vec![e],
     };
+    let mut fresh = BTreeSet::new();
     for tier in chosen {
         let dir = base.join(tier.name());
         let files = jsons(&dir);
@@ -196,11 +197,25 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
             match row(root, tier, line, &cases, &whats) {
                 Ok(Some(row)) => {
                     evidence.insert(row.id.clone(), line.to_owned());
+                    fresh.insert(row.id.clone());
                     rows.insert(row.id.clone(), row);
                 }
                 Ok(None) => {}
                 Err(e) => findings.push(format!("results: {}: {e}", path.display())),
             }
+        }
+    }
+    for (id, kept) in rows.iter_mut().filter(|(id, _)| !fresh.contains(*id)) {
+        let (Some(run), Some(_), Some(line)) = (kept.run, &kept.record_sha256, evidence.get(id))
+        else {
+            continue;
+        };
+        match row(root, run, line, &cases, &whats) {
+            Ok(Some(made)) => *kept = made,
+            Ok(None) => {}
+            Err(e) => findings.push(format!(
+                "results: {RESULTS}: {id}: its kept record in {RECORDS} is refused: {e}"
+            )),
         }
     }
     let mut kept = Vec::new();

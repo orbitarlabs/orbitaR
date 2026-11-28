@@ -167,7 +167,7 @@ pub(crate) fn proves(root: &Path, tier: Tier, id: &str, case: &Case, record: &Va
     }
     let outcome = record["outcome"].as_str().unwrap_or("unreadable");
     let filtered = record["filter"].as_array().is_some_and(|f| !f.is_empty());
-    if tier == Tier::Claim && (outcome == "shard" || filtered) {
+    if tier == Tier::Claim && (outcome == "shard" || !record["filter"].is_null()) {
         findings.push(format!(
             "{}: {id} record says {outcome} with the filter {}; only the node tier runs a filtered or candidate-table shard",
             tier.name(),
