@@ -187,6 +187,44 @@ fn a_supercell_holds_twice_the_free_energy_of_its_cell() {
     assert!((two.fermi_level_ha - one.fermi_level_ha).abs() < 1e-10);
 }
 
+#[test]
+fn a_repeat_of_eight_cells_holds_eight_times_the_local_energy_within_the_term_limit() {
+    let text = |n: usize, mesh: usize| {
+        let side = 6.0 * n as f64;
+        let at = |index: usize, offset: f64| (offset + index as f64) / n as f64;
+        let atoms: Vec<String> = (0..n * n * n)
+            .map(|i| {
+                format!(
+                    "{:?}",
+                    [at(i / (n * n), 0.1), at(i / n % n, 0.2), at(i % n, 0.3)]
+                )
+            })
+            .collect();
+        format!(
+            "schema = 1\n\n[structure]\ncell_bohr = [[{side:?}, 0.0, 0.0], [0.0, {side:?}, 0.0], [0.0, 0.0, {side:?}]]\n\
+             species = [{}]\npositions_fractional = [{}]\n\n[basis]\ncutoff_ha = 3.0\ndensity_cutoff_ha = 108.0\n\n\
+             [kpoints]\nmesh = [{mesh}, {mesh}, {mesh}]\nsymmetry = false\n\n\
+             [occupations]\nsmearing = \"fermi-dirac\"\nwidth_ha = 0.002\n\n\
+             [scf]\nenergy_tolerance_ha = 1e-11\n\n[outputs]\ndiscretization = true\n",
+            vec!["\"C\""; atoms.len()].join(", "),
+            atoms.join(", ")
+        )
+    };
+    let (cell, repeat) = (solve(&text(1, 2)).unwrap(), solve(&text(2, 1)).unwrap());
+    let fine = |o: &Outcome| o.discretization().unwrap().fine_grid;
+    assert_eq!((fine(&cell), fine(&repeat)), ([60; 3], [120; 3]));
+    let local = |o: &Outcome| o.scf().unwrap().energies.local_ha;
+    let density_limit = 1e-11 / 100.0;
+    let term_limit = density_limit * (1.0 + 1.0 / 8.0);
+    let gap = (local(&repeat) / 8.0 - local(&cell)).abs();
+    assert!(
+        gap <= term_limit,
+        "{gap:e} Ha per cell between {} / 8 and {}",
+        local(&repeat),
+        local(&cell)
+    );
+}
+
 fn lithium(_: u8) -> Result<Dataset, Failure> {
     let mut draft = synthetic_draft();
     (draft.z, draft.valence_electrons) = (3.0, 1.0);
