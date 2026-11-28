@@ -1,4 +1,4 @@
-# harness reviewer=captain after verify-42 (1d3a332) reason=issue 39: claim summaries under record schema 5 take the pure-Rust libm crate's log and exp (series fit, memory fit, G, R and the CI), so a summary validates bit for bit on every platform; schema 4 records keep their platform arithmetic and their value checks; the claim proof, results collect and S11 replay each passing schema-5 claim record's summaries to the bit, check its bounded reserved metrics (rss_exponent, the series exponents) and run the producer's judge on them; a claim-tier proof refuses a shard or any filter; a results row needs a run tier that covers its case, and collect re-derives each kept row from its pinned record
+# harness reviewer=PENDING reason=issue 39 (#42, captain after verify-42 at 1d3a332) merged with integration-2 15ab6a8 (#28: past_guard judges a measured peak through past_the_guard): claim summaries under record schema 5 take the pure-Rust libm crate's log and exp, so a summary validates bit for bit on every platform; schema 4 records keep their platform arithmetic and their value checks; the claim proof, results collect and S11 replay each passing schema-5 claim record's summaries to the bit, check its bounded reserved metrics and run the producer's judge on them; a claim-tier proof refuses a shard or any filter; a results row needs a run tier that covers its case, and collect re-derives each kept row from its pinned record
 5bb65019ad428e15a36bccc99a89a770f990cfc9156c1c62a18dca595477bd08  xtask/Cargo.toml
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  xtask/clippy.toml
 645cc2c814e83c0db6695f4f4e669b87180153fb57c755552e06f825a88dae35  xtask/src/atompaw.rs
@@ -6,7 +6,7 @@ b131a43552983679750e7571125717a273ef8f0ed15eda3ad30b4ffebb786e3b  xtask/src/benc
 63c431515f06435b087e9e8394726ada53084c1659a00f4948a46c4c99f4fc1b  xtask/src/case.rs
 e3becfebc6a03be1f6d0b8029f114692ffa8d92f69150d99d8e74155f4bdb9aa  xtask/src/docs.rs
 92efbbad62f57e43d2582e5ca4eff803c790f312fc937c8d760296eeecf409a0  xtask/src/family.rs
-962c86ae78d45c04f6b91ffaf67f5d1b0470e8cc4d56d18c69345dfa79685e27  xtask/src/harness.rs
+866f9631a4e4f19f7b0ec7a44d0cc86b700df7dc3072577ec91ce9115cc9cd5a  xtask/src/harness.rs
 da364f758d98f60487c9c0a171e8b6deb7820f9cf0e11e9f16a6a6c7f30cbf40  xtask/src/harness/acwf.rs
 e8cb26daf243b219bb2b0f013a88632212c8a04eb867a085ff067fc7fb5f8086  xtask/src/harness/datasets.rs
 5214916d7f92d82a0423f7a9191cd13a7e2623040eb2e76ae7747968c88b1f52  xtask/src/harness/engine.rs
