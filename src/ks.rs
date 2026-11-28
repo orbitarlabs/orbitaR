@@ -18,4 +18,4 @@ pub use mixer::{Mixer, Weight};
 pub use occupations::{Occupied, occupy};
 pub use probe::{Probed, paw_probe, probe};
 pub use run::{Discretization, Failure, Outcome, Scf, Session, run, run_diagnosed};
-pub use scf::Energies;
+pub use scf::{Energies, eigensolver_floor};

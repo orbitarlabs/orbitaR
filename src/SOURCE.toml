@@ -15,6 +15,8 @@ RELATIVE_ELECTRON_COUNT_TOLERANCE = "ABINIT 10.0.3 m_occ.F90 (tol14): the relati
 ["src/ks/scf.rs"]
 ATOMS_PER_BAND = "DFTK 8128675 src/scf/nbands_algorithm.jl AdaptiveBands (MIT): solve few bands, add more while the top ones hold charge."
 FIRST_EIGENSOLVER_RESIDUAL_TOLERANCE = "DFTK 8128675 src/scf/scf_callbacks.jl (MIT): the eigensolver’s residual tolerance on the first step."
+HIGHEST_EIGENSOLVER_FLOOR = "The engine's residual floor before the floor followed the density stop (cf0ae67): density stops of 1e-12 and above keep it."
+LOWEST_EIGENSOLVER_FLOOR = "Measured: tests/pw/eigensolver.rs a_semicore_pencil_in_real_arithmetic_reaches_a_residual_of_1e_14_but_not_1e_15, and tests/ks/crystal.rs r2scan_stress_holds_the_turn_of_the_spheres_upright_frame, whose bands converge at it."
 MOMENT_PER_EXTRA_BAND = "ABINIT 10.0.3 m_invars1.F90 mband_upper adds ⌈½ Σ m_a⌉ bands for spin."
 
 ["src/paw/dataset.rs"]
