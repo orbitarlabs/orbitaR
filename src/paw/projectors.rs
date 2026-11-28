@@ -130,14 +130,31 @@ impl Projectors {
         x: MatRef<'_, c64>,
         axis: usize,
     ) -> Mat<c64> {
-        let q: Vec<f64> = (basis.millers().iter())
-            .map(|m| cell.wavevector(std::array::from_fn(|i| k[i] + f64::from(m[i])))[axis])
-            .collect();
+        let q = wavevector_components(cell, k, basis, axis);
         let moved = Mat::from_fn(x.nrows(), x.ncols(), |g, band| {
             x[(g, band)] * c64::new(0.0, q[g])
         });
         projectors.adjoint() * &moved
     }
+
+    pub fn displacement(
+        projectors: &Mat<c64>,
+        cell: &Cell,
+        k: [f64; 3],
+        basis: &Basis,
+        axis: usize,
+    ) -> Mat<c64> {
+        let q = wavevector_components(cell, k, basis, axis);
+        Mat::from_fn(projectors.nrows(), projectors.ncols(), |g, j| {
+            projectors[(g, j)] * c64::new(0.0, -q[g])
+        })
+    }
+}
+
+fn wavevector_components(cell: &Cell, k: [f64; 3], basis: &Basis, axis: usize) -> Vec<f64> {
+    (basis.millers().iter())
+        .map(|m| cell.wavevector(std::array::from_fn(|i| k[i] + f64::from(m[i])))[axis])
+        .collect()
 }
 
 pub struct Sampled {

@@ -270,6 +270,21 @@ pub fn accumulate<T: ComplexField>(
     });
 }
 
+pub fn per_column_pair<T: Send, B>(
+    target: MatMut<'_, T>,
+    init: impl Fn() -> B + Sync + Send,
+    f: impl Fn(&mut B, usize, MatMut<'_, T>) + Sync + Send,
+) {
+    let (mut parts, mut rest, mut first) = (Vec::new(), target, 0);
+    while rest.ncols() > 0 {
+        let width = rest.ncols().min(2);
+        let (pair, tail) = rest.split_at_col_mut(width);
+        parts.push((first, pair));
+        (rest, first) = (tail, first + width);
+    }
+    per_part(parts, init, |b, (first, pair)| f(b, first, pair));
+}
+
 pub fn per_column<T: Send, B>(
     target: MatMut<'_, T>,
     init: impl Fn() -> B + Sync + Send,

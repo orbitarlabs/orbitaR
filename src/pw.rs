@@ -11,10 +11,10 @@ pub use eigensolver::{
     Applied, Eigenpairs, Guess, Pencil, Scalar, Workspace, dense, lowest, random,
 };
 pub use faer::{Mat, MatRef, c64};
-pub use grid::{Grid, SphereFft, kinetic_density, kinetic_strain};
+pub use grid::{Grid, SphereFft, kinetic_density, kinetic_density_of_pair, kinetic_strain};
 pub use parallel::{
-    Pool, accumulate, per_chunk, per_column, per_point, per_point_with, pool_threads, product,
-    times,
+    Pool, accumulate, per_chunk, per_column, per_column_pair, per_point, per_point_with,
+    pool_threads, product, times,
 };
 pub use poisson::{Hartree, hartree};
 pub use ritz::{ritz_start, ritz_start_paired};

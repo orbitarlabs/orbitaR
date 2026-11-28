@@ -85,6 +85,16 @@ impl Pairs {
         }
     }
 
+    pub fn packed(&self, a: impl Fn(usize) -> f64, b: impl Fn(usize) -> f64, row: usize) -> c64 {
+        let (a, b) = (self.coefficient(a, row), self.coefficient(b, row));
+        c64::new(a.re - b.im, a.im + b.re)
+    }
+
+    pub fn halves(&self, packed: &[c64], row: usize) -> [c64; 2] {
+        let (here, mirror) = (packed[row], packed[self.partner[row]].conj());
+        [(here + mirror) * 0.5, (here - mirror) * c64::new(0.0, -0.5)]
+    }
+
     pub fn entry(&self, row: usize, v: c64) -> f64 {
         match row.cmp(&self.partner[row]) {
             std::cmp::Ordering::Less => SQRT_2 * v.re,

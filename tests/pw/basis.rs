@@ -166,6 +166,29 @@ fn plane_waves_pair_up_as_q_and_minus_q_where_twice_k_is_a_lattice_vector() {
 }
 
 #[test]
+fn two_real_bands_packed_as_one_complex_column_split_back_into_each_band() {
+    for k in [[0.0; 3], [0.5, 0.0, 0.5]] {
+        let basis = Basis::sphere(&sheared(), k, 6.0);
+        let pairs = basis.pairs(k).unwrap();
+        let n = basis.millers().len();
+        let x = Mat::from_fn(n, 2, |g, j| ((5 * g + 2 * j) % 13) as f64 - 6.1);
+        let c = pairs.complex(x.as_ref());
+        let packed: Vec<c64> = (0..n)
+            .map(|g| pairs.packed(|row| x[(row, 0)], |row| x[(row, 1)], g))
+            .collect();
+        for g in 0..n {
+            let want = c[(g, 0)] + c64::new(0.0, 1.0) * c[(g, 1)];
+            assert!((packed[g] - want).norm() < 1e-14, "{k:?} row {g}");
+            let [a, b] = pairs.halves(&packed, g);
+            assert!(
+                (a - c[(g, 0)]).norm() < 1e-14 && (b - c[(g, 1)]).norm() < 1e-14,
+                "{k:?} row {g}"
+            );
+        }
+    }
+}
+
+#[test]
 fn the_real_form_keeps_each_inner_product_and_gives_its_columns_back() {
     let (cell, k) = (sheared(), [0.5, 0.0, 0.5]);
     let basis = Basis::sphere(&cell, k, 6.0);

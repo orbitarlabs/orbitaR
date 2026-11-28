@@ -564,9 +564,39 @@ pub fn kinetic_density(
     buffer: &mut [Complex64],
     tau: &mut [f64],
 ) {
-    let n = buffer.len();
+    gradient_squares(fft, basis, coefficients, buffer, tau, |_, u| u.norm_sqr());
+    let factor = 0.5 * scale * (buffer.len() * buffer.len()) as f64;
+    tau.iter_mut().for_each(|t| *t *= factor);
+}
+
+pub fn kinetic_density_of_pair(
+    fft: &SphereFft,
+    basis: &Basis,
+    packed: impl Fn(usize) -> Complex64,
+    scales: [f64; 2],
+    phases: &[Complex64],
+    buffer: &mut [Complex64],
+    tau: &mut [f64],
+) {
+    assert_eq!(phases.len(), buffer.len(), "one phase per grid point");
+    gradient_squares(fft, basis, packed, buffer, tau, |r, u| {
+        let y = phases[r] * u;
+        scales[0] * y.im * y.im + scales[1] * y.re * y.re
+    });
+    let factor = 0.5 * (buffer.len() * buffer.len()) as f64;
+    tau.iter_mut().for_each(|t| *t *= factor);
+}
+
+fn gradient_squares(
+    fft: &SphereFft,
+    basis: &Basis,
+    coefficients: impl Fn(usize) -> Complex64,
+    buffer: &mut [Complex64],
+    tau: &mut [f64],
+    square: impl Fn(usize, Complex64) -> f64,
+) {
     let wavevectors = basis.wavevectors();
-    assert_eq!(tau.len(), n, "one τ per grid point");
+    assert_eq!(tau.len(), buffer.len(), "one τ per grid point");
     assert_eq!(
         wavevectors.len(),
         fft.len(),
@@ -575,16 +605,14 @@ pub fn kinetic_density(
     for axis in 0..3 {
         let column = (0..wavevectors.len()).map(|g| coefficients(g) * wavevectors[g][axis]);
         fft.inverse(column, buffer);
-        for (t, u) in tau.iter_mut().zip(buffer.iter()) {
+        for (r, (t, u)) in tau.iter_mut().zip(buffer.iter()).enumerate() {
             *t = if axis == 0 {
-                u.norm_sqr()
+                square(r, *u)
             } else {
-                *t + u.norm_sqr()
+                *t + square(r, *u)
             };
         }
     }
-    let factor = 0.5 * scale * (n * n) as f64;
-    tau.iter_mut().for_each(|t| *t *= factor);
 }
 
 pub fn kinetic_strain(

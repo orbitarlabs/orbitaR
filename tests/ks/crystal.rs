@@ -1,4 +1,4 @@
-use super::scf::{ONE, input, solve, synthetic, synthetic_meta};
+use super::scf::{Datasets, ONE, input, solve, synthetic, synthetic_meta};
 use crate::{synthetic_3d_draft, synthetic_draft, synthetic_meta_draft};
 use orbitar::io::read_spec;
 use orbitar::ks::{Diagnosis, Failure, GridGap, Outcome, ewald_energy_ha, run, run_diagnosed};
@@ -8,6 +8,29 @@ use orbitar::pw::{Basis, Grid};
 use std::f64::consts::TAU;
 
 fn difference(a: &Outcome, b: &Outcome) -> f64 {
+    let (p, q) = (a.eigenvalues_ha(), b.eigenvalues_ha());
+    assert!(
+        !p.is_empty() && p.len() == q.len(),
+        "{} spins against {}",
+        p.len(),
+        q.len()
+    );
+    for (spin, (x, y)) in p.iter().zip(q).enumerate() {
+        assert!(
+            !x.is_empty() && x.len() == y.len(),
+            "spin {spin}: {} k-points against {}",
+            x.len(),
+            y.len()
+        );
+        for (point, (u, v)) in x.iter().zip(y).enumerate() {
+            assert!(
+                !u.is_empty() && u.len() == v.len(),
+                "spin {spin}, k-point {point}: {} bands against {}",
+                u.len(),
+                v.len()
+            );
+        }
+    }
     let flat = |o: &Outcome| -> Vec<f64> {
         let e = &o.scf().unwrap().energies;
         let mut all: Vec<f64> = o
@@ -28,11 +51,22 @@ fn difference(a: &Outcome, b: &Outcome) -> f64 {
         all.push(o.scf().unwrap().fermi_level_ha);
         all
     };
-    let (p, q) = (flat(a), flat(b));
-    assert_eq!(p.len(), q.len());
-    p.iter()
-        .zip(&q)
-        .map(|(x, y)| (x - y).abs())
+    largest_gap(&flat(a), &flat(b))
+}
+
+fn largest_gap(a: &[f64], b: &[f64]) -> f64 {
+    assert!(
+        !a.is_empty() && a.len() == b.len(),
+        "{} values against {}",
+        a.len(),
+        b.len()
+    );
+    (a.iter().zip(b))
+        .map(|(x, y)| {
+            let gap = (x - y).abs();
+            assert!(gap.is_finite(), "{x} against {y}");
+            gap
+        })
         .fold(0.0, f64::max)
 }
 
@@ -132,6 +166,40 @@ fn the_dense_solver_gives_the_iterative_ground_state() {
         let iterative = solve(&at("")).unwrap();
         let dense = solve(&at("\n[bands]\nsolver = \"dense\"\n")).unwrap();
         assert!(difference(&iterative, &dense) < 1e-10, "{k}");
+    }
+}
+
+#[test]
+fn at_real_k_points_two_bands_per_transform_give_the_dense_complex_state_forces_and_stress() {
+    let two = [[0.1, 0.2, 0.3], [0.62, 0.55, 0.83]];
+    let rows: [(&str, Datasets); 3] = [
+        ("", synthetic),
+        ("\n[spin]\nmoments = [1.5, -1.0]\n", synthetic),
+        ("\n[xc]\nfunctional = \"r2scan\"\n", synthetic_meta),
+    ];
+    for (extra, dataset) in rows {
+        let at = |solver: &str| {
+            let outputs = "\n[outputs]\nforces = true\nstress = true\n";
+            let text = input(
+                &two,
+                &format!("{extra}{outputs}\n[bands]\nsolver = \"{solver}\"\n"),
+            );
+            run(&read_spec(&text).unwrap(), dataset, |_, _| {}).unwrap()
+        };
+        let (paired, dense) = (at("lobpcg"), at("dense"));
+        let state = difference(&paired, &dense);
+        let each_atom = |o: &Outcome| {
+            let f = forces(o);
+            assert_eq!(f.len(), two.len(), "{extra:?}: one force per atom");
+            f.concat()
+        };
+        let force = largest_gap(&each_atom(&paired), &each_atom(&dense));
+        let sigma = largest_gap(&stress(&paired).concat(), &stress(&dense).concat());
+        eprintln!("{extra:?}: state {state:e} forces {force:e} stress {sigma:e}");
+        assert!(
+            state < 1e-10 && force < 1e-10 && sigma < 1e-11,
+            "{extra:?}: state {state:e}, forces {force:e}, stress {sigma:e}"
+        );
     }
 }
 
@@ -238,7 +306,7 @@ fn the_irreducible_points_give_the_full_mesh_state() {
             cubic,
             vec![[0.0; 3], [0.5; 3]],
             "[2, 2, 2]",
-            "\n[spin]\nmoments = [1.0, -1.0]\n\n[bands]\ncount = 12\n\n[scf]\nenergy_tolerance_ha = 1e-11\n",
+            "\n[spin]\nmoments = [1.0, -1.0]\n\n[bands]\ncount = 12\n\n[scf]\nenergy_tolerance_ha = 1e-11\nmax_iterations = 200\n",
             4,
         ),
         (

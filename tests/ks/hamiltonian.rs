@@ -229,6 +229,110 @@ fn the_paired_form_gives_the_real_form_of_h_and_s() {
 }
 
 #[test]
+fn the_paired_h_of_a_block_is_the_paired_h_of_each_column_alone_with_and_without_v_tau() {
+    let cell = cell();
+    let mut r = stream(37);
+    for k in [[0.0; 3], [0.5, 0.0, 0.5]] {
+        let basis = Basis::sphere(&cell, k, 3.0);
+        let pairs = basis.pairs(k).unwrap();
+        let grid = Grid::coarse(&cell, 3.0);
+        let n = grid.points().len();
+        let v: Vec<f64> = (0..n).map(|_| r()).collect();
+        let v_tau: Vec<f64> = (0..n).map(|_| 0.5 + r()).collect();
+        let npw = basis.millers().len();
+        let mut atoms = two_atoms(&basis, &mut r);
+        for atom in &mut atoms {
+            let columns = Mat::from_fn(npw, atom.projectors.ncols(), |_, _| r());
+            atom.projectors = pairs.complex(columns.as_ref());
+        }
+        let borrowed = borrowed(&atoms);
+        for local in [plain(&v), with_tau(&v, &v_tau)] {
+            let whole = Hamiltonian::assembled(&basis, &grid, &local, &borrowed).unwrap();
+            let paired = whole.paired(&pairs).unwrap();
+            let x = Mat::from_fn(npw, 5, |_, _| r());
+            let block = paired.h(x.as_ref());
+            for j in 0..x.ncols() {
+                let alone = paired.h(x.subcols(j, 1));
+                let gap = (block.col(j) - alone.col(0)).norm_max();
+                assert!(
+                    gap < 1e-14 * alone.norm_max(),
+                    "{k:?} column {j}: {gap:e} of {:e}",
+                    alone.norm_max()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn each_column_of_a_paired_h_keeps_its_accuracy_beside_a_far_larger_or_a_zero_column() {
+    let cell = cell();
+    let mut r = stream(41);
+    for k in [[0.0; 3], [0.5, 0.0, 0.5]] {
+        let basis = Basis::sphere(&cell, k, 3.0);
+        let pairs = basis.pairs(k).unwrap();
+        let grid = Grid::coarse(&cell, 3.0);
+        let n = grid.points().len();
+        let v: Vec<f64> = (0..n).map(|_| r()).collect();
+        let v_tau: Vec<f64> = (0..n).map(|_| 0.5 + r()).collect();
+        let local = with_tau(&v, &v_tau);
+        let whole = Hamiltonian::assembled(&basis, &grid, &local, &[]).unwrap();
+        let paired = whole.paired(&pairs).unwrap();
+        let npw = basis.millers().len();
+        let small = Mat::from_fn(npw, 1, |_, _| r());
+        let alone = paired.h(small.as_ref());
+        for scale in [0.0, 1.0, 2f64.powi(20), 2f64.powi(55)] {
+            let other = Mat::from_fn(npw, 1, |_, _| scale * r());
+            let other_alone = paired.h(other.as_ref());
+            for small_first in [true, false] {
+                let (j, columns) = match small_first {
+                    true => (0, [small.as_ref(), other.as_ref()]),
+                    false => (1, [other.as_ref(), small.as_ref()]),
+                };
+                let x = Mat::from_fn(npw, 2, |g, c| columns[c][(g, 0)]);
+                let block = paired.h(x.as_ref());
+                let gap = (block.col(j) - alone.col(0)).norm_max();
+                assert!(
+                    gap <= 1e-14 * alone.norm_max(),
+                    "{k:?} beside {scale:e}, small first {small_first}: {gap:e}"
+                );
+                let other_gap = (block.col(1 - j) - other_alone.col(0)).norm_max();
+                assert!(
+                    other_gap <= 1e-14 * other_alone.norm_max(),
+                    "{k:?} the {scale:e} column, small first {small_first}: {other_gap:e}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_paired_h_scales_columns_at_both_ends_of_the_exponent_range_exactly() {
+    let (cell, k) = (cell(), [0.0; 3]);
+    let basis = Basis::sphere(&cell, k, 0.01);
+    assert_eq!(basis.millers(), [[0, 0, 0]]);
+    let pairs = basis.pairs(k).unwrap();
+    let grid = Grid::coarse(&cell, 0.01);
+    let quarter = plain(&vec![0.25; grid.points().len()]);
+    let whole = Hamiltonian::assembled(&basis, &grid, &quarter, &[]).unwrap();
+    let paired = whole.paired(&pairs).unwrap();
+    let (largest, tiniest) = (2f64.powi(1023), f64::from_bits(1_u64 << 49));
+    for column in [
+        [1.0, largest],
+        [largest, 1.0],
+        [tiniest, 1.0],
+        [1.0, tiniest],
+    ] {
+        let block = paired.h(Mat::from_fn(1, 2, |_, j| column[j]).as_ref());
+        for (j, &value) in column.iter().enumerate() {
+            let alone = paired.h(Mat::from_fn(1, 1, |_, _| value).as_ref());
+            assert_eq!(block[(0, j)], value / 4.0, "{column:?} column {j}");
+            assert_eq!(block[(0, j)], alone[(0, 0)], "{column:?} column {j} alone");
+        }
+    }
+}
+
+#[test]
 fn projectors_that_are_no_real_functions_have_no_paired_form() {
     let (cell, k) = (cell(), [0.0; 3]);
     let basis = Basis::sphere(&cell, k, 3.0);
