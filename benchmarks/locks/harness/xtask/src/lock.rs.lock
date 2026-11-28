@@ -1,3 +1,3 @@
-sha256 = "c625233f8de1fdb7817d954c5cd4d4c38119c459bb8d8561ce2c41c5fa9f81c1"
-reviewer = "captain-final-call after codex-review3-21"
-reason = "lock-split round 4: the move publishes only into an empty or absent benchmarks/locks and deletes nothing in it; a rerun after a finished move checks every entry and deletes the old LOCK; the move marker is linked whole and released only by its owner"
+sha256 = "c4eae5d381b3126f6aeec03af92befbfd49a43ae32f6372e44ba97e0260af7e3"
+reviewer = "PENDING"
+reason = "lock-split mutants: blobs splits each cat-file record without index arithmetic, a locks directory whose pid is no number is named as a case, a new case takes a number above a case that only the lock still names, and Moving::take's AlreadyExists guard carries a reasoned .cargo/mutants.toml entry, for the four mutants CI's shard 5 missed at d996701"
