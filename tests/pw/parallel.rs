@@ -574,3 +574,22 @@ fn eight_row_tiles_stay_apart_while_each_holds_more_than_sixteen_cubed_multiply_
     let rows: Vec<(usize, usize)> = (0..11).map(|i| (8 * i, 8)).chain([(88, 12)]).collect();
     assert_eq!(product_tiles(100, 10, 100), [rows, vec![(0, 10)]]);
 }
+
+#[test]
+fn sixteen_tall_row_tiles_keep_the_columns_whole_and_fifteen_split_them_in_sixty_fours() {
+    let bands = |count: usize| (0..count).map(|i| (256 * i, 256)).collect::<Vec<_>>();
+    assert_eq!(product_tiles(16 * 256, 128, 8), [bands(16), vec![(0, 128)]]);
+    assert_eq!(
+        product_tiles(15 * 256, 128, 8),
+        [bands(15), vec![(0, 64), (64, 64)]]
+    );
+}
+
+#[test]
+fn a_target_too_thin_for_row_tiles_splits_its_columns_at_the_first_multiple_of_sixty_four_past_sixteen_cubed()
+ {
+    let past_64: Vec<(usize, usize)> = (0..6).map(|i| (128 * i, 128)).chain([(768, 232)]).collect();
+    assert_eq!(product_tiles(8, 1000, 8), [vec![(0, 8)], past_64]);
+    let past_256 = vec![(0, 320), (320, 320), (640, 360)];
+    assert_eq!(product_tiles(8, 1000, 2), [vec![(0, 8)], past_256]);
+}
