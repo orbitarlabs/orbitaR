@@ -432,3 +432,66 @@ fn a_family_is_a_file_name_in_the_dataset_directory() {
         );
     }
 }
+
+const TUNING_CELL: &str = "schema = 1\n\n[structure]\ncell_bohr = [[0.0, 5.1, 5.1], [5.1, 0.0, 5.1], [5.1, 5.1, 0.0]]\nspecies = [\"Si\", \"Si\"]\npositions_fractional = [[0.0, 0.0, 0.0], [0.25, 0.25, 0.25]]\n\n[basis]\ncutoff_ha = 10.0\n\n[kpoints]\nmesh = [1, 1, 1]\n";
+
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the test reads each tuning input that a tuning directory holds"
+)]
+fn tuning_inputs_the_engine_refuses(tuning: &std::path::Path) -> Vec<String> {
+    let listed = |dir: &std::path::Path| {
+        let mut paths: Vec<std::path::PathBuf> = (std::fs::read_dir(dir).unwrap())
+            .map(|entry| entry.unwrap().path())
+            .collect();
+        paths.sort();
+        paths
+    };
+    let mut refused = Vec::new();
+    for setting in listed(tuning) {
+        let inputs = listed(&setting).into_iter();
+        let toml = |p: &std::path::PathBuf| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().ends_with(".toml"))
+        };
+        for file in inputs.filter(toml) {
+            if let Err(e) = read_spec(&std::fs::read_to_string(&file).unwrap()) {
+                let name = file.strip_prefix(tuning).unwrap().display().to_string();
+                refused.push(format!("{name}: {e}"));
+            }
+        }
+    }
+    refused
+}
+
+#[test]
+fn every_tuning_input_in_the_repository_is_an_input_that_the_engine_reads() {
+    let refused = tuning_inputs_the_engine_refuses(std::path::Path::new("tuning"));
+    assert!(refused.is_empty(), "{refused:?}");
+}
+
+#[test]
+fn a_tuning_input_with_a_two_number_lattice_row_or_no_basis_is_one_that_the_engine_refuses() {
+    let short_row = TUNING_CELL.replace("[[0.0, 5.1, 5.1],", "[[5.1, 5.1],");
+    let no_basis = TUNING_CELL.replace("\n[basis]\ncutoff_ha = 10.0\n", "");
+    let root = super::run::directory(
+        "tuning-refused",
+        &[
+            ("mixer/.toml", no_basis.clone()),
+            ("mixer/cell.toml", TUNING_CELL.to_owned()),
+            ("mixer/no_basis.toml", no_basis),
+            ("mixer/short_row.toml", short_row),
+            ("mixer/slab.py", "print()\n".to_owned()),
+        ],
+    );
+    let refused = tuning_inputs_the_engine_refuses(&root);
+    let names: Vec<&str> = refused
+        .iter()
+        .map(|r| r.split(':').next().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["mixer/.toml", "mixer/no_basis.toml", "mixer/short_row.toml"],
+        "{refused:?}"
+    );
+}

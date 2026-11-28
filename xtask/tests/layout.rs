@@ -420,3 +420,241 @@ fn a_module_hidden_by_cfg_or_a_comment_is_not_declared() {
         "{findings:?}"
     );
 }
+
+const CELL: &str = "schema = 1\n\n[structure]\ncell_bohr = [[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]]\nspecies = [\"Si\"]\npositions_fractional = [[0.0, 0.0, 0.0]]\n";
+
+#[test]
+fn a_tuning_setting_holds_its_inputs_and_exactly_one_generator() {
+    let root = tree(
+        "layout-tuning",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/slab.toml", CELL),
+            ("tuning/mixer/bulk.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let clean = lever(&["layout"], &root);
+    assert!(clean.is_empty(), "{clean:?}");
+    for (path, needle) in [
+        (
+            "tuning/mixer/README.md",
+            "tuning/mixer/README.md is neither tuning/<setting>/<input>.toml",
+        ),
+        (
+            "tuning/mixer/old/slab.toml",
+            "tuning/mixer/old/slab.toml is neither",
+        ),
+        ("tuning/slab.toml", "tuning/slab.toml is neither"),
+        (
+            "tuning/mixer/second.py",
+            "tuning/mixer holds 2 input(s) and 2 generator(s)",
+        ),
+        (
+            "tuning/history/cells.py",
+            "tuning/history holds 0 input(s) and 1 generator(s)",
+        ),
+    ] {
+        write(&root, path, CELL);
+        assert!(has(&lever(&["layout"], &root), needle), "{path}");
+        std::fs::remove_file(root.join(path)).unwrap();
+    }
+    std::fs::remove_file(root.join("tuning/mixer/cells.py")).unwrap();
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer holds 2 input(s) and 0 generator(s)"
+    ));
+}
+
+#[test]
+fn a_tuning_input_is_an_engine_input_and_a_setting_name_is_one_word() {
+    let root = tree(
+        "layout-tuning-inputs",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/slab.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let claim =
+        "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"correctness\"]\n";
+    for (body, needle) in [
+        (claim.to_owned(), "it sets no schema = 1"),
+        (format!("{CELL}\n{claim}"), "a [case] table belongs in"),
+        ("# notes only\n".to_owned(), "it sets no schema = 1"),
+        (
+            CELL.replace("species = [\"Si\"]", "species = [\"Si\", \"Si\"]"),
+            "its [structure] needs 3 cell_bohr rows and one position per species",
+        ),
+        (
+            CELL.replace("schema = 1", "schema = 2"),
+            "it sets no schema = 1",
+        ),
+        ("schema = 1\n[structure\n".to_owned(), "TOML parse error"),
+    ] {
+        write(&root, "tuning/mixer/extra.toml", &body);
+        let found = lever(&["layout"], &root);
+        assert!(
+            has(
+                &found,
+                &format!("tuning/mixer/extra.toml is no engine input: {needle}")
+            ),
+            "{body}: {found:?}"
+        );
+    }
+    std::fs::remove_file(root.join("tuning/mixer/extra.toml")).unwrap();
+    std::fs::remove_file(root.join("tuning/mixer/slab.toml")).unwrap();
+    write(&root, "tuning/mixer/case.toml", claim);
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer holds 0 input(s) and 1 generator(s)"
+    ));
+    std::fs::remove_dir_all(root.join("tuning/mixer")).unwrap();
+    write(&root, "tuning/mixer setting/slab.toml", CELL);
+    write(&root, "tuning/mixer setting/cells.py", "print()\n");
+    assert!(has(
+        &lever(&["layout"], &root),
+        "\"tuning/mixer setting\" is no setting name"
+    ));
+}
+
+#[test]
+fn a_tuning_input_with_no_atoms_is_refused() {
+    let empty_cell = "schema = 1
+[structure]
+cell_bohr = [[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]]
+species = []
+positions_fractional = []
+";
+    let root = tree(
+        "layout-tuning-no-atoms",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/empty.toml", empty_cell),
+            ("tuning/mixer/cells.py", ""),
+        ],
+    );
+    let findings = lever(&["layout"], &root);
+    assert!(
+        has(
+            &findings,
+            "tuning/mixer/empty.toml is no engine input: its [structure] needs 3 cell_bohr rows and one position per species"
+        ),
+        "{findings:?}"
+    );
+}
+
+#[test]
+fn a_symlinked_tuning_input_is_caught() {
+    let root = tree(
+        "layout-tuning-link",
+        &[("benchmarks/.keep", ""), ("tuning/mixer/cells.py", "")],
+    );
+    std::os::unix::fs::symlink("/etc/hosts", root.join("tuning/mixer/slab.toml")).unwrap();
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer/slab.toml is a symlink"
+    ));
+}
+
+#[test]
+fn a_tuning_input_that_holds_a_timed_claim_input_is_refused_and_an_in_case_tuning_cell_is_not() {
+    let claim = "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"correctness\"]\nreference = \"analytic\"\nrivals = [\"qe\", \"abinit\"]\n\n[tolerance]\nerror_max = 1e-12\n";
+    let timed = CELL.replace("5.0, 0.0, 0.0", "5.5, 0.0, 0.0");
+    let replaced = CELL.replace("5.0, 0.0, 0.0", "6.0, 0.0, 0.0");
+    let tuned = CELL.replace("5.0, 0.0, 0.0", "6.5, 0.0, 0.0");
+    let root = tree(
+        "layout-tuning-timed",
+        &[
+            ("benchmarks/1_a/case.toml", claim),
+            ("benchmarks/1_a/inputs/slab.toml", &timed),
+            ("benchmarks/1_a/replacements/slab_small.toml", &replaced),
+            ("benchmarks/1_a/tuning/bulk.toml", &tuned),
+            ("tuning/mixer/own.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let needle = "tuning/mixer/copy.toml holds the input of";
+    for (body, refused) in [
+        (
+            timed.clone(),
+            Some("benchmarks/1_a input slab, a timed claim cell"),
+        ),
+        (
+            format!("{timed}\n"),
+            Some("benchmarks/1_a input slab, a timed claim cell"),
+        ),
+        (
+            replaced.clone(),
+            Some("benchmarks/1_a/replacements/slab_small.toml, a timed claim cell"),
+        ),
+        (tuned.clone(), None),
+    ] {
+        write(&root, "tuning/mixer/copy.toml", &body);
+        let found = lever(&["layout"], &root);
+        match refused {
+            Some(what) => assert!(has(&found, &format!("{needle} {what}")), "{found:?}"),
+            None => assert!(!has(&found, needle), "{found:?}"),
+        }
+    }
+}
+
+#[test]
+fn a_tuning_file_named_only_toml_is_no_tuning_input() {
+    let root = tree(
+        "layout-tuning-bare",
+        &[
+            ("benchmarks/.keep", ""),
+            ("tuning/mixer/own.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    write(&root, "tuning/mixer/.toml", CELL);
+    assert!(has(
+        &lever(&["layout"], &root),
+        "tuning/mixer/.toml is neither tuning/<setting>/<input>.toml"
+    ));
+}
+
+#[test]
+fn a_copy_of_a_tabled_claim_input_is_refused_in_its_source_and_its_resolved_form() {
+    let claim = "[case]\ntier = \"claim\"\nstatus = \"active\"\nclaims = [\"speed\", \"correctness\"]\nreference = \"analytic\"\nrivals = [\"qe\", \"abinit\"]\n\n[tolerance]\nerror_max = 1e-12\n";
+    let repository = |path: &str| {
+        std::fs::read_to_string(format!("{}/../{path}", env!("CARGO_MANIFEST_DIR"))).unwrap()
+    };
+    let source = CELL.replace("5.0, 0.0, 0.0", "5.5, 0.0, 0.0");
+    let root = tree(
+        "layout-tuning-tabled",
+        &[
+            ("benchmarks/1_a/case.toml", claim),
+            ("benchmarks/1_a/input.toml", &source),
+            (
+                "benchmarks/1_a/table.toml",
+                "[element]\nSi = { file = \"si.xml\", sha256 = \"0\", cutoff_hint_ha = 5.0 }\n",
+            ),
+            ("benchmarks/1_a/si.xml", "0.5"),
+            ("benchmarks/ACWF.toml", &repository("benchmarks/ACWF.toml")),
+            (
+                "datasets/jth-2.0.toml",
+                &repository("datasets/jth-2.0.toml"),
+            ),
+            ("tuning/mixer/own.toml", CELL),
+            ("tuning/mixer/cells.py", "print()\n"),
+        ],
+    );
+    let resolved = format!("{source}\n[datasets]\nfiles = {{ Si = \"si.xml\" }}\n");
+    for (body, what) in [
+        (source.clone(), "benchmarks/1_a/input.toml"),
+        (resolved, "benchmarks/1_a input input"),
+    ] {
+        write(&root, "tuning/mixer/copy.toml", &body);
+        let found = lever(&["layout"], &root);
+        assert!(
+            has(
+                &found,
+                &format!("tuning/mixer/copy.toml holds the input of {what}, a timed claim cell")
+            ),
+            "{what}: {found:?}"
+        );
+    }
+}
