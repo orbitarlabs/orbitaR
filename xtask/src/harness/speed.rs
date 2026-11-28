@@ -8,7 +8,11 @@ use crate::case::Speed;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use statrs::statistics::{Data, Median, Statistics};
-use std::{cell::RefCell, collections::BTreeMap, num::NonZeroUsize};
+use std::{
+    cell::RefCell,
+    collections::BTreeMap,
+    num::{NonZeroU64, NonZeroUsize},
+};
 
 pub(crate) const DELTA_HA_PER_ATOM: f64 = 1e-4 / 27.211_386_245_988;
 const TIGHTER: f64 = 10.0;
@@ -524,10 +528,13 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
         }
         points.sort_by_key(|p| (p.expected.atoms, p.expected.input));
         let fit = |y: fn(&Point) -> Option<f64>| {
-            let xy: Vec<(f64, f64)> = (points.iter())
-                .filter_map(|p| Some(((p.expected.atoms as f64).ln(), y(p)?.ln())))
+            let sized: Vec<(NonZeroU64, f64)> = (points.iter())
+                .filter_map(|p| {
+                    let atoms = u64::try_from(p.expected.atoms).ok()?;
+                    Some((NonZeroU64::new(atoms)?, y(p)?))
+                })
                 .collect();
-            log_log_slope(&xy)
+            log_log_slope(&sized)
         };
         let (t_alpha, pss_alpha) = (fit(|p| p.t_delta_s), fit(|p| p.pss_bytes));
         exponents.insert(format!("{T_DELTA_EXPONENT}_{code}"), t_alpha);
@@ -555,7 +562,10 @@ pub(crate) fn series(records: &[&BlockRecord], expected: &[Expected]) -> Series 
     }
 }
 
-pub fn log_log_slope(points: &[(f64, f64)]) -> f64 {
+pub fn log_log_slope(sized: &[(NonZeroU64, f64)]) -> f64 {
+    let points: Vec<(f64, f64)> = (sized.iter())
+        .map(|&(atoms, y)| ((atoms.get() as f64).ln(), y.ln()))
+        .collect();
     let n = points.len() as f64;
     let (mx, my) = (
         points.iter().map(|p| p.0).sum::<f64>() / n,

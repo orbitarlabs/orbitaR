@@ -536,12 +536,11 @@ fn domain(s: &Series) -> String {
 }
 
 fn scaling(rows: &[Row]) -> Option<Scaling<'_>> {
-    let (row, claim) = (rows.iter()).find_map(|r| {
+    let (row, claim, ours) = (rows.iter()).find_map(|r| {
         let claim = r.claim.as_ref()?;
-        let ours = claim.series.iter().any(|s| s.code == ORBITAR);
-        (ours && claim.series.len() > 1).then_some((r, claim))
+        let ours = claim.series.iter().find(|s| s.code == ORBITAR)?;
+        (claim.series.len() > 1).then_some((r, claim, ours))
     })?;
-    let ours = claim.series.iter().find(|s| s.code == ORBITAR)?;
     let sizes: BTreeSet<u32> = (claim.series.iter())
         .flat_map(|s| measured(s).map(|(p, _)| p.atoms))
         .collect();

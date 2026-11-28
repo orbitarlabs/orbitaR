@@ -608,3 +608,48 @@ fn the_identical_tile_needs_each_quantity_bound_at_zero_or_no_verification_card_
     let (root, _) = verified_with("verification-loose", &checks);
     assert!(cards_of(&root).iter().all(String::is_empty));
 }
+
+#[test]
+fn the_scaling_card_skips_a_row_whose_series_lack_orbitar_and_takes_the_next_eligible_row() {
+    let root = claim_cases("cards-no-orbitar-row", &cells(), Claims::Memory);
+    let head = commit(&root, "head");
+    assert!(collected(&root, &claim_record(&root, &head, &cells())).is_empty());
+    let mut results: toml::Table = toml::from_str(&read(&root, "benchmarks/RESULTS.toml")).unwrap();
+    let rows = results["case"].as_array_mut().unwrap();
+    let ours = rows
+        .iter()
+        .position(|r| r["id"].as_str() == Some("5_e"))
+        .unwrap();
+    let early = rows
+        .iter()
+        .position(|r| r["id"].as_str() == Some("4_d"))
+        .unwrap();
+    let mut rivals_only = rows[ours].clone();
+    let row = rivals_only.as_table_mut().unwrap();
+    row.insert("number".into(), 4.into());
+    row.insert("id".into(), "4_d".into());
+    let series = row["claim"]["series"].as_array().unwrap().clone();
+    let kept: Vec<toml::Value> = (series.into_iter())
+        .filter(|s| s["code"].as_str() != Some("orbitar"))
+        .collect();
+    assert_eq!(kept.len(), 2);
+    row["claim"]
+        .as_table_mut()
+        .unwrap()
+        .insert("series".into(), kept.into());
+    rows[early] = rivals_only;
+    write(
+        &root,
+        "benchmarks/RESULTS.toml",
+        &toml::to_string(&results).unwrap(),
+    );
+    assert_eq!(lever(&["results", "render"], &root), Vec::<String>::new());
+    holds(
+        &cards_of(&root)[4],
+        &[
+            ">faster than QE at 128 atoms</text>",
+            ">N<tspan dy=\"-22\" font-size=\"30\">1.84</tspan></text>",
+            ">case 5 · orbitaR at commit ",
+        ],
+    );
+}

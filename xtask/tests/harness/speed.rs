@@ -614,11 +614,14 @@ fn a_memory_claim_records_each_codes_medians_per_size_and_their_least_squares_ex
         ("median_peak_pss_bytes", "pss_exponent"),
         ("median_t_delta_s", "t_delta_exponent"),
     ] {
-        let xy: Vec<(f64, f64)> = (points.iter())
-            .filter_map(|p| Some(((p["atoms"].as_f64().unwrap()).ln(), p[key].as_f64()?.ln())))
+        let sized: Vec<(std::num::NonZeroU64, f64)> = (points.iter())
+            .filter_map(|p| {
+                let atoms = std::num::NonZeroU64::new(p["atoms"].as_u64().unwrap()).unwrap();
+                Some((atoms, p[key].as_f64()?))
+            })
             .collect();
         let (expected, alpha) = (
-            xtask::harness::log_log_slope(&xy),
+            xtask::harness::log_log_slope(&sized),
             &record["metrics"][format!("{metric}_orbitar")],
         );
         match expected.is_finite() {
@@ -793,14 +796,17 @@ fn a_measured_peak_past_the_guard_stops_every_later_launch_of_its_block() {
 
 #[test]
 fn the_least_squares_slope_weighs_every_point_and_needs_two_sizes() {
+    use std::num::NonZeroU64;
     use xtask::harness::log_log_slope;
-    let power: Vec<(f64, f64)> = [2.0_f64, 8.0, 16.0, 32.0]
+    let at = |atoms: u64, y: f64| (NonZeroU64::new(atoms).unwrap(), y);
+    let power: Vec<(NonZeroU64, f64)> = [2_u64, 8, 16, 32]
         .iter()
-        .map(|&x| (x.ln(), (3.0 * x.powf(1.7)).ln()))
+        .map(|&n| at(n, 3.0 * (n as f64).powf(1.7)))
         .collect();
     assert!((log_log_slope(&power) - 1.7).abs() < 1e-12);
-    assert!((log_log_slope(&[(0.0, 0.0), (1.0, 2.0), (3.0, 3.0)]) - 39.0 / 42.0).abs() < 1e-12);
-    assert!(log_log_slope(&[(1.0, 2.0), (1.0, 3.0)]).is_nan());
+    let bent = [at(1, 1.0), at(2, 4.0), at(8, 8.0)];
+    assert!((log_log_slope(&bent) - 39.0 / 42.0).abs() < 1e-12);
+    assert!(log_log_slope(&[at(2, 2.0), at(2, 3.0)]).is_nan());
     assert!(log_log_slope(&[]).is_nan());
 }
 
