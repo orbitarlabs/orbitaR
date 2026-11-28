@@ -188,6 +188,38 @@ fn the_mutants_jobs_run_their_tests_under_the_cap_of_the_unit_shards() {
     );
 }
 
+#[test]
+fn mutants_start_after_lint_and_run_the_shards_that_their_plan_counts() {
+    let ci = ci();
+    let jobs = &ci["jobs"];
+    let needs = |job: &str| -> Vec<String> {
+        match &jobs[job]["needs"] {
+            Yaml::String(one) => vec![one.clone()],
+            Yaml::Array(many) => many
+                .iter()
+                .filter_map(|n| n.as_str().map(str::to_owned))
+                .collect(),
+            _ => Vec::new(),
+        }
+    };
+    assert_eq!(needs("mutants-plan"), ["lint"]);
+    assert_eq!(needs("mutants"), ["mutants-plan"]);
+    assert_eq!(needs("mutants-all"), ["mutants-plan", "mutants"]);
+    assert_eq!(
+        jobs["mutants"]["strategy"]["matrix"]["shard"].as_str(),
+        Some("${{ fromJSON(needs.mutants-plan.outputs.shards) }}")
+    );
+    let run = runs(&jobs["mutants"]).join("\n");
+    assert!(
+        run.contains(
+            "--shard ${{ matrix.shard }}/${{ strategy.job-total }} --sharding round-robin"
+        ),
+        "{run}"
+    );
+    let plan = step_run(&ci, "mutants-plan", "One shard per 8 mutants");
+    assert!(plan.starts_with("shards=\"[0,1,2,3,4,5,6,7]\"\n"), "{plan}");
+}
+
 fn listed(args: &[&str]) -> Vec<String> {
     let out = std::process::Command::new(std::env::current_exe().unwrap())
         .args(["--list", "--format", "terse"])
@@ -266,4 +298,144 @@ fn each_cargo_cache_save_writes_the_key_and_the_paths_that_its_restore_reads() {
         saves += 1;
     }
     assert_eq!(saves, 3);
+}
+
+fn step_run<'a>(ci: &'a Yaml, job: &str, name: &str) -> &'a str {
+    (ci["jobs"][job]["steps"].as_vec().unwrap().iter())
+        .find(|s| s["name"].as_str().is_some_and(|n| n.starts_with(name)))
+        .and_then(|s| s["run"].as_str())
+        .unwrap_or_else(|| panic!("{job}: no step {name}"))
+}
+
+fn bash(script: &str, dir: &Path, vars: &[(&str, &str)]) -> std::process::ExitStatus {
+    write(dir, "step.sh", script);
+    let path = format!(
+        "{}:{}",
+        dir.join("bin").display(),
+        std::env::var("PATH").unwrap()
+    );
+    std::process::Command::new("bash")
+        .args(["--noprofile", "--norc", "-eo", "pipefail"])
+        .arg(dir.join("step.sh"))
+        .env("PATH", path)
+        .env("RUNNER_TEMP", dir)
+        .env("GITHUB_OUTPUT", dir.join("output"))
+        .envs(vars.iter().copied())
+        .status()
+        .unwrap()
+}
+
+fn plan(name: &str, listing: &str, listing_status: i32, diff_status: i32) -> (String, String) {
+    let dir = tree(name, &[]);
+    for (tool, body) in [
+        (
+            "git",
+            format!(
+                "echo \"$*\" >> '{}/git.log'\nexit {diff_status}",
+                dir.display()
+            ),
+        ),
+        (
+            "cargo",
+            format!("printf '%s' '{listing}'\nexit {listing_status}"),
+        ),
+    ] {
+        write(
+            &dir,
+            &format!("bin/{tool}"),
+            &format!("#!/bin/sh\n{body}\n"),
+        );
+        fs::set_permissions(
+            dir.join("bin").join(tool),
+            fs::Permissions::from_mode(0o755),
+        )
+        .unwrap();
+    }
+    let ci = ci();
+    let status = bash(
+        step_run(&ci, "mutants-plan", "One shard per 8 mutants"),
+        &dir,
+        &[("BASE", "b45e"), ("MERGE", "3e7e")],
+    );
+    assert!(status.success(), "{name}: {status}");
+    let output = fs::read_to_string(dir.join("output")).unwrap();
+    let shards = output.strip_prefix("shards=").unwrap().trim().to_owned();
+    (
+        shards,
+        fs::read_to_string(dir.join("git.log")).unwrap_or_default(),
+    )
+}
+
+fn aggregate(name: &str, plan: &str, shards: &str, mutants: &str) -> bool {
+    let dir = tree(name, &[]);
+    let ci = ci();
+    let vars = [
+        ("RESULT", mutants),
+        ("PLAN", plan),
+        ("SHARDS", shards),
+        ("LOCAL", ""),
+        ("HEAD", "3e7e"),
+        ("BODY", ""),
+    ];
+    bash(
+        step_run(&ci, "mutants-all", "Every mutants shard passed"),
+        &dir,
+        &vars,
+    )
+    .success()
+}
+
+fn array(n: usize) -> String {
+    format!("[{}]", vec!["{}"; n].join(","))
+}
+
+#[test]
+fn the_plan_counts_the_mutants_of_the_pull_requests_own_diff_and_sizes_the_shards_to_them() {
+    let all = "[0,1,2,3,4,5,6,7]";
+    for (name, listing, shards) in [
+        ("plan-none", String::new(), "[]"),
+        ("plan-empty", array(0), "[]"),
+        ("plan-one", array(1), "[0]"),
+        ("plan-eight", array(8), "[0]"),
+        ("plan-nine", array(9), "[0,1]"),
+        ("plan-many", array(65), all),
+    ] {
+        let (got, git) = plan(name, &listing, 0, 0);
+        assert_eq!(got, shards, "{name}");
+        assert_eq!(git, "diff b45e 3e7e\n", "{name}");
+        let ran = if got == "[]" { "skipped" } else { "success" };
+        assert!(
+            aggregate(&format!("{name}-all"), "success", &got, ran),
+            "{name}"
+        );
+    }
+    assert!(!step_run(&ci(), "mutants", "A test fails for each mutant").contains("origin/main"));
+}
+
+#[test]
+fn a_count_that_cannot_be_read_runs_every_shard_and_never_passes_with_none_run() {
+    let all = "[0,1,2,3,4,5,6,7]";
+    for (name, listing, listing_status, diff_status) in [
+        ("plan-fails", array(0), 7, 0),
+        ("plan-null", "null".to_owned(), 0, 0),
+        ("plan-object", "{}".to_owned(), 0, 0),
+        ("plan-two", format!("{}{}", array(1), array(2)), 0, 0),
+        ("plan-null-then-empty", format!("null{}", array(0)), 0, 0),
+        ("plan-object-then-empty", format!("{{}}{}", array(0)), 0, 0),
+        ("plan-text", "no mutants".to_owned(), 0, 0),
+        ("plan-no-diff", array(0), 0, 1),
+    ] {
+        let (got, _) = plan(name, &listing, listing_status, diff_status);
+        assert_eq!(got, all, "{name}");
+        assert!(
+            !aggregate(&format!("{name}-all"), "success", &got, "skipped"),
+            "{name}"
+        );
+    }
+    for (plan, shards) in [("failure", ""), ("skipped", ""), ("cancelled", "")] {
+        assert!(
+            !aggregate(&format!("plan-{plan}-all"), plan, shards, "skipped"),
+            "{plan}"
+        );
+    }
 }

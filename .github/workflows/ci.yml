@@ -253,14 +253,67 @@ jobs:
             fi
           done
 
-  mutants:
+  mutants-plan:
     if: github.event_name == 'pull_request' && vars.MUTANTS_LOCAL != 'true'
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain
+      - name: Install cargo-mutants (prebuilt; the action checks its sha256)
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        with:
+          tool: cargo-mutants@27.1.0
+          fallback: none
+      - name: One shard per 8 mutants of the changed lines, at most 8; a count that fails runs all 8
+        id: plan
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          MERGE: ${{ github.sha }}
+        run: |
+          shards="[0,1,2,3,4,5,6,7]"
+          count=""
+          if git diff "$BASE" "$MERGE" > "$RUNNER_TEMP/pr.diff" \
+            && cargo mutants --list --json --in-diff "$RUNNER_TEMP/pr.diff" --workspace > "$RUNNER_TEMP/mutants.json"; then
+            if [ ! -s "$RUNNER_TEMP/mutants.json" ]; then
+              count=0
+            else
+              count=$(jq -es 'if length == 1 and (.[0] | type) == "array" then .[0] | length else error("not one JSON array") end' "$RUNNER_TEMP/mutants.json") || count=""
+            fi
+          fi
+          case "$count" in
+            "" | *[!0-9]*) count="" ;;
+            *)
+              n=$(( (count + 7) / 8 ))
+              if [ "$n" -gt 8 ]; then n=8; fi
+              list=""
+              i=0
+              while [ "$i" -lt "$n" ]; do
+                list="$list${list:+,}$i"
+                i=$((i + 1))
+              done
+              shards="[$list]"
+              ;;
+          esac
+          printf 'mutants-plan: %s mutants of the changed lines, shards %s\n' "${count:-no count}" "$shards"
+          printf 'shards=%s\n' "$shards" >> "$GITHUB_OUTPUT"
+
+  mutants:
+    needs: mutants-plan
+    if: needs.mutants-plan.outputs.shards != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 330
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: ${{ fromJSON(needs.mutants-plan.outputs.shards) }}
     env:
       CARGO_PROFILE_DEV_DEBUG: "false"
       CARGO_PROFILE_TEST_DEBUG: "false"
@@ -300,11 +353,13 @@ jobs:
       - name: A test fails for each mutant of a changed line
         env:
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: ${{ env.TEST_RUNNER }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          MERGE: ${{ github.sha }}
         run: |
-          git diff origin/main... > "$RUNNER_TEMP/pr.diff"
+          git diff "$BASE" "$MERGE" > "$RUNNER_TEMP/pr.diff"
           status=0
           timeout 320m cargo mutants --in-diff "$RUNNER_TEMP/pr.diff" --workspace \
-            --shard ${{ matrix.shard }}/8 --sharding round-robin --jobs 2 --minimum-test-timeout 60 \
+            --shard ${{ matrix.shard }}/${{ strategy.job-total }} --sharding round-robin --jobs 2 --minimum-test-timeout 60 \
             --test-tool nextest --cargo-arg=--test=unit || status=$?
           if [ "$status" -eq 3 ] && [ ! -s mutants.out/missed.txt ]; then status=0; fi
           exit "$status"
@@ -318,17 +373,23 @@ jobs:
 
   mutants-all:
     if: always() && github.event_name == 'pull_request'
-    needs: mutants
+    needs: [mutants-plan, mutants]
     runs-on: ubuntu-latest
     steps:
-      - name: Every mutants shard passed, or the pull request records a local run at its head
+      - name: Every mutants shard passed, the changed lines hold no mutant, or the pull request records a local run at its head
         env:
           RESULT: ${{ needs.mutants.result }}
+          PLAN: ${{ needs.mutants-plan.result }}
+          SHARDS: ${{ needs.mutants-plan.outputs.shards }}
           LOCAL: ${{ vars.MUTANTS_LOCAL }}
           HEAD: ${{ github.event.pull_request.head.sha }}
           BODY: ${{ github.event.pull_request.body }}
         run: |
           if [ "$RESULT" = success ]; then exit 0; fi
+          if [ "$PLAN" = success ] && [ "$SHARDS" = "[]" ] && [ "$RESULT" = skipped ]; then
+            echo "mutants-all: the changed lines hold no mutant"
+            exit 0
+          fi
           if [ "$LOCAL" != true ]; then
             echo "mutants-all: the mutants job's result is '$RESULT', not success, and MUTANTS_LOCAL is not true"
             exit 1
