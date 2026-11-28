@@ -18,6 +18,10 @@ exclude_re = [
   "^xtask/src/reproduce\\.rs:.*(replace twice -> | in twice$)",
   # `how` is read only inside `head != base && …`, where head < base and head <= base agree.
   "^xtask/src/version\\.rs:.*replace < with <= in check$",
+  # Moving::take links the marker it has just written, in the same directory, so hard_link fails there with
+  # AlreadyExists alone in a test. For another failure the `true` mutant still refuses the move and only words the
+  # refusal as a running move. xtask/tests/lock.rs runs a live, a dead and a stuck move.
+  "^xtask/src/lock\\.rs:.*replace match guard e\\.kind\\(\\) == std::io::ErrorKind::AlreadyExists with true in Moving::take$",
   # The mirrored copy flips every random sign, so flipping the sign test changes nothing.
   "replace == with != in perturb",
   # Any derivation gives distinct seeds; xtask/tests/harness.rs checks that every copy differs.
