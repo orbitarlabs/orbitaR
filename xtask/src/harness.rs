@@ -1971,7 +1971,7 @@ impl Session {
 fn past_guard(at: &str, run: &str, guard: Option<f64>) -> Option<String> {
     let limit = guard?;
     let bytes = speed::peak_bytes(engine::last_peaks()?) as f64;
-    (bytes > limit).then(|| {
+    speed::past_the_guard(bytes, limit).then(|| {
         format!(
             "{at}: refused after its {run} run: its measured peak {:.2} GB passes the {} GB guard",
             bytes / 1e9,

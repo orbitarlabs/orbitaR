@@ -372,15 +372,19 @@ fn blobs(root: &Path, base: &str, paths: &[String]) -> Result<Vec<Vec<u8>>, Stri
     let mut rest = out.stdout.as_slice();
     let mut blobs = Vec::new();
     for path in paths {
-        let end = (rest.iter().position(|b| *b == b'\n')).ok_or_else(|| fail(&path))?;
-        let header = String::from_utf8_lossy(&rest[..end]).into_owned();
+        let (header, after) = (rest.iter().position(|b| *b == b'\n'))
+            .map(|end| rest.split_at(end))
+            .ok_or_else(|| fail(&path))?;
+        let header = String::from_utf8_lossy(header).into_owned();
         let size: usize = match header.split(' ').collect::<Vec<_>>().as_slice() {
             ["blob", size] => size.parse().map_err(|_| fail(&header))?,
             _ => return Err(fail(&format!("{path}: {header}"))),
         };
-        let body = (rest.get(end + 1..end + 1 + size)).ok_or_else(|| fail(&path))?;
+        let (body, after) = (after.strip_prefix(b"\n"))
+            .and_then(|after| after.split_at_checked(size))
+            .ok_or_else(|| fail(&path))?;
         blobs.push(body.to_vec());
-        rest = rest.get(end + 2 + size..).unwrap_or_default();
+        rest = after.strip_prefix(b"\n").unwrap_or_default();
     }
     Ok(blobs)
 }

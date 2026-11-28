@@ -685,6 +685,36 @@ fn s9_names_each_way_a_case_can_get_easier() {
 }
 
 #[test]
+fn s9_lets_an_easier_case_through_once_its_case_toml_has_a_new_lock_review() {
+    let root = base("s9-eased-reviewed");
+    write(
+        &root,
+        "benchmarks/1_a/case.toml",
+        &ACTIVE.replace("1e-12", "1e-6"),
+    );
+    assert!(
+        lever(
+            &["lock", "--reviewer", "second", "--reason", "eased"],
+            &root
+        )
+        .is_empty()
+    );
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(!has(&f, "S9"), "{f:?}");
+}
+
+#[test]
+fn s9_reads_a_base_entry_to_its_last_byte_without_a_final_newline() {
+    let root = base("s9-last-byte");
+    let path = "benchmarks/locks/harness/xtask/src/harness.rs.lock";
+    let text = crate::lock_files(&root)[path].clone();
+    write(&root, path, text.trim_end_matches('\n'));
+    git(&root, &["commit", "-qam", "no final newline"]);
+    let f = lever(&["science", "--base", "HEAD"], &root);
+    assert!(!has(&f, "S9"), "{f:?}");
+}
+
+#[test]
 fn s9_accepts_the_first_import_onto_a_base_without_benchmarks() {
     let root = tree("s9-first", &[("README.md", "# before\n")]);
     git(&root, &["init", "-q"]);
