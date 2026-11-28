@@ -1,6 +1,6 @@
 use crate::harness::{
     rival::Rival,
-    speed::{Milestone, RSS_EXPONENT},
+    speed::{Milestone, RSS_EXPONENT, SERIES},
 };
 use serde::Deserialize;
 use std::{
@@ -444,7 +444,15 @@ const WHY_GROUPS: [&str; 2] = [WHY_INPUTS, WHY_TOLERANCE];
 pub(crate) const RESERVED: [&str; 3] = ["wall_s", "speedup", RSS_EXPONENT];
 
 pub(crate) fn is_reserved(key: &str) -> bool {
-    RESERVED.contains(&bounded(key).map_or(key, |(metric, _)| metric))
+    reserved_metric(bounded(key).map_or(key, |(metric, _)| metric))
+}
+
+pub(crate) fn reserved_metric(name: &str) -> bool {
+    RESERVED.contains(&name)
+        || (SERIES.iter()).any(|prefix| {
+            name.strip_prefix(prefix)
+                .is_some_and(|code| code.starts_with('_'))
+        })
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

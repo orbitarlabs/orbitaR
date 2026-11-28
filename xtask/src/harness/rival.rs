@@ -20,6 +20,7 @@ const CLOCK_SLACK_S: f64 = 0.15;
 const CLOCK_SHARE: f64 = 0.02;
 const STEP_SLACK_S: f64 = 0.05;
 const STEP_SHARE: f64 = 0.5;
+const BLAS_POOLS: [(&str, &str); 1] = [("openblas", "OPENBLAS_NUM_THREADS")];
 
 #[derive(Deserialize)]
 pub(crate) struct Settings {
@@ -69,12 +70,45 @@ pub(crate) struct Skip {
     pub(crate) reason: String,
 }
 
+pub(crate) fn thread_env(layout: &Layout) -> BTreeMap<&'static str, String> {
+    (BLAS_POOLS
+        .map(|(_, pool)| (pool, "1".to_owned()))
+        .into_iter())
+    .chain([("OMP_NUM_THREADS", layout.threads.to_string())])
+    .collect()
+}
+
+pub(crate) fn layout_policy(code: Rival, sweep: &[usize], kpoints: &[usize]) -> String {
+    let candidates: Vec<(usize, Vec<Layout>)> = (sweep.iter())
+        .map(|&p| (p, code.adapter().candidates(p, kpoints)))
+        .collect();
+    let policy = format!("{BLAS_POOLS:?} {candidates:?}");
+    crate::lock::hex(&sha2::Sha256::digest(policy))
+}
+
+pub(crate) fn layout_kpoints(
+    root: &Path,
+    settings: &Settings,
+    code: Rival,
+) -> Result<Vec<usize>, String> {
+    (settings.layout_cells.iter())
+        .filter(|path| settings.skips(code, path).is_none())
+        .map(|path| {
+            let text = fs::read_to_string(root.join(path)).map_err(|e| format!("{path}: {e}"))?;
+            let table: toml::Table = toml::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
+            Ok(Cell::parse(&table)?.mesh_points())
+        })
+        .collect()
+}
+
 pub(crate) fn input_path(id: &str, name: &str) -> String {
     match name {
         "input" => format!("benchmarks/{id}/input.toml"),
         _ => format!("benchmarks/{id}/inputs/{name}.toml"),
     }
 }
+
+pub(crate) const HELD_OUT: &str = "held-out-";
 
 pub(crate) fn settings(root: &Path) -> Result<Settings, String> {
     let text = fs::read_to_string(root.join(SETTINGS)).map_err(|e| format!("{SETTINGS}: {e}"))?;
@@ -167,6 +201,8 @@ pub(crate) struct Frozen {
     pub(crate) searched: BTreeMap<String, Vec<String>>,
     #[serde(default, skip_serializing_if = "Mixing::unsearched")]
     pub(crate) mixing: Mixing,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) layout_policy: Option<String>,
 }
 
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -216,6 +252,7 @@ static UNTUNED: Frozen = Frozen {
         reason: String::new(),
         searched: Vec::new(),
     },
+    layout_policy: None,
 };
 
 impl Mixing {
@@ -258,6 +295,7 @@ pub(crate) struct Job {
     pub(crate) cell: Cell,
     pub(crate) cutoff_ha: f64,
     pub(crate) layout: Layout,
+    pub(crate) frozen: Layout,
     pub(crate) mixing: Vec<String>,
     pub(crate) mpiexec: Vec<String>,
     pub(crate) claim: Option<ClaimPart>,
@@ -567,6 +605,89 @@ impl Cell {
         }
     }
 
+    pub(crate) fn repeats(&self, base: &Cell) -> Option<[i64; 3]> {
+        let close = |a: f64, b: f64| (a - b).abs() <= 1e-12 * b.abs().max(1.0);
+        let mut n = [0_i64; 3];
+        for (k, times) in n.iter_mut().enumerate() {
+            let (row, of) = (self.cell[k], base.cell[k]);
+            let dot = |a: [f64; 3], b: [f64; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+            *times = (dot(row, of) / dot(of, of)).round() as i64;
+            if *times < 1 || !(0..3).all(|i| close(row[i], *times as f64 * of[i])) {
+                return None;
+            }
+            if self.mesh[k] * *times != base.mesh[k] {
+                return None;
+            }
+        }
+        let plain = self.shifted == [false; 3] && base.shifted == [false; 3];
+        let same = self.symmetry == base.symmetry
+            && self.steps == base.steps
+            && self.moments.is_none()
+            && base.moments.is_none()
+            && match (self.smearing, base.smearing) {
+                (None, None) => true,
+                (Some((a, x)), Some((b, y))) => {
+                    std::mem::discriminant(&a) == std::mem::discriminant(&b) && x == y
+                }
+                _ => false,
+            };
+        let copies = n.iter().product::<i64>() as usize;
+        if !plain || !same || self.species.len() != base.species.len() * copies {
+            return None;
+        }
+        let tiled = (self.species.iter().zip(&self.positions)).all(|(species, p)| {
+            let folded: [f64; 3] = std::array::from_fn(|k| (p[k] * n[k] as f64).rem_euclid(1.0));
+            (base.species.iter().zip(&base.positions)).any(|(s, q)| {
+                s == species
+                    && (0..3).all(|k| {
+                        let d = (folded[k] - q[k].rem_euclid(1.0)).abs();
+                        d.min(1.0 - d) < 1e-9
+                    })
+            })
+        });
+        tiled.then_some(n)
+    }
+
+    pub(crate) fn gamma_only(&self) -> bool {
+        self.mesh == [1, 1, 1] && self.shifted == [false; 3]
+    }
+
+    pub(crate) fn variation_from(&self, base: &Cell) -> Result<(f64, f64), String> {
+        let size = (base.cell.iter().flatten()).fold(0.0_f64, |m, x| m.max(x.abs()));
+        let strain = (self.cell.iter().flatten().zip(base.cell.iter().flatten()))
+            .fold(0.0_f64, |m, (a, b)| m.max((a - b).abs()))
+            / size;
+        if self.species.len() != base.species.len() {
+            return Err(format!(
+                "{} atoms, not the base's {}",
+                self.species.len(),
+                base.species.len()
+            ));
+        }
+        let shift = |a: &[f64; 3], b: &[f64; 3]| {
+            let d: Vec<f64> = (0..3)
+                .map(|k| a[k] - b[k] - (a[k] - b[k]).round())
+                .collect();
+            (0..3)
+                .map(|axis| (0..3).map(|k| d[k] * base.cell[k][axis]).sum::<f64>().abs())
+                .fold(0.0_f64, f64::max)
+        };
+        let mut free: Vec<bool> = vec![true; base.positions.len()];
+        let mut largest = 0.0_f64;
+        for (species, here) in self.species.iter().zip(&self.positions) {
+            let nearest = (0..base.positions.len())
+                .filter(|&j| free[j] && base.species[j] == *species)
+                .map(|j| (shift(here, &base.positions[j]), j))
+                .min_by(|a, b| a.0.total_cmp(&b.0));
+            let Some((moved, j)) = nearest else {
+                return Err(format!("its {species} atoms do not pair with the base's"));
+            };
+            free[j] = false;
+            largest = largest.max(moved);
+        }
+        Ok((strain, largest))
+    }
+
     pub(crate) fn mesh_points(&self) -> usize {
         self.mesh.iter().product::<i64>() as usize
     }
@@ -787,6 +908,29 @@ impl Rivals {
         }
     }
 
+    pub(crate) fn cell_at(&self, path: &str) -> Result<Cell, String> {
+        let text = fs::read_to_string(self.root.join(path)).map_err(|e| format!("{path}: {e}"))?;
+        let table = toml::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
+        Cell::parse(&table)
+    }
+
+    pub(crate) fn calibrated_own(
+        &self,
+        code: Rival,
+        path: &str,
+        cutoff: f64,
+    ) -> Option<(Row, String)> {
+        (self
+            .tuned
+            .of(code)
+            .calibration
+            .get(path)
+            .into_iter()
+            .flatten())
+        .find(|r| r[0] == cutoff && !r[1].is_nan())
+        .map(|r| (*r, path.to_owned()))
+    }
+
     pub(crate) fn calibrated(
         &self,
         code: Rival,
@@ -801,7 +945,7 @@ impl Rivals {
                 .map(|r| (*r, cell.to_owned()))
         };
         if rows.contains_key(path) {
-            return Ok(at(path));
+            return Ok(self.calibrated_own(code, path, cutoff));
         }
         let (mut worst, mut worst_p): (Option<(Row, String)>, f64) = (None, f64::NEG_INFINITY);
         for other in rows.keys() {
@@ -844,6 +988,17 @@ impl Rivals {
         jth: &[(String, Vec<u8>)],
     ) -> Result<Job, String> {
         let layout = self.layout(code, threads)?;
+        let kpoints = layout_kpoints(&self.root, &self.settings, code)?;
+        let policy = layout_policy(code, &self.settings.threads, &kpoints);
+        let frozen = self.tuned.of(code).layout_policy.as_deref();
+        if frozen != Some(policy.as_str()) {
+            return Err(format!(
+                "{TUNED}: the {} layouts were searched under another candidate set or thread policy ({} here, {} frozen); run `cargo xtask rivals layout` on the node",
+                code.adapter().name(),
+                policy,
+                frozen.unwrap_or("none")
+            ));
+        }
         if layout.ranks * layout.threads != threads {
             return Err(format!(
                 "{TUNED}: the {} layout at {threads} threads runs {} ranks × {} threads",
@@ -872,6 +1027,7 @@ impl Rivals {
         layout: Layout,
         jth: &[(String, Vec<u8>)],
     ) -> Result<Job, String> {
+        let frozen = layout.clone();
         let layout = code.adapter().fitted(layout, cell, jth)?;
         let mpiexec = match layout.ranks > 1 {
             true => self.settings.setup(code).mpiexec.clone(),
@@ -882,6 +1038,7 @@ impl Rivals {
             cell: cell.clone(),
             cutoff_ha,
             layout,
+            frozen,
             mixing: self.tuned.of(code).mixing.input.clone(),
             mpiexec,
             claim: None,
@@ -950,8 +1107,8 @@ impl Rivals {
         command.args(&layout.args).args(adapter.input_file().1);
         command
             .env("PATH", format!("{}:/usr/bin:/bin", bin.display()))
-            .env("OMP_NUM_THREADS", layout.threads.to_string())
-            .env("GFORTRAN_UNBUFFERED_PRECONNECTED", "y");
+            .env("GFORTRAN_UNBUFFERED_PRECONNECTED", "y")
+            .envs(thread_env(layout));
         command
     }
 }

@@ -12,6 +12,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "61658fb96a55afb32253e94b10ab1a2540976139b7ee35e03d50d7fdfcd7aa9b"
 
 [[case.metric]]
 name = "basis_size_error"
@@ -38,6 +39,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "6341d3e9daddda6ae9d4c25abe44a32e7cfe73f51ad2f514de8e5ae201523fd3"
 
 [[case.metric]]
 name = "madelung_error"
@@ -57,6 +59,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "387a23987f4a6b0ca1aa31995605f59d1b17f9808aba5521a8cd8222f7125de8"
 
 [[case.metric]]
 name = "hartree_relative_error"
@@ -76,6 +79,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "3006795b411b5b478db6fdcd08f8303546c963ce305c168dd8d207a4c9fbdda7"
 
 [[case.metric]]
 name = "xc_relative_error"
@@ -95,6 +99,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "b97e58d865580c184d183d9f3ece93ac729642dbbb89dcddbaf59f052c650542"
 
 [[case.metric]]
 name = "eigenvalue_difference_ha"
@@ -121,6 +126,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "362e14e7fa13259cbc0f4dc05ca363bdf7af61e7fdce4aeab46defcfe391466e"
 
 [[case.metric]]
 name = "eigenvalue_error_ha"
@@ -168,6 +174,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "cf9c880e6207fa4c6355b3cb6d9d3d10ec62f58c9dfc8016054c8e621e2a2b79"
 
 [[case.metric]]
 name = "eigenvalue_difference_ha"
@@ -215,6 +222,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "eb2c57b039b38bcac705940748d6724ada4d700a4959506cb398cd5084d0997c"
 
 [[case.metric]]
 name = "fermi_level_difference_ha"
@@ -249,6 +257,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "61e1534571717227929624d0a90f3dfd1953755e6753d28fe95a1ef7f4614c23"
 
 [[case.metric]]
 name = "basis_size_difference"
@@ -332,6 +341,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "38c13271264f4f3de3cd528937c090a853be8b105163dd2ad70bdde9798f6ef5"
 
 [[case.metric]]
 name = "fe_lda_force_difference_ha_bohr"
@@ -386,6 +396,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "a830cd3c427224f8b864e5e021187f415284f40bf9ca1719a981b95da3d2087c"
 
 [[case.metric]]
 name = "afm_order_share"
@@ -468,6 +479,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "6a21831d6156dbce83244b31934a54448dae81482deb35943aa0528f12458258"
 
 [[case.metric]]
 name = "fe_cell_fmax_share"
@@ -600,6 +612,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "046eada55eb134a948837c3f0679bad52b9c1492a177bdb52918de5c30f2cb8a"
 
 [[case.metric]]
 name = "fermi_level_difference_ha"
@@ -633,6 +646,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "bef8212abe8e3113080d8c78b3b148c5b4c1fcbcb8d80a76a5dc24342d5cf212"
 
 [[case.metric]]
 name = "eigenvalue_error_ha"
@@ -708,6 +722,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "e75b701e7461660b2ba517a8762e9bec857c026db7cd68f3269bb856d32561c4"
 
 [[case.metric]]
 name = "eigenvalue_difference_ha"
@@ -755,6 +770,7 @@ run = "nightly"
 outcome = "pass"
 commit = "631c179424c6f79da323426f4b71dff321dc0103"
 engine_sha256 = "9ccb21673b4b0b471211cbe701092df7db1026aa2a599862197ceacb471fd12e"
+record_sha256 = "f8339981ca2f57380d89067e78c9ea351fc1d7e1006273f276227d3d78dafd0e"
 
 [[case.metric]]
 name = "fe_stress_difference_ha_bohr3"

@@ -23,7 +23,7 @@ pub(crate) fn step_line() -> &'static str {
 
 const OUTPUT: &str = "if grep -qx 'stress = true' input.toml; then printf '{\"eigenvalues_ha\": [[[0.5]]], \"basis_sizes\": [1], \"free_energy_ha\": %s, \"stress_ha_bohr3\": [[%s, 0, 0], [0, %s, 0], [0, 0, %s]]}' \"$f\" \"${sig:-0}\" \"${sig:-0}\" \"${sig:-0}\"; \
      else printf '{\"eigenvalues_ha\": [[[0.5]]], \"basis_sizes\": [1], \"free_energy_ha\": %s}' \"$f\"; fi";
-const ONE_SI: &str = "species = [\"Si\"]\npositions_fractional = [[0.0, 0.0, 0.0]]\n";
+pub(crate) const ONE_SI: &str = "species = [\"Si\"]\npositions_fractional = [[0.0, 0.0, 0.0]]\n";
 
 pub(crate) fn fake(root: &Tree, body: &str) -> std::path::PathBuf {
     engine(root, &format!("{}\n{body}\n{OUTPUT}", prelude()))
@@ -60,6 +60,24 @@ fn claim_case(
     structure: &str,
     body: &str,
 ) -> (Outcome, Value, Tree) {
+    let root = claim_tree(name, case, inputs, structure, body);
+    let session = Session::new(
+        &root,
+        &root.join("fake-engine"),
+        Tier::Claim,
+        &root.join("records"),
+    );
+    let (outcome, record) = evaluated(&root, &session);
+    (outcome, record, root)
+}
+
+pub(crate) fn claim_tree(
+    name: &str,
+    case: &str,
+    inputs: &[(&str, &str)],
+    structure: &str,
+    body: &str,
+) -> Tree {
     let root = tree(
         name,
         &[
@@ -73,11 +91,14 @@ fn claim_case(
     }
     let table = super::jth("file:///nowhere", &[("pbe", "Si", "si", None)]);
     write(&root, "datasets/jth-2.0.toml", &table);
-    let bin = fake(&root, body);
-    let outcome =
-        Session::new(&root, &bin, Tier::Claim, &root.join("records")).evaluate("1_a", both);
+    fake(&root, body);
+    root
+}
+
+pub(crate) fn evaluated(root: &Tree, session: &Session) -> (Outcome, Value) {
+    let outcome = session.evaluate("1_a", both);
     let text = std::fs::read_to_string(root.join("records/1_a.json")).unwrap();
-    (outcome, serde_json::from_str(&text).unwrap(), root)
+    (outcome, serde_json::from_str(&text).unwrap())
 }
 
 pub(crate) fn passed(outcome: &Outcome) -> bool {
@@ -358,6 +379,7 @@ fn order(name: &str, seed: Option<&str>) -> Vec<u64> {
         Session::from_vars(&root, var)
             .unwrap()
             .unwrap()
+            .with_load(&procfs(&root, 1))
             .evaluate("1_a", honest);
     }
     let text = std::fs::read_to_string(&log).unwrap();
@@ -519,10 +541,14 @@ fn rss_exponent_sees_an_atoms_squared_term_that_a_fit_over_every_size_would_hide
     let (outcome, record, _) = memory_case("speed-memory-growth", "", bytes);
     let exponent = record["metrics"]["rss_exponent"].as_f64().unwrap();
     assert!((1.35..=1.55).contains(&exponent), "{record}");
-    assert_eq!(outcome, Outcome::Promote, "{record}");
+    assert!(promotes_but_for_unpolled_pss(&outcome), "{outcome:?}");
     assert_eq!(
         record["readouts"],
-        serde_json::json!(["rss_exponent"]),
+        serde_json::json!([
+            "pss_exponent_orbitar",
+            "rss_exponent",
+            "t_delta_exponent_orbitar"
+        ]),
         "{record}"
     );
     let active = memory_claim().replace("\"planned\"", "\"active\"") + "rss_exponent_max = 1.25\n";
@@ -531,7 +557,394 @@ fn rss_exponent_sees_an_atoms_squared_term_that_a_fit_over_every_size_would_hide
         matches!(&outcome, Outcome::Fail(why) if why.contains("rss_exponent = 1.") && why.contains(" > 1.25e0")),
         "{outcome:?}"
     );
-    assert_eq!(record["readouts"], serde_json::json!([]), "{record}");
+    assert_eq!(
+        record["readouts"],
+        serde_json::json!(["pss_exponent_orbitar", "t_delta_exponent_orbitar"]),
+        "{record}"
+    );
+}
+
+#[test]
+fn a_memory_claim_records_each_codes_medians_per_size_and_their_least_squares_exponents() {
+    let bytes = "40000000 + 16000000 * a * a";
+    let (_, record, _) = memory_case("speed-series", "", bytes);
+    let series = record["series"].as_array().unwrap();
+    assert_eq!(series.len(), 1, "{record}");
+    assert_eq!(series[0]["code"], "orbitar", "{record}");
+    let points = series[0]["points"].as_array().unwrap();
+    let atoms: Vec<u64> = points
+        .iter()
+        .map(|p| p["atoms"].as_u64().unwrap())
+        .collect();
+    assert_eq!(atoms, [1, 2, 4], "{record}");
+    for p in points {
+        let block = (record["speed"].as_array().unwrap().iter())
+            .find(|b| b["input"] == p["input"])
+            .unwrap();
+        assert_eq!(p["median_t_delta_s"], block["median_t_delta_s"], "{record}");
+        let polled: Vec<f64> = numbers(&block["peak_pss_bytes"])
+            .into_iter()
+            .filter(|&b| b > 0.0)
+            .collect();
+        match polled.is_empty() {
+            true => {
+                assert!(p["median_peak_pss_bytes"].is_null(), "{record}");
+                assert!(
+                    p["status"].as_str().unwrap().starts_with("pss unmeasured"),
+                    "{record}"
+                );
+            }
+            false => {
+                assert_eq!(
+                    p["median_peak_pss_bytes"].as_f64().unwrap(),
+                    median(&polled),
+                    "{record}"
+                );
+                assert_eq!(p["status"], "measured", "{record}");
+            }
+        }
+    }
+    let full = points.iter().all(|p| p["status"] == "measured");
+    assert_eq!(
+        series[0]["coverage"],
+        if full { "full" } else { "partial" },
+        "{record}"
+    );
+    for (key, metric) in [
+        ("median_peak_pss_bytes", "pss_exponent"),
+        ("median_t_delta_s", "t_delta_exponent"),
+    ] {
+        let sized: Vec<(std::num::NonZeroU64, f64)> = (points.iter())
+            .filter_map(|p| {
+                let atoms = std::num::NonZeroU64::new(p["atoms"].as_u64().unwrap()).unwrap();
+                Some((atoms, p[key].as_f64()?))
+            })
+            .collect();
+        let (expected, alpha) = (
+            xtask::harness::log_log_slope(&sized),
+            &record["metrics"][format!("{metric}_orbitar")],
+        );
+        match expected.is_finite() {
+            true => {
+                assert!(
+                    close(alpha.as_f64().unwrap(), expected),
+                    "{metric}: {record}"
+                );
+                assert_eq!(&series[0][metric], alpha, "{record}");
+            }
+            false => assert!(
+                alpha.is_null() && series[0][metric].is_string(),
+                "{metric}: {record}"
+            ),
+        }
+    }
+}
+
+#[test]
+fn the_harness_counts_orbitars_solves_in_flight_as_the_engine_caps_them() {
+    let engine = include_str!("../../../src/ks/crystal.rs");
+    let cap = format!(
+        "const SOLVES_IN_FLIGHT: usize = {};",
+        xtask::harness::ORBITAR_SOLVES_IN_FLIGHT
+    );
+    assert!(
+        engine.contains(&cap),
+        "src/ks/crystal.rs no longer holds `{cap}`"
+    );
+}
+
+fn meshed(atoms: usize, mesh: &str) -> String {
+    chain(atoms).replace("list = [[0.0, 0.0, 0.0]]", &format!("mesh = {mesh}"))
+}
+
+#[test]
+fn an_orbitar_size_on_fewer_k_points_still_holds_two_solves_in_flight_in_its_estimate() {
+    let (small, big) = (meshed(1, "[1, 2, 2]"), meshed(2, "[1, 1, 2]"));
+    let files = [
+        ("input.toml", small.as_str()),
+        ("inputs/b.toml", big.as_str()),
+    ];
+    let body = "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' ')\n\
+                m=$((a == 1 ? 40000000 : 1000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2";
+    let root = tree(
+        "speed-in-flight",
+        &[
+            ("benchmarks/1_a/case.toml", &memory_claim()),
+            ("target/datasets/JTH-PBE-v2.0/Si/Si.xml", "si"),
+        ],
+    );
+    for (path, input) in files {
+        write(&root, &format!("benchmarks/1_a/{path}"), input);
+    }
+    write(
+        &root,
+        "datasets/jth-2.0.toml",
+        &super::jth("file:///nowhere", &[("pbe", "Si", "si", None)]),
+    );
+    let bin = fake(&root, body);
+    let outcome = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_memory_guard(120e6)
+        .evaluate("1_a", both);
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains("b at 8 threads: refused before it runs")),
+        "{outcome:?}"
+    );
+}
+
+fn refused_by_estimate(name: &str, small: &str, big: &str, guard: f64) -> bool {
+    let files = [("input.toml", small), ("inputs/b.toml", big)];
+    let body = "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' ')\n\
+                m=$((a == 1 ? 40000000 : 1000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2";
+    let root = tree(
+        name,
+        &[
+            ("benchmarks/1_a/case.toml", &memory_claim()),
+            ("target/datasets/JTH-PBE-v2.0/Si/Si.xml", "si"),
+        ],
+    );
+    for (path, input) in files {
+        write(&root, &format!("benchmarks/1_a/{path}"), input);
+    }
+    write(
+        &root,
+        "datasets/jth-2.0.toml",
+        &super::jth("file:///nowhere", &[("pbe", "Si", "si", None)]),
+    );
+    let bin = fake(&root, body);
+    let outcome = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_memory_guard(guard)
+        .evaluate("1_a", both);
+    matches!(&outcome, Outcome::Planned(why) if why.contains("b at 8 threads: refused before it runs"))
+}
+
+#[test]
+fn a_single_k_point_size_holds_one_solve_in_flight_so_a_size_on_two_k_points_doubles_its_estimate()
+{
+    let (small, big) = (chain(1), meshed(2, "[1, 1, 2]"));
+    assert!(refused_by_estimate("speed-one-solve", &small, &big, 200e6));
+}
+
+#[test]
+fn a_spin_polarized_size_holds_twice_the_solves_in_flight_of_an_unpolarized_one() {
+    let polarized = format!("{}\n[spin]\nmoments = [1.0, 1.0]\n", chain(2));
+    assert!(refused_by_estimate(
+        "speed-spin-solves",
+        &chain(1),
+        &polarized,
+        200e6
+    ));
+}
+
+#[test]
+fn a_size_whose_peak_estimate_equals_the_guard_passes_it_and_one_byte_more_does_not() {
+    use xtask::harness::{PEAK_PSS_GUARD_BYTES, Peak, estimated_peak, past_the_guard};
+    let four = Peak {
+        atoms: 4,
+        in_flight: 1,
+        bytes: 8.96e9,
+    };
+    let estimate = estimated_peak(&[four], 5, 1).unwrap();
+    assert_eq!(estimate, 14_000_000_000.0);
+    assert_eq!(PEAK_PSS_GUARD_BYTES, 14_000_000_000.0);
+    assert!(!past_the_guard(estimate, PEAK_PSS_GUARD_BYTES));
+    assert!(past_the_guard(estimate + 1.0, PEAK_PSS_GUARD_BYTES));
+    assert!(!past_the_guard(13_671_875.0 * 1024.0, PEAK_PSS_GUARD_BYTES));
+}
+
+#[test]
+fn a_measured_peak_past_the_guard_stops_every_later_launch_of_its_block() {
+    let log = std::env::temp_dir().join(format!("xtask-speed-over-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let (one, two) = (chain(1), chain(2));
+    let files = [
+        ("input.toml", one.as_str()),
+        ("inputs/b.toml", two.as_str()),
+    ];
+    let body = format!(
+        "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' '); echo $a >> '{}'\n\
+         m=$((a == 1 ? 1000000 : 100000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2",
+        log.display()
+    );
+    let root = tree(
+        "speed-over",
+        &[
+            ("benchmarks/1_a/case.toml", &memory_claim()),
+            ("target/datasets/JTH-PBE-v2.0/Si/Si.xml", "si"),
+        ],
+    );
+    for (path, input) in files {
+        write(&root, &format!("benchmarks/1_a/{path}"), input);
+    }
+    write(
+        &root,
+        "datasets/jth-2.0.toml",
+        &super::jth("file:///nowhere", &[("pbe", "Si", "si", None)]),
+    );
+    let bin = fake(&root, &body);
+    let outcome = Session::new(&root, &bin, Tier::Claim, &root.join("records"))
+        .with_memory_guard(50e6)
+        .evaluate("1_a", both);
+    let ran = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert_eq!(ran.lines().filter(|a| *a == "2").count(), 1, "{ran}");
+    assert!(ran.lines().filter(|a| *a == "1").count() > 2, "{ran}");
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains("b at 8 threads: refused after a run: its measured peak")),
+        "{outcome:?}"
+    );
+}
+
+#[test]
+fn the_least_squares_slope_weighs_every_point_and_needs_two_sizes() {
+    use std::num::NonZeroU64;
+    use xtask::harness::log_log_slope;
+    let at = |atoms: u64, y: f64| (NonZeroU64::new(atoms).unwrap(), y);
+    let power: Vec<(NonZeroU64, f64)> = [2_u64, 8, 16, 32]
+        .iter()
+        .map(|&n| at(n, 3.0 * (n as f64).powf(1.7)))
+        .collect();
+    assert!((log_log_slope(&power) - 1.7).abs() < 1e-12);
+    let bent = [at(1, 1.0), at(2, 4.0), at(8, 8.0)];
+    assert!((log_log_slope(&bent) - 39.0 / 42.0).abs() < 1e-12);
+    assert!(log_log_slope(&[at(2, 2.0), at(2, 3.0)]).is_nan());
+    assert!(log_log_slope(&[]).is_nan());
+}
+
+#[test]
+fn the_peak_estimate_scales_the_largest_smaller_size_by_atoms_squared_per_k_point_in_flight() {
+    use xtask::harness::{Peak, estimated_peak};
+    let peak = |atoms, in_flight, gb: f64| Peak {
+        atoms,
+        in_flight,
+        bytes: gb * 1e9,
+    };
+    let near =
+        |estimate: Option<f64>, gb: f64| estimate.is_some_and(|e| (e - gb * 1e9).abs() < 1e-3);
+    assert_eq!(estimated_peak(&[], 128, 1), None);
+    assert_eq!(estimated_peak(&[peak(128, 1, 1.0)], 128, 1), None);
+    assert!(near(estimated_peak(&[peak(64, 2, 3.5)], 128, 1), 7.0));
+    assert!(near(estimated_peak(&[peak(16, 8, 1.0)], 32, 4), 2.0));
+    assert!(near(estimated_peak(&[peak(32, 2, 2.0)], 64, 2), 8.0));
+    assert!(near(
+        estimated_peak(&[peak(32, 4, 2.0), peak(64, 2, 3.0)], 128, 1),
+        6.0
+    ));
+    assert!(near(
+        estimated_peak(&[peak(32, 1, 1.0), peak(64, 1, 8.0)], 128, 1),
+        64.0
+    ));
+    assert!(near(
+        estimated_peak(&[peak(64, 2, 4.0), peak(64, 2, 3.0)], 128, 1),
+        8.0
+    ));
+    assert!(near(
+        estimated_peak(&[peak(32, 4, 0.0), peak(64, 2, 3.0)], 128, 1),
+        6.0
+    ));
+    assert!(near(
+        estimated_peak(
+            &[peak(16, 8, 9.0), peak(32, 4, 1.0), peak(64, 2, 2.0)],
+            128,
+            1
+        ),
+        4.0
+    ));
+}
+
+fn chain(atoms: usize) -> String {
+    let rows: Vec<String> = (0..atoms)
+        .map(|i| format!("[{}, 0.0, 0.0]", i as f64 / atoms as f64))
+        .collect();
+    let species = vec!["\"Si\""; atoms].join(", ");
+    format!("{INPUT}\n[scf]\nenergy_tolerance_ha = 0.001\n").replace(
+        "[basis]",
+        &format!(
+            "species = [{species}]\npositions_fractional = [{}]\n[basis]",
+            rows.join(", ")
+        ),
+    )
+}
+
+#[test]
+fn a_size_whose_peak_estimate_passes_the_guard_never_runs_and_is_named() {
+    let log = std::env::temp_dir().join(format!("xtask-speed-guard-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let (one, two, big) = (chain(1), chain(2), chain(32));
+    let files = [
+        ("input.toml", one.as_str()),
+        ("inputs/b.toml", two.as_str()),
+        ("inputs/c.toml", big.as_str()),
+    ];
+    let body = format!(
+        "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' '); echo $a >> '{}'\n\
+         m=$((a == 1 ? 1000000 : 100000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2",
+        log.display()
+    );
+    let (outcome, record, _) = claim_case("speed-guard", &memory_claim(), &files, "", &body);
+    let ran = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert!(ran.lines().any(|a| a == "2"), "{ran}");
+    assert!(!ran.lines().any(|a| a == "32"), "{ran}");
+    let named = "c at 8 threads: refused before it runs: its peak memory estimate";
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains(named) && why.contains("passes the 14 GB guard") && !why.contains("never read")),
+        "{outcome:?}"
+    );
+    let block = (record["speed"].as_array().unwrap().iter())
+        .find(|b| b["input"] == "c")
+        .unwrap();
+    assert!(
+        block["refused"].as_str().unwrap().contains(named),
+        "{block}"
+    );
+    assert_eq!(block["noisy"], false, "{block}");
+    assert!(block["warmup"]["refused"].is_string(), "{block}");
+    let points = record["series"][0]["points"].as_array().unwrap();
+    let status: Vec<&str> = points
+        .iter()
+        .map(|p| p["status"].as_str().unwrap())
+        .collect();
+    assert_eq!(status.len(), 3, "{record}");
+    assert_eq!(status[2], "refused", "{record}");
+    assert_eq!(record["series"][0]["coverage"], "partial", "{record}");
+    assert!(record["metrics"]["rss_exponent"].is_number(), "{record}");
+}
+
+fn promotes_but_for_unpolled_pss(outcome: &Outcome) -> bool {
+    let unpolled = |hole: &str| hole.ends_with("pss unmeasured: no Pss poll landed");
+    match outcome {
+        Outcome::Promote => true,
+        Outcome::Planned(why) => why
+            .strip_prefix("series: a full-series claim needs every code at every declared size; ")
+            .is_some_and(|holes| holes.split("; ").all(unpolled)),
+        _ => false,
+    }
+}
+
+#[test]
+fn a_claim_without_a_memory_claim_runs_every_size_unguarded() {
+    let log =
+        std::env::temp_dir().join(format!("xtask-speed-unguarded-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let (one, two, big) = (chain(1), chain(2), chain(32));
+    let files = [
+        ("input.toml", one.as_str()),
+        ("inputs/b.toml", two.as_str()),
+        ("inputs/c.toml", big.as_str()),
+    ];
+    let body = format!(
+        "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' '); echo $a >> '{}'\n\
+         m=$((a == 1 ? 1000000 : 100000000))\ndd if=/dev/zero of=/dev/null bs=$m count=1 2>/dev/null\nstep -2",
+        log.display()
+    );
+    let case = CASE
+        .replace("\"push\"", "\"claim\"")
+        .replace("\"active\"", "\"planned\"");
+    let (_, record, _) = claim_case("speed-unguarded", &case, &files, "", &body);
+    let ran = std::fs::read_to_string(&log).unwrap_or_default();
+    let _ = std::fs::remove_file(&log);
+    assert!(ran.lines().any(|a| a == "32"), "{ran}");
+    assert!(record.get("series").is_none(), "{record}");
 }
 
 #[test]
@@ -586,7 +999,7 @@ fn rss_exponent_is_nan_below_two_atom_counts() {
         ONE_SI,
         "step -2",
     );
-    assert_eq!(outcome, Outcome::Promote, "{record}");
+    assert!(promotes_but_for_unpolled_pss(&outcome), "{outcome:?}");
     assert!(record["metrics"]["rss_exponent"].is_null(), "{record}");
 }
 
@@ -1062,5 +1475,238 @@ fn a_pilot_times_each_block_once_after_its_warm_up_and_e_ref_and_never_passes() 
             b["warmup"]["wall_s"].is_number() && b["e_ref_steps"].is_array(),
             "{b}"
         );
+        let load = b["load"].as_array().unwrap();
+        assert_eq!(load.len(), 2, "{b}");
+        assert!(load.iter().all(|r| r["unread"].is_string()), "{b}");
+        let during = b["during"].as_array().unwrap();
+        assert_eq!(during.len(), 2, "{b}");
+        assert!(during.iter().all(|r| r["unread"].is_string()), "{b}");
     }
+}
+
+pub(crate) fn procfs(root: &Tree, runnable: u32) -> std::path::PathBuf {
+    write(
+        root,
+        "benchmarks/NODE.toml",
+        "[host]\ncpus_allowed = \"0-7\"\n",
+    );
+    write(
+        root,
+        "proc/loadavg",
+        &format!("8.00 8.00 8.00 {runnable}/300 4242\n"),
+    );
+    write(
+        root,
+        "proc/pressure/cpu",
+        "some avg10=20.00 avg60=10.00 avg300=5.00 total=1000\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+    );
+    write(
+        root,
+        "proc/stat",
+        "cpu  1000 0 1000 100000 0 0 0 0 0 0\ncpu0 1000 0 1000 100000 0 0 0 0 0 0\n",
+    );
+    write(
+        root,
+        "proc/self/stat",
+        "4242 (xtask (unit)) R 1 4242 4242 0 -1 0 0 0 0 0 300 100 0 0 20 0 9 0 1 1 1\n",
+    );
+    root.join("proc")
+}
+
+fn fatal_orbitar(name: &str, case: &str, timed: &str) -> (Outcome, Value) {
+    let (one, two) = (chain(1), chain(2));
+    let files = [
+        ("input.toml", one.as_str()),
+        ("inputs/b.toml", two.as_str()),
+    ];
+    let body = format!(
+        "a=$(grep -o '\"Si\"' input.toml | wc -l | tr -d ' ')\n\
+         if [ \"$a\" = 2 ] && ! tight; then dd if=/dev/zero of=/dev/null bs=30000000 count=1 2>/dev/null; {timed}; fi\nstep -2"
+    );
+    let (outcome, record, _) = claim_case(name, case, &files, "", &body);
+    (outcome, record)
+}
+
+fn kept_peak(record: &Value, input: &str) -> Vec<u64> {
+    let block = (record["speed"].as_array().unwrap().iter())
+        .find(|b| b["code"] == "orbitar" && b["input"] == input)
+        .unwrap_or_else(|| panic!("no {input} block: {record}"));
+    (block["failed_peak_bytes"].as_array().into_iter().flatten())
+        .filter_map(Value::as_u64)
+        .collect()
+}
+
+#[test]
+fn a_failed_orbitar_timed_run_keeps_every_blocks_record_and_its_own_peak() {
+    let (outcome, record) = fatal_orbitar("speed-fatal", &memory_claim(), "exit 3");
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains("timing: b at 8 threads: engine exited")),
+        "{outcome:?}"
+    );
+    assert_eq!(record["speed"].as_array().unwrap().len(), 2, "{record}");
+    let kept = kept_peak(&record, "b");
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{kept:?}: {record}"
+    );
+}
+
+#[test]
+fn a_timed_out_orbitar_run_keeps_the_peak_it_reached_before_the_kill() {
+    let case = memory_claim().replace("\n[tolerance]", "timeout_s = 2\n\n[tolerance]");
+    assert!(case.contains("timeout_s = 2"));
+    let (outcome, record) = fatal_orbitar("speed-timeout", &case, "sleep 5");
+    assert!(
+        matches!(&outcome, Outcome::Planned(why) if why.contains("timing: b at 8 threads: timeout after 2 s")),
+        "{outcome:?}"
+    );
+    let kept = kept_peak(&record, "b");
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{kept:?}: {record}"
+    );
+}
+
+pub(crate) fn contained_vars(
+    root: &Tree,
+    bin: &std::path::Path,
+    path: &std::path::Path,
+    pilot: bool,
+) -> impl Fn(&str) -> Option<std::ffi::OsString> {
+    let pairs: Vec<(&'static str, std::ffi::OsString)> = vec![
+        ("ORBITAR_BIN", bin.into()),
+        ("ORBITAR_TIER", "claim".into()),
+        ("ORBITAR_RECORD_DIR", root.join("records").into()),
+        ("PATH", path.into()),
+    ]
+    .into_iter()
+    .chain(pilot.then(|| ("ORBITAR_PILOT", "1".into())))
+    .collect();
+    move |key: &str| {
+        (pairs.iter())
+            .find(|(k, _)| *k == key)
+            .map(|(_, v)| v.clone())
+    }
+}
+
+#[test]
+fn a_claim_without_a_process_tree_memory_limit_is_refused_and_a_pilot_is_not() {
+    let (_, _, root) = claim("speed-uncontained", "step -2");
+    let bin = fake(&root, "step -2");
+    let empty = root.join("no-tools");
+    std::fs::create_dir_all(&empty).unwrap();
+    let claim = Session::from_vars(&root, contained_vars(&root, &bin, &empty, false))
+        .unwrap()
+        .unwrap();
+    let refused = claim.contained().err().unwrap_or_default();
+    assert!(
+        refused.contains("in a `systemd-run --user --scope` with MemoryMax 14 GB"),
+        "{refused}"
+    );
+    let pilot = Session::from_vars(&root, contained_vars(&root, &bin, &empty, true))
+        .unwrap()
+        .unwrap();
+    assert!(pilot.contained().is_ok());
+}
+
+#[test]
+fn a_claim_runs_each_timed_process_tree_inside_a_memory_scope_and_records_it() {
+    let (_, _, root) = claim("speed-contained", "step -2");
+    let bin = fake(&root, "step -2");
+    let tools = root.join("tools");
+    let log = root.join("scope.log");
+    super::rival::script(
+        &tools.join("systemd-run"),
+        &format!(
+            "echo \"$@\" >> '{}'\nwhile [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"",
+            log.display()
+        ),
+    );
+    let session = Session::from_vars(&root, contained_vars(&root, &bin, &tools, false))
+        .unwrap()
+        .unwrap()
+        .with_load(&procfs(&root, 1));
+    assert!(session.contained().is_ok());
+    let _ = session.evaluate("1_a", both);
+    let record: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    let scopes = std::fs::read_to_string(&log).unwrap_or_default();
+    let engine_runs = scopes
+        .lines()
+        .filter(|l| l.contains("orbitar run input.toml"))
+        .count();
+    assert!(engine_runs >= 3, "{scopes}");
+    assert!(
+        scopes.lines().all(|l| l
+            .starts_with("--user --scope --quiet -p MemoryMax=14000000000 -p MemorySwapMax=0 --")),
+        "{scopes}"
+    );
+    assert!(
+        record["containment"]["limit"]
+            .as_str()
+            .unwrap()
+            .starts_with("systemd-run"),
+        "{record}"
+    );
+}
+
+#[test]
+fn prlimit_alone_serves_a_pilot_and_never_a_claim() {
+    let (_, _, root) = claim("speed-prlimit", "step -2");
+    let bin = fake(&root, "step -2");
+    let tools = root.join("tools");
+    super::rival::script(
+        &tools.join("prlimit"),
+        "while [ \"$1\" != -- ]; do shift; done\nshift\nexec \"$@\"",
+    );
+    let claim = Session::from_vars(&root, contained_vars(&root, &bin, &tools, false))
+        .unwrap()
+        .unwrap();
+    let refused = claim.contained().err().unwrap_or_default();
+    assert!(
+        refused.contains("`prlimit --as` bounds each process alone"),
+        "{refused}"
+    );
+    let pilot = Session::from_vars(&root, contained_vars(&root, &bin, &tools, true))
+        .unwrap()
+        .unwrap()
+        .with_load(&procfs(&root, 1));
+    assert!(pilot.contained().is_ok());
+    let _ = pilot.evaluate("1_a", both);
+    let record: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("records/1_a.json")).unwrap())
+            .unwrap();
+    let limit = record["containment"]["limit"].as_str().unwrap_or_default();
+    assert!(
+        limit.contains("each process alone, not the tree; a pilot only"),
+        "{record}"
+    );
+}
+
+#[test]
+fn a_timed_repeat_whose_output_differs_keeps_its_peak() {
+    let count =
+        std::env::temp_dir().join(format!("xtask-speed-differs-{}.count", std::process::id()));
+    let _ = std::fs::remove_file(&count);
+    let body = format!(
+        "if ! tight; then n=$(cat '{0}' 2>/dev/null || echo 0); echo $((n + 1)) > '{0}'\n\
+         if [ \"$n\" = 2 ]; then dd if=/dev/zero of=/dev/null bs=30000000 count=1 2>/dev/null; step -2.000000001; else step -2; fi\n\
+         else step -2; fi",
+        count.display()
+    );
+    let (outcome, record) = {
+        let (outcome, record, _) = claim("speed-differs", &body);
+        (outcome, record)
+    };
+    let _ = std::fs::remove_file(&count);
+    assert!(
+        matches!(&outcome, Outcome::Fail(why) if why.contains("output differs")),
+        "{outcome:?}"
+    );
+    let kept = kept_peak(&record, "input");
+    assert!(
+        !kept.is_empty() && kept.iter().all(|&b| b > 20_000_000),
+        "{kept:?}: {record}"
+    );
 }

@@ -2,7 +2,8 @@ pub mod acwf;
 pub(crate) mod datasets;
 pub(crate) mod engine;
 pub mod eos;
-mod record;
+pub(crate) mod load;
+pub(crate) mod record;
 pub mod relax;
 pub(crate) mod rival;
 pub(crate) mod speed;
@@ -695,6 +696,50 @@ impl<'a> Block<'a> {
         .and_then(|n| usize::try_from(n).ok())
     }
 
+    fn in_flight(&self) -> Result<usize, String> {
+        if self.rival.is_some() {
+            return Ok(1);
+        }
+        let input = Input(&self.table);
+        let k = match input.mesh() {
+            Ok(mesh) => usize::try_from(mesh.iter().product::<u64>()).map_err(|e| e.to_string())?,
+            Err(_) => input.kpoints()?.len(),
+        };
+        let k = k * if self.table.contains_key("spin") {
+            2
+        } else {
+            1
+        };
+        Ok(k.min(speed::ORBITAR_SOLVES_IN_FLIGHT))
+    }
+
+    fn comparable(&self) -> speed::Comparable {
+        let frozen =
+            (self.rival.as_ref()).map_or_else(String::new, |job| format!("{:?}", job.frozen));
+        let mut elements = Input(&self.table).species().unwrap_or_default();
+        elements.sort();
+        elements.dedup();
+        (self.code(), frozen, self.threads, elements)
+    }
+
+    fn gamma(&self) -> Option<String> {
+        let cell = rival::Cell::parse(&self.table).ok()?;
+        if !cell.gamma_only() {
+            return None;
+        }
+        let mode = match &self.rival {
+            None => "real: orbitaR pairs G with -G at k = 0".to_owned(),
+            Some(job) if job.code == rival::Rival::Qe => "real: K_POINTS gamma".to_owned(),
+            Some(job) => match (job.layout.lines().iter().chain(&job.mixing))
+                .find(|l| l.starts_with("istwfk"))
+            {
+                Some(line) => format!("set by the layout's `{line}`; ABINIT's istwfk 1 is complex"),
+                None => "real: ABINIT's default istwfk at Γ".to_owned(),
+            },
+        };
+        Some(mode)
+    }
+
     fn floor_ha(&self) -> f64 {
         (self.rival.as_ref())
             .and_then(|job| job.claim.as_ref()?.floor_ha)
@@ -755,16 +800,105 @@ fn compressed(table: &toml::Table, volume_scale: f64) -> Result<toml::Table, Str
     Ok(table)
 }
 
-fn borrows(id: &str, b: &Block, rivals: &rival::Rivals) -> bool {
+pub fn rival_layout_policies(root: &Path) -> Result<BTreeMap<String, String>, String> {
+    let settings = rival::settings(root)?;
+    (rival::Rival::all().iter())
+        .map(|&code| {
+            let kpoints = rival::layout_kpoints(root, &settings, code)?;
+            let policy = rival::layout_policy(code, &settings.threads, &kpoints);
+            Ok((code.adapter().name().to_owned(), policy))
+        })
+        .collect()
+}
+
+struct RivalPaths<'a> {
+    id: &'a str,
+    held: &'a BTreeMap<String, Option<String>>,
+}
+
+impl RivalPaths<'_> {
+    fn own(&self, name: &str) -> String {
+        rival::input_path(self.id, name)
+    }
+
+    fn calibration(
+        &self,
+        rivals: &rival::Rivals,
+        code: rival::Rival,
+        name: &str,
+        cell: &rival::Cell,
+    ) -> Result<Option<(rival::Row, String)>, String> {
+        let cutoff = rivals.cutoff(code, cell)?;
+        if let Some(anchor) = self.anchor(rivals, name, cell)? {
+            return match rivals.calibrated_own(code, &anchor, cutoff) {
+                Some(row) => Ok(Some(row)),
+                None => Err(format!(
+                    "{name}: a fold-equivalent repeat of {anchor}, a calibration cell, takes its accuracy from that \
+                     matched row alone, and {} has none at {cutoff} Ha; run `cargo xtask rivals calibrate --cell \
+                     {anchor}` on the node",
+                    code.adapter().name()
+                )),
+            };
+        }
+        if self.held.get(name) != Some(&None) {
+            return rivals.calibrated(code, &self.keyed(name), cell, cutoff);
+        }
+        let own = self.own(name);
+        match rivals.calibrated_own(code, &own, cutoff) {
+            Some(row) => Ok(Some(row)),
+            None => Err(format!(
+                "held-out {name}: no calibration of its own; run `cargo xtask rivals calibrate --cell {own}`"
+            )),
+        }
+    }
+
+    fn anchor(
+        &self,
+        rivals: &rival::Rivals,
+        name: &str,
+        cell: &rival::Cell,
+    ) -> Result<Option<String>, String> {
+        let (own, base) = (self.own(name), rival::input_path(self.id, "input"));
+        let tuned_own = rival::Rival::all()
+            .iter()
+            .any(|&code| rivals.tuned.of(code).calibration.contains_key(&own));
+        if name == "input" || self.held.contains_key(name) || tuned_own {
+            return Ok(None);
+        }
+        if !rivals.settings.calibration_cells.contains(&base) {
+            return Ok(None);
+        }
+        let anchor = rivals.cell_at(&base)?;
+        Ok(cell.repeats(&anchor).map(|_| base))
+    }
+
+    fn matched(&self, name: &str, from: &str) -> bool {
+        name != "input"
+            && !self.held.contains_key(name)
+            && from == rival::input_path(self.id, "input")
+            && from != self.own(name)
+    }
+
+    fn keyed(&self, name: &str) -> String {
+        rival::input_path(
+            self.id,
+            (self.held.get(name).cloned().flatten())
+                .as_deref()
+                .unwrap_or(name),
+        )
+    }
+}
+
+fn borrows(paths: &RivalPaths, b: &Block, rivals: &rival::Rivals) -> bool {
     let abinit = rival::Rival::Abinit;
-    let path = rival::input_path(id, b.input);
+    let path = paths.own(b.input);
     (rival::Cell::parse(&b.table))
-        .and_then(|cell| rivals.calibrated(abinit, &path, &cell, rivals.cutoff(abinit, &cell)?))
+        .and_then(|cell| paths.calibration(rivals, abinit, b.input, &cell))
         .is_ok_and(|row| row.is_some_and(|(_, from)| from != path))
 }
 
 fn accuracies(
-    id: &str,
+    paths: &RivalPaths,
     blocks: &[Block],
     timed: &mut [speed::Timed],
     rivals: &rival::Rivals,
@@ -775,16 +909,21 @@ fn accuracies(
     let abinit = rival::Rival::Abinit;
     let target = rivals.settings.target.energy_difference_ha_per_atom;
     let target_p = rivals.settings.target.pressure_gpa;
-    let path = |b: &Block| rival::input_path(id, b.input);
+    let path = |b: &Block| paths.own(b.input);
     let calibrated = |code: rival::Rival, b: &Block| {
-        rival::Cell::parse(&b.table).and_then(|cell| {
-            let cutoff = rivals.cutoff(code, &cell)?;
-            rivals.calibrated(code, &path(b), &cell, cutoff)
-        })
+        rival::Cell::parse(&b.table)
+            .and_then(|cell| paths.calibration(rivals, code, b.input, &cell))
     };
-    let basis = |b: &Block, from: &str| match from == path(b) {
-        true => "own".to_owned(),
-        false => format!("borrowed from {from}"),
+    let basis = |b: &Block, from: &str| match (from == path(b), paths.matched(b.input, from)) {
+        (true, _) => "own".to_owned(),
+        (false, true) => format!(
+            "matched anchor {from}: a fold-equivalent repeat at the same cutoff, energy and pressure residuals from that one row"
+        ),
+        (false, false) => format!("borrowed from {from}"),
+    };
+    let e_p_from = |b: &Block, from: &str| match from == path(b) || paths.matched(b.input, from) {
+        true => format!("{from}'s row"),
+        false => "the largest pressure error among the rows of cells with its elements".to_owned(),
     };
     let pressure_of = |b: &Block| {
         (pressures.get(&(b.code(), b.index)).cloned())
@@ -792,6 +931,9 @@ fn accuracies(
     };
     let mut failures = Vec::new();
     for (i, b) in blocks.iter().enumerate() {
+        if timed[i].record.refused.is_some() {
+            continue;
+        }
         let code = b.rival.as_ref().map_or(abinit, |r| r.code);
         let calibration = match calibrated(code, b) {
             Ok(row) => row,
@@ -866,7 +1008,7 @@ fn accuracies(
             "p_orbitar_gpa": ours.as_ref().ok(),
             "p_abinit_gpa": theirs_p.as_ref().ok(),
             "p_abinit_from": row.map(|_| if own { "its calibration row" } else { "its reference run at c" }),
-            "e_p_from": calibration.as_ref().map(|(_, from)| format!("{from}'s row")),
+            "e_p_from": calibration.as_ref().map(|(_, from)| e_p_from(b, from)),
             "d_p_gpa": d_p,
             "e_p_gpa": e_p,
             "bound_p": "2 d_P + e_P",
@@ -926,7 +1068,7 @@ pub enum Outcome {
 
 struct HeldOut {
     inputs: Vec<(String, String)>,
-    held: BTreeSet<String>,
+    held: BTreeMap<String, Option<String>>,
     tuned: Vec<String>,
 }
 
@@ -946,6 +1088,10 @@ pub struct Session {
     held_out: Option<PathBuf>,
     table: Option<PathBuf>,
     pilot: bool,
+    load: Option<PathBuf>,
+    guard_bytes: f64,
+    containment: Option<engine::Containment>,
+    contain_required: bool,
 }
 
 impl Session {
@@ -999,7 +1145,34 @@ impl Session {
             held_out: None,
             table: None,
             pilot: false,
+            load: None,
+            guard_bytes: speed::PEAK_PSS_GUARD_BYTES,
+            containment: None,
+            contain_required: false,
         }
+    }
+
+    pub fn contained(&self) -> Result<(), String> {
+        let tree_wide = (self.containment.as_ref()).is_some_and(engine::Containment::tree_wide);
+        match self.contain_required && !tree_wide {
+            true => Err(format!(
+                "a claim (not a pilot) runs each timed process tree in a `systemd-run --user --scope` with MemoryMax \
+                 {} GB, and no such scope works from this PATH; `prlimit --as` bounds each process alone, so it \
+                 serves a pilot (ORBITAR_PILOT=1) only",
+                self.guard_bytes / 1e9
+            )),
+            false => Ok(()),
+        }
+    }
+
+    pub fn with_memory_guard(mut self, bytes: f64) -> Session {
+        self.guard_bytes = bytes;
+        self
+    }
+
+    pub fn with_load(mut self, proc: &Path) -> Session {
+        self.load = Some(proc.to_owned());
+        self
     }
 
     pub fn with_held_out(mut self, dir: &Path) -> Session {
@@ -1035,6 +1208,9 @@ impl Session {
         let records = var("ORBITAR_RECORD_DIR")
             .map_or_else(|| root.join("target/benchmarks").join(&name), PathBuf::from);
         let mut session = Session::new(root, Path::new(&bin), tier, &records);
+        if tier == Tier::Claim {
+            session.load = Some(PathBuf::from("/proc"));
+        }
         session.rivals = var("ORBITAR_RIVALS").map(PathBuf::from);
         session.held_out = var("ORBITAR_HELDOUT").map(PathBuf::from);
         if let Some(seed) = text("ORBITAR_SEED") {
@@ -1069,6 +1245,10 @@ impl Session {
             }
             session.table = Some(PathBuf::from(table));
         }
+        if tier.policy().speed.is_some() {
+            session.containment = engine::Containment::probe(&var, session.guard_bytes as u64);
+            session.contain_required = tier == Tier::Claim && !session.pilot;
+        }
         Ok(Some(session))
     }
 
@@ -1082,7 +1262,9 @@ impl Session {
         }
         let started = unix_ms();
         let mut trace = Trace::default();
-        let mut failures = self.attempt(id, &case, measure, &mut trace);
+        let mut failures = engine::contained(self.containment.clone(), || {
+            self.attempt(id, &case, measure, &mut trace)
+        });
         if self.pilot {
             failures.push(PILOT.to_owned());
         }
@@ -1101,7 +1283,7 @@ impl Session {
             Outcome::Shard => "shard",
             _ => "fail",
         };
-        let record = json!({
+        let mut record = json!({
             "schema": record::SCHEMA,
             "case": id,
             "tier": self.tier.name(),
@@ -1111,7 +1293,6 @@ impl Session {
             "failures": failures,
             "metrics": trace.metrics,
             "tolerance": case.tolerance(),
-            "why": case.why(),
             "readouts": readouts(&trace.metrics, case.tolerance()),
             "inputs": trace.inputs,
             "filter": self.filter,
@@ -1125,6 +1306,7 @@ impl Session {
             "skipped": trace.skipped,
             "versus": trace.versus,
             "held_out": trace.held_out,
+            "load": trace.load,
             "tuned": trace.tuned,
             "relaxations": trace.relaxations,
             "rotation_s": trace.rotation_s,
@@ -1142,7 +1324,12 @@ impl Session {
             "dirty": !git(&self.root, &["status", "--porcelain"]).is_empty(),
             "rustc": rustc(),
             "node": crate::node::block(&self.root, self.rivals.as_deref()),
+            "containment": self.containment.as_ref().map(engine::Containment::describe),
         });
+        record["why"] = json!(case.why());
+        if !trace.series.is_null() {
+            record["series"] = trace.series.clone();
+        }
         if let Err(e) = record::write(&self.records, id, &record) {
             return Outcome::Fail(format!("record: {e}"));
         }
@@ -1192,6 +1379,7 @@ impl Session {
             Err(e) => return vec![trace.failed("held-out", engine::Failure::Harness(e))],
         };
         trace.tuned = tuned;
+        let paths = RivalPaths { id, held: &held };
         let timeout = Duration::from_secs(case.timeout_s());
         let policy = self.tier.policy();
         let mut tables = Vec::new();
@@ -1267,8 +1455,7 @@ impl Session {
                 };
                 for (&code, rivals) in case.rivals().iter().zip(std::iter::repeat(&rivals)) {
                     let Some(rivals) = rivals else { break };
-                    if let Some(reason) = rivals.settings.skips(code, &rival::input_path(id, name))
-                    {
+                    if let Some(reason) = rivals.settings.skips(code, &paths.keyed(name)) {
                         if threads == sweep[0] {
                             let code = code.adapter().name();
                             trace
@@ -1296,6 +1483,8 @@ impl Session {
         let clock = Instant::now();
         let mut reserved = Metrics::new();
         let mut failures = Vec::new();
+        let mut refused: BTreeSet<String> = BTreeSet::new();
+        let guard = (case.claims().contains(&Claim::Memory)).then_some(self.guard_bytes);
         let ran = match &policy.speed {
             Some(speed) => {
                 let pressures: RefCell<BTreeMap<(speed::Code, usize), Result<f64, String>>> =
@@ -1304,7 +1493,7 @@ impl Session {
                     (_, None) => false,
                     (None, Some(_)) => true,
                     (Some(job), Some(rivals)) => {
-                        job.code == rival::Rival::Abinit && borrows(id, b, rivals)
+                        job.code == rival::Rival::Abinit && borrows(&paths, b, rivals)
                     }
                 };
                 let run = |b: &Block, stop: f64, pass: speed::Pass| {
@@ -1342,21 +1531,57 @@ impl Session {
                     true => (1, &speed::never_grown(speed)),
                     false => (case.repeats() as usize, speed),
                 };
-                let ran = speed::time(&run, &blocks, speed, repeats, self.seed);
+                let gate = (self.load.as_deref())
+                    .map(|proc| load::Gate::new(proc, &self.root, !self.pilot));
+                let ran = speed::time(
+                    &run,
+                    &blocks,
+                    speed,
+                    repeats,
+                    self.seed,
+                    gate.as_ref(),
+                    guard,
+                );
+                trace.load = gate.as_ref().map(load::Gate::log).unwrap_or_default();
+                let ran = ran.and_then(|(timed, fatal)| match fatal {
+                    None => Ok(timed),
+                    Some(failure) => {
+                        if matches!(failure, engine::Failure::Engine(_)) {
+                            trace.speed.extend(timed.iter().map(|t| json!(t.record)));
+                        }
+                        Err(failure)
+                    }
+                });
                 ran.map(|mut timed| {
+                    for t in &timed {
+                        failures.extend(t.record.refused.clone());
+                        if t.record.code == speed::Code::Orbitar && t.record.refused.is_some() {
+                            refused.insert(t.record.input.clone());
+                        }
+                    }
                     if let Some(rivals) = &rivals {
                         let spin = spin_stress_case(&self.root);
                         let scale = rivals.settings.target.volume_scale;
                         let mut compressed = BTreeMap::new();
-                        for b in &blocks {
+                        for (b, t) in blocks.iter().zip(timed.iter_mut()) {
                             let key = (b.code(), b.index);
                             let wanted = (b.rival.as_ref()).is_none_or(|j| j.code == rival::Rival::Abinit);
-                            if wanted && !compressed.contains_key(&key) {
+                            if let Some(why) = &t.record.refused {
+                                compressed.insert(key, Err(why.clone()));
+                            } else if wanted && !compressed.contains_key(&key) {
+                                engine::forget_peaks();
                                 compressed.insert(key, self.at_v2(b, scale, rivals, timeout));
+                                if let Some(why) = past_guard(&b.at(), "V₂", guard) {
+                                    t.record.refused = Some(why.clone());
+                                    failures.push(why);
+                                    if b.rival.is_none() {
+                                        refused.insert(b.input.to_owned());
+                                    }
+                                }
                             }
                         }
                         failures.extend(accuracies(
-                            id,
+                            &paths,
                             &blocks,
                             &mut timed,
                             rivals,
@@ -1364,12 +1589,46 @@ impl Session {
                             &compressed,
                             spin,
                         ));
-                        let (versus, judged) = speed::versus(&blocks, &timed, case.milestone());
-                        trace.versus = versus;
-                        failures.extend(judged);
+                        let records: Vec<&speed::BlockRecord> = timed.iter().map(|t| &t.record).collect();
+                        let compared = speed::versus(&records, case.milestone());
+                        compared.lines.iter().for_each(|line| println!("{line}"));
+                        trace.versus = compared.entries;
+                        failures.extend(compared.failures);
                     }
                     if case.claims().contains(&Claim::Memory) {
                         reserved = speed::memory(&blocks, &timed);
+                        let mut codes = vec![speed::Code::Orbitar];
+                        if rivals.is_some() {
+                            codes.extend(case.rivals().iter().map(|&r| speed::Code::Rival(r)));
+                        }
+                        let skipped = |code: speed::Code, input: &str| match (code, &rivals) {
+                            (speed::Code::Rival(r), Some(rivals)) => {
+                                rivals.settings.skips(r, &rival::input_path(id, input))
+                            }
+                            _ => None,
+                        };
+                        let expected: Vec<speed::Expected> = (inputs.iter().enumerate())
+                            .filter(|(_, (name, _))| !held.contains_key(name))
+                            .flat_map(|(i, (name, _))| {
+                                codes.iter().map(move |&code| (i, name.as_str(), code))
+                            })
+                            .map(|(i, input, code)| speed::Expected {
+                                code,
+                                input,
+                                atoms: atoms[i],
+                                skipped: skipped(code, input),
+                            })
+                            .collect();
+                        let records: Vec<&speed::BlockRecord> = timed.iter().map(|t| &t.record).collect();
+                        let series = speed::series(&records, &expected);
+                        trace.series = series.entries;
+                        reserved.extend(series.exponents);
+                        if !self.pilot && !series.holes.is_empty() {
+                            failures.push(format!(
+                                "series: a full-series claim needs every code at every declared size; {}",
+                                series.holes.join("; ")
+                            ));
+                        }
                     }
                     (blocks.iter().zip(timed))
                         .filter_map(|(b, t)| {
@@ -1379,6 +1638,17 @@ impl Session {
                                     "{}: T(δ) has CV {} over {n} runs and {lost} losses: under two judged times or no finite CV, so the judge refuses it",
                                     b.at(),
                                     (t.record.timing.as_ref()).and_then(|t| t.cv_t_delta).unwrap_or(f64::NAN),
+                                ));
+                            }
+                            let loaded = t.record.load.iter().filter(|r| !r.quiet()).count();
+                            let contended = (t.record.during.iter())
+                                .filter(|d| !d.quiet())
+                                .count();
+                            if loaded + contended > 0 {
+                                failures.push(format!(
+                                    "{}: of its {} runs, the warm-up first, {loaded} began on a node that was not quiet and {contended} shared it with other tasks",
+                                    b.at(),
+                                    t.record.load.len()
                                 ));
                             }
                             trace.speed.push(json!(t.record));
@@ -1414,19 +1684,25 @@ impl Session {
         }
         let mut own = Vec::new();
         if rivals.is_some() {
-            for (i, (name, _)) in inputs
-                .iter()
-                .enumerate()
-                .filter(|(_, (n, _))| !held.contains(n))
-            {
+            let due: Vec<usize> = (0..inputs.len())
+                .filter(|&i| !held.contains_key(&inputs[i].0) && !refused.contains(&inputs[i].0))
+                .collect();
+            for (i, name) in due.into_iter().map(|i| (i, &inputs[i].0)) {
                 let b = match Block::new(name, i, sweep[0], tables[i].clone(), &files[i], atoms[i])
                 {
                     Ok(b) => b,
                     Err(e) => return vec![trace.failed(name, engine::Failure::Harness(e))],
                 };
                 let clock = Instant::now();
+                engine::forget_peaks();
                 let run = engine::once(&self.bin, &b.text, b.datasets, timeout);
                 trace.spend(clock);
+                if let Some(why) = past_guard(&b.at(), "correctness", guard) {
+                    mark_refused(&mut trace.speed, name, &why);
+                    failures.push(why);
+                    refused.insert(name.clone());
+                    continue;
+                }
                 match run {
                     Ok(run) => own.push((b, run.stdout)),
                     Err(failure) => return vec![trace.failed(name, failure)],
@@ -1437,12 +1713,12 @@ impl Session {
             true => blocks
                 .iter()
                 .zip(ran.iter().map(|(stdout, _)| stdout))
-                .filter(|(b, _)| !held.contains(b.input))
+                .filter(|(b, _)| !held.contains_key(b.input) && !refused.contains(b.input))
                 .collect(),
             false => own.iter().map(|(b, stdout)| (b, stdout)).collect(),
         };
         let measured_inputs: Vec<String> = (trace.inputs.iter())
-            .filter(|n| !held.contains(*n))
+            .filter(|n| !held.contains_key(*n) && !refused.contains(*n))
             .cloned()
             .collect();
         let mut worst = engine::Change::default();
@@ -1453,8 +1729,13 @@ impl Session {
                 Err(e) => return vec![trace.failed(b.input, engine::Failure::Harness(e))],
             };
             let clock = Instant::now();
+            engine::forget_peaks();
             let rotated = engine::once(&self.bin, &turned, b.datasets, timeout);
             trace.spend(clock);
+            if let Some(why) = past_guard(&b.at(), "rotation", guard) {
+                mark_refused(&mut trace.speed, b.input, &why);
+                failures.push(why);
+            }
             let out = match rotated {
                 Ok(run) => {
                     trace.rotation_s.push(run.seconds);
@@ -1512,7 +1793,7 @@ impl Session {
         mut inputs: Vec<(String, String)>,
         trace: &mut Trace,
     ) -> Result<HeldOut, String> {
-        let mut held = BTreeSet::new();
+        let mut held = BTreeMap::new();
         if self.tier != Tier::Claim || case.rivals().is_empty() {
             return Ok(HeldOut {
                 inputs,
@@ -1576,7 +1857,7 @@ impl Session {
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_default();
             let text = fs::read_to_string(&path).map_err(|e| named(&path, e))?;
-            let name = format!("held-out-{stem}");
+            let name = format!("{}{stem}", rival::HELD_OUT);
             if inputs.iter().any(|(n, _)| *n == name) {
                 return Err(format!(
                     "{}: the case already holds an input {name}",
@@ -1590,10 +1871,32 @@ impl Session {
                     path.display()
                 ));
             }
+            let base = (inputs.iter())
+                .find(|(n, _)| *n == stem && !held.contains_key(n))
+                .ok_or_else(|| {
+                    format!(
+                        "{}: a held-out variant takes the stem of the {id} input that it varies, and {id} has no input {stem}",
+                        path.display()
+                    )
+                })?;
+            same_identity(&base.1, &text).map_err(|e| {
+                format!(
+                    "{}: not a variant of {id}'s input {stem}: {e}",
+                    path.display()
+                )
+            })?;
+            let within = generated_from(&base.1, &text);
+            let geometry = match &within {
+                Ok((strain, shift)) => {
+                    json!({ "cell_strain": strain, "largest_shift_bohr": shift })
+                }
+                Err(why) => json!({ "beyond_the_generators": why }),
+            };
+            let base = within.is_ok().then_some(stem);
             trace
                 .held_out
-                .push(json!({ "input": name, "sha256": hash }));
-            held.insert(name.clone());
+                .push(json!({ "input": name, "base": base, "geometry": geometry, "sha256": hash }));
+            held.insert(name.clone(), base);
             inputs.push((name, text));
         }
         Ok(HeldOut {
@@ -1620,7 +1923,7 @@ impl Session {
                 }
                 for name in metrics
                     .keys()
-                    .filter(|name| crate::case::RESERVED.contains(&name.as_str()))
+                    .filter(|name| crate::case::reserved_metric(name))
                 {
                     failures.push(format!(
                         "measure: metric `{name}` is reserved; only the harness times the engine and reads its peak RSS"
@@ -1664,6 +1967,26 @@ impl Session {
     }
 }
 
+fn past_guard(at: &str, run: &str, guard: Option<f64>) -> Option<String> {
+    let limit = guard?;
+    let bytes = speed::peak_bytes(engine::last_peaks()?) as f64;
+    speed::past_the_guard(bytes, limit).then(|| {
+        format!(
+            "{at}: refused after its {run} run: its measured peak {:.2} GB passes the {} GB guard",
+            bytes / 1e9,
+            limit / 1e9
+        )
+    })
+}
+
+fn mark_refused(speed: &mut [Value], input: &str, why: &str) {
+    for block in (speed.iter_mut())
+        .filter(|b| b["code"] == "orbitar" && b["input"] == input && b["refused"].is_null())
+    {
+        block["refused"] = json!(why);
+    }
+}
+
 fn readouts(metrics: &Metrics, tolerance: &BTreeMap<String, f64>) -> Vec<String> {
     let bounded: BTreeSet<&str> = (tolerance.keys())
         .filter_map(|key| crate::case::bounded(key).map(|(metric, _)| metric))
@@ -1674,16 +1997,77 @@ fn readouts(metrics: &Metrics, tolerance: &BTreeMap<String, f64>) -> Vec<String>
         .collect()
 }
 
+const VARIANT_IDENTITY: [(&str, Option<&str>); 4] = [
+    ("structure", Some("species")),
+    ("kpoints", None),
+    ("spin", None),
+    ("occupations", None),
+];
+
+const RATTLE_MAX_ANGSTROM: f64 = 0.05;
+const VARIANT_SHIFT_MAX_BOHR: f64 = 2.0 * RATTLE_MAX_ANGSTROM / acwf::BOHR_ANGSTROM;
+const CELL_STRAIN_MAX: f64 = 1e-9;
+
+fn generated_from(base: &str, variant: &str) -> Result<(f64, f64), String> {
+    let cell = |text: &str| {
+        let table: toml::Table = toml::from_str(text).map_err(|e| e.to_string())?;
+        rival::Cell::parse(&table)
+    };
+    let (strain, shift) = cell(variant)?.variation_from(&cell(base)?)?;
+    if strain > CELL_STRAIN_MAX {
+        return Err(format!(
+            "its cell is strained by {strain} of the base's, past {CELL_STRAIN_MAX}"
+        ));
+    }
+    if shift > VARIANT_SHIFT_MAX_BOHR {
+        return Err(format!(
+            "an atom moved {shift} Bohr along an axis from its base site, past {VARIANT_SHIFT_MAX_BOHR}"
+        ));
+    }
+    Ok((strain, shift))
+}
+
+fn same_identity(base: &str, variant: &str) -> Result<(), String> {
+    let parse = |text: &str| toml::from_str::<toml::Table>(text).map_err(|e| e.to_string());
+    let (base, variant) = (parse(base)?, parse(variant)?);
+    let shape = |t: &toml::Table| -> BTreeMap<String, BTreeSet<String>> {
+        (t.iter())
+            .map(|(k, v)| {
+                let keys = v.as_table().map(|t| t.keys().cloned().collect());
+                (k.clone(), keys.unwrap_or_default())
+            })
+            .collect()
+    };
+    if shape(&base) != shape(&variant) {
+        return Err(format!(
+            "its tables and keys {:?} differ from {:?}",
+            shape(&variant),
+            shape(&base)
+        ));
+    }
+    for (table, key) in VARIANT_IDENTITY {
+        let at = |t: &toml::Table| {
+            let v = t.get(table);
+            key.map_or(v, |key| v.and_then(|v| v.get(key))).cloned()
+        };
+        if at(&base) != at(&variant) {
+            let key = key.map_or_else(String::new, |k| format!(".{k}"));
+            return Err(format!("its {table}{key} differs"));
+        }
+    }
+    Ok(())
+}
+
 fn preflight(
     dir: &Path,
     inputs: &[(String, String)],
     tables: &[toml::Table],
-    held: &BTreeSet<String>,
+    held: &BTreeMap<String, Option<String>>,
     measure: Measure,
 ) -> Option<String> {
     let mut missing = BTreeSet::new();
     for ((name, _), table) in
-        (inputs.iter().zip(tables)).filter(|((name, _), _)| !held.contains(name))
+        (inputs.iter().zip(tables)).filter(|((name, _), _)| !held.contains_key(name))
     {
         let evidence = Evidence::new(
             dir,
@@ -1720,10 +2104,12 @@ struct Trace {
     peak_pss_bytes: Vec<u64>,
     rotation_s: Vec<f64>,
     rotation: Option<engine::Change>,
+    series: Value,
     speed: Vec<Value>,
     skipped: Vec<Value>,
     versus: Vec<Value>,
     held_out: Vec<Value>,
+    load: Vec<Value>,
     tuned: Vec<String>,
     relaxations: Vec<Value>,
     table: Option<Value>,
@@ -1971,13 +2357,162 @@ impl Discretization {
 }
 
 pub use record::{readout, union, verify};
-pub use speed::{G_MIN, G_RESAMPLES, G_SEED, g_interval};
+pub use speed::{
+    G_MIN, G_RESAMPLES, G_SEED, ORBITAR_SOLVES_IN_FLIGHT, PEAK_PSS_GUARD_BYTES, Peak,
+    estimated_peak, g_interval, log_log_slope, past_the_guard,
+};
+
+pub struct Summaries {
+    pub versus: Value,
+    pub series: Value,
+    pub skipped: Value,
+}
+
+pub fn claim_summaries(root: &Path, record: &Value) -> Result<Summaries, String> {
+    let id = record["case"].as_str().ok_or("the record names no case")?;
+    let case = Case::load(root, id)?;
+    let settings = rival::settings(root)?;
+    let sweep = (Tier::Claim.policy().speed).map_or(&[][..], |s| &s.threads[..]);
+    let (declared, _) = inputs(root, &root.join("benchmarks").join(id), None)?;
+    let mut atoms: BTreeMap<&str, usize> = BTreeMap::new();
+    for (name, text) in &declared {
+        let table: toml::Table = toml::from_str(text).map_err(|e| format!("{name}: {e}"))?;
+        atoms.insert(name, Input(&table).species()?.len());
+    }
+    let mut atoms_of: BTreeMap<String, usize> = atoms
+        .iter()
+        .map(|(name, size)| ((*name).to_owned(), *size))
+        .collect();
+    let mut sizes_of_held = Vec::new();
+    let mut manifest: Vec<String> = declared.iter().map(|(name, _)| name.clone()).collect();
+    let mut held: BTreeMap<String, Option<String>> = BTreeMap::new();
+    for h in record["held_out"].as_array().into_iter().flatten() {
+        let name = h["input"]
+            .as_str()
+            .ok_or(format!("a held-out entry names no input: {h}"))?;
+        let stem = name.strip_prefix(rival::HELD_OUT).unwrap_or(name);
+        let size = *atoms.get(stem).ok_or(format!(
+            "the held-out {name} varies {stem}, which is no input of {id}"
+        ))?;
+        held.insert(name.to_owned(), h["base"].as_str().map(str::to_owned));
+        manifest.push(name.to_owned());
+        sizes_of_held.push((name.to_owned(), size));
+    }
+    for (name, size) in sizes_of_held {
+        atoms_of.insert(name, size);
+    }
+    let paths = RivalPaths { id, held: &held };
+    if record["inputs"] != json!(manifest) {
+        return Err(format!(
+            "the record's inputs {} are not the case's inputs and held-out names {manifest:?}",
+            record["inputs"]
+        ));
+    }
+    let mut blocks: Vec<speed::BlockRecord> = Vec::new();
+    for b in record["speed"].as_array().into_iter().flatten() {
+        blocks.push(
+            serde_json::from_value(b.clone())
+                .map_err(|e| format!("a speed block does not parse: {e}"))?,
+        );
+    }
+    let mut wanted = BTreeSet::new();
+    let mut skipped = Vec::new();
+    for name in &manifest {
+        for &r in case.rivals() {
+            if let Some(why) = settings.skips(r, &paths.keyed(name)) {
+                skipped.push(json!({
+                    "code": r.adapter().name(), "input": name, "reason": why,
+                }));
+            }
+        }
+    }
+    for p in sweep.iter().map(|p| p.get()) {
+        for name in &manifest {
+            wanted.insert((speed::Code::Orbitar, name.as_str(), p));
+            for &r in case.rivals() {
+                if settings.times(p) && settings.skips(r, &paths.keyed(name)).is_none() {
+                    wanted.insert((speed::Code::Rival(r), name.as_str(), p));
+                }
+            }
+        }
+    }
+    let mut seen = BTreeSet::new();
+    for b in &blocks {
+        let at = format!("{} {} at {} threads", b.code, b.input, b.threads);
+        let key = (b.code, b.input.as_str(), b.threads.get());
+        if !wanted.contains(&key) {
+            return Err(format!(
+                "the speed block of {at} is not in the case's manifest"
+            ));
+        }
+        if !seen.insert(key) {
+            return Err(format!("the record holds the speed block of {at} twice"));
+        }
+        let declared = atoms_of.get(b.input.as_str()).copied().unwrap_or(0);
+        if b.atoms != declared {
+            return Err(format!(
+                "the speed block of {at} holds {} atoms, but its cell holds {declared}",
+                b.atoms
+            ));
+        }
+        if b.timing != speed::timing(&b.t_delta_s, &b.peak_rss_bytes, &b.peak_pss_bytes) {
+            return Err(format!(
+                "the speed block of {at} sums up other numbers than its samples give"
+            ));
+        }
+    }
+    if let Some((code, input, p)) = wanted.iter().find(|k| !seen.contains(*k)) {
+        return Err(format!(
+            "the case's manifest calls for a speed block of {code} {input} at {p} threads, which the record lacks"
+        ));
+    }
+    let records: Vec<&speed::BlockRecord> = blocks.iter().collect();
+    let compared = speed::versus(&records, case.milestone());
+    if !compared.failures.is_empty() {
+        return Err(compared.failures.join("; "));
+    }
+    let series = match case.claims().contains(&Claim::Memory) {
+        false => Value::Null,
+        true => {
+            let codes: Vec<speed::Code> = std::iter::once(speed::Code::Orbitar)
+                .chain(case.rivals().iter().map(|&r| speed::Code::Rival(r)))
+                .collect();
+            let expected: Vec<speed::Expected> = (declared.iter())
+                .flat_map(|(name, _)| codes.iter().map(move |&code| (name.as_str(), code)))
+                .map(|(input, code)| speed::Expected {
+                    code,
+                    input,
+                    atoms: atoms[input],
+                    skipped: match code {
+                        speed::Code::Rival(r) => settings.skips(r, &rival::input_path(id, input)),
+                        speed::Code::Orbitar => None,
+                    },
+                })
+                .collect();
+            speed::series(&records, &expected).entries
+        }
+    };
+    Ok(Summaries {
+        versus: Value::Array(compared.entries),
+        series,
+        skipped: Value::Array(skipped),
+    })
+}
 
 pub fn main(cases: &[(&'static str, Measure)]) -> ! {
     let args = Arguments::from_args();
     let session =
         crate::root().and_then(|root| Session::from_vars(&root, |key: &str| std::env::var_os(key)));
     let trials = match session {
+        Ok(Some(session)) if session.contained().is_err() => {
+            let refused = session.contained().err().unwrap_or_default();
+            (cases.iter())
+                .map(|&(id, _)| {
+                    let refused = refused.clone();
+                    Trial::test(id, move || Err(Failed::from(refused.clone())))
+                })
+                .collect()
+        }
         Ok(Some(session)) => cases
             .iter()
             .map(|&(id, measure)| {

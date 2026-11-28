@@ -1,8 +1,9 @@
 [case]
 tier = "claim"
 status = "planned"
-claims = ["memory", "correctness"]
+claims = ["speed", "memory", "correctness"]
 reference = "oracle"
+rivals = ["qe", "abinit"]
 
 [tolerance]
 term_difference_ha_per_cell_max = 1e-11
@@ -10,11 +11,11 @@ fermi_level_difference_ha_max = 2e-11
 
 [why]
 status = """\
-planned: rss_exponent is a readout with no bound, and no rivals give R, so case.rs refuses an active memory claim; \
-the case gates on the terms and E_F"""
+planned: with rivals, case.rs accepts an active memory claim; a passing claim run promotes the case, which can then \
+be set active"""
 inputs = """\
-diamond Si as 1×1×1, 2×2×1, 2×2×2, and 4×2×2 repeats of case 6's cell (2 to 32 atoms), each on the k mesh that folds \
-onto 4×4×4"""
+diamond Si as 1×1×1, 2×2×1, 2×2×2, 4×2×2, 4×4×2, and 4×4×4 repeats of case 6's cell (2 to 128 atoms), each on the k \
+mesh that folds onto 4×4×4; cells.py writes each input"""
 term_difference_ha_per_cell_max = """\
 each SCF stops at ‖Δñ‖ < 1e-11 (energy_tolerance_ha 1e-9 / 100). On four plane-wave LDA models (Si, Al, an 8-cell Al \
 chain, and the chain with an on-site U on one projector per atom) each term lay within 0.54 ‖Δñ‖ of its converged \

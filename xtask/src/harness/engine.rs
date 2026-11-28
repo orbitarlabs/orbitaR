@@ -11,7 +11,10 @@ use std::{
     fs::{self, File},
     hash::{BuildHasher, RandomState},
     io::{BufRead, BufReader, Read, Write},
-    os::unix::process::{CommandExt as _, ExitStatusExt as _},
+    os::unix::{
+        fs::symlink,
+        process::{CommandExt as _, ExitStatusExt as _},
+    },
     path::{Path, PathBuf},
     process::{Child, Command, ExitCode, ExitStatus, Stdio},
     sync::mpsc::{self, RecvTimeoutError},
@@ -207,8 +210,15 @@ pub(crate) fn cold(
     timeout: Duration,
 ) -> Result<Run, Failure> {
     let dir = sandbox().map_err(Failure::Harness)?;
+    let scope = dir.with_extension("scope");
     let result = place(&dir, files)
         .and_then(|()| build(&dir))
+        .and_then(|built| {
+            match CONTAINED.with_borrow(|c| c.as_ref().map(|c| c.wrap(&built, &scope))) {
+                Some(wrapped) => wrapped,
+                None => Ok(built),
+            }
+        })
         .and_then(|built| {
             let passed = (PASSED.iter()).filter_map(|&key| Some((key, std::env::var_os(key)?)));
             let own: Vec<_> = (built.get_envs())
@@ -238,9 +248,160 @@ pub(crate) fn cold(
                 watched(&mut command, &dir, stream, timeout)
             }
         })
-        .and_then(|watch| finish(watch, stream, step));
+        .and_then(|watch| {
+            LAST_PEAKS.set(Some([watch.peak_rss_bytes, watch.peak_pss_bytes]));
+            finish(watch, stream, step)
+        });
     let _ = fs::remove_dir_all(&dir);
+    let _ = fs::remove_dir_all(&scope);
     result
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Limit {
+    Scope,
+    Prlimit,
+}
+
+impl Limit {
+    fn name(&self) -> &'static str {
+        match self {
+            Limit::Scope => "systemd-run",
+            Limit::Prlimit => "prlimit",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Containment {
+    limit: Limit,
+    program: PathBuf,
+    max_bytes: u64,
+    env: Vec<(OsString, OsString)>,
+}
+
+const SCOPE_ENV: [&str; 2] = ["XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS"];
+
+const EXEC_DEFAULT_PATH: &str = "/usr/bin:/bin";
+
+impl Containment {
+    pub(crate) fn probe(
+        var: &dyn Fn(&str) -> Option<OsString>,
+        max_bytes: u64,
+    ) -> Option<Containment> {
+        let path = var("PATH")?;
+        let find = |name: &str| {
+            std::env::split_paths(&path)
+                .map(|dir| dir.join(name))
+                .find(|p| p.is_file())
+        };
+        let env: Vec<(OsString, OsString)> = (SCOPE_ENV.iter())
+            .filter_map(|&key| Some((OsString::from(key), var(key)?)))
+            .collect();
+        let candidates = [(Limit::Scope, env), (Limit::Prlimit, Vec::new())];
+        candidates.into_iter().find_map(|(limit, env)| {
+            let containment = Containment {
+                program: find(limit.name())?,
+                limit,
+                max_bytes,
+                env,
+            };
+            let scope = sandbox().ok()?;
+            let check = containment.wrap(&Command::new("true"), &scope);
+            let works = check.is_ok_and(|mut check| {
+                (check.stdout(Stdio::null()).stderr(Stdio::null()))
+                    .status()
+                    .is_ok_and(|s| s.success())
+            });
+            let _ = fs::remove_dir_all(&scope);
+            works.then_some(containment)
+        })
+    }
+
+    fn flags(&self) -> Vec<String> {
+        match self.limit {
+            Limit::Scope => vec![
+                "--user".into(),
+                "--scope".into(),
+                "--quiet".into(),
+                "-p".into(),
+                format!("MemoryMax={}", self.max_bytes),
+                "-p".into(),
+                "MemorySwapMax=0".into(),
+                "--".into(),
+            ],
+            Limit::Prlimit => vec![format!("--as={}", self.max_bytes), "--".into()],
+        }
+    }
+
+    fn wrap(&self, built: &Command, scope: &Path) -> Result<Command, Failure> {
+        let tool = scope.join(self.limit.name());
+        (fs::create_dir_all(scope))
+            .and_then(|()| symlink(&self.program, &tool))
+            .map_err(|e| Failure::Harness(format!("the scope's tool {}: {e}", tool.display())))?;
+        let mut command = match self.limit {
+            Limit::Scope => Command::new("systemd-run"),
+            Limit::Prlimit => Command::new("prlimit"),
+        };
+        command
+            .env_clear()
+            .args(self.flags())
+            .arg(built.get_program())
+            .args(built.get_args());
+        for (key, value) in built.get_envs() {
+            match value {
+                Some(value) => command.env(key, value),
+                None => command.env_remove(key),
+            };
+        }
+        let own = (built.get_envs()).find_map(|(key, value)| value.filter(|_| key == "PATH"));
+        let mut path = scope.as_os_str().to_owned();
+        path.push(":");
+        path.push(own.unwrap_or(EXEC_DEFAULT_PATH.as_ref()));
+        command.env("PATH", path).envs(self.env.iter().cloned());
+        Ok(command)
+    }
+
+    pub(crate) fn tree_wide(&self) -> bool {
+        self.limit == Limit::Scope
+    }
+
+    pub(crate) fn describe(&self) -> Value {
+        let what = match self.limit {
+            Limit::Scope => {
+                "systemd-run --user --scope: MemoryMax over the whole process tree, no swap"
+            }
+            Limit::Prlimit => {
+                "prlimit --as: the address space of each process alone, not the tree; a pilot only"
+            }
+        };
+        serde_json::json!({
+            "limit": what,
+            "program": self.program,
+            "max_bytes": self.max_bytes,
+            "argv": self.flags(),
+        })
+    }
+}
+
+pub(crate) fn contained<T>(containment: Option<Containment>, run: impl FnOnce() -> T) -> T {
+    let before = CONTAINED.replace(containment);
+    let out = run();
+    CONTAINED.set(before);
+    out
+}
+
+thread_local! {
+    static CONTAINED: std::cell::RefCell<Option<Containment>> = const { std::cell::RefCell::new(None) };
+    static LAST_PEAKS: std::cell::Cell<Option<[u64; 2]>> = const { std::cell::Cell::new(None) };
+}
+
+pub(crate) fn forget_peaks() {
+    LAST_PEAKS.set(None);
+}
+
+pub(crate) fn last_peaks() -> Option<[u64; 2]> {
+    LAST_PEAKS.get()
 }
 
 const SHIMMED: bool = cfg!(target_os = "linux");
@@ -433,6 +594,8 @@ struct Watched {
     status: i32,
     peak_rss_bytes: u64,
     peak_pss_bytes: u64,
+    #[serde(default)]
+    timed_out_s: Option<u64>,
 }
 
 fn watched(
@@ -497,6 +660,7 @@ fn watched(
             break;
         }
     }
+    let mut timed_out_s = None;
     let (usage, elapsed) = match exited {
         Some(done) => done,
         None => loop {
@@ -504,16 +668,25 @@ fn watched(
                 break (usage, start.elapsed());
             }
             if start.elapsed() >= timeout {
+                pss = pss.max(linux_process_tree_pss_bytes(child.id()));
                 let _ = child.kill();
-                let _ = child.wait4();
-                return Err(Failure::Engine(format!(
-                    "timeout after {} s",
-                    timeout.as_secs()
-                )));
+                timed_out_s = Some(timeout.as_secs());
+                break (child.wait4().map_err(harness)?, start.elapsed());
             }
             std::thread::sleep(Duration::from_micros(100));
         },
     };
+    if timed_out_s.is_some() {
+        return Ok(Watched {
+            lines: Vec::new(),
+            written: String::new(),
+            seconds: elapsed.as_secs_f64(),
+            status: usage.status.into_raw(),
+            peak_rss_bytes: usage.rusage.maxrss,
+            peak_pss_bytes: pss,
+            timed_out_s,
+        });
+    }
     let lines =
         (listener.join()).map_err(|_| Failure::Harness(format!("the {name} reader panicked")))?;
     Ok(Watched {
@@ -523,6 +696,7 @@ fn watched(
         status: usage.status.into_raw(),
         peak_rss_bytes: usage.rusage.maxrss,
         peak_pss_bytes: pss,
+        timed_out_s,
     })
 }
 
@@ -537,6 +711,9 @@ fn finish(watch: Watched, stream: Stream, step: StepLine) -> Result<Run, Failure
             }),
             None => rest.push(line.as_str()),
         }
+    }
+    if let Some(seconds) = watch.timed_out_s {
+        return Err(Failure::Engine(format!("timeout after {seconds} s")));
     }
     let status = ExitStatus::from_raw(watch.status);
     if !status.success() {

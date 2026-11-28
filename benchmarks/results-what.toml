@@ -69,7 +69,7 @@ metric = ["free_energy_error_ha_per_atom"]
 unit = "Ha/atom"
 
 [12]
-what = "energy terms as cells grow; memory"
+what = "Si 2 to 128 vs QE, ABINIT: terms, T, Pss"
 metric = ["term_difference_ha_per_cell", "fermi_level_difference_ha"]
 unit = "Ha"
 

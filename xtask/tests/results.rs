@@ -1,3 +1,6 @@
+mod card;
+mod claim;
+
 use crate::{Tree, git, has, lever, tree, write};
 use std::{fs, path::Path, process::Command};
 
@@ -51,7 +54,7 @@ fn record(
         _ => r#"{"d_difference_max":0.0}"#,
     };
     format!(
-        r#"{{"case":"{case}","tier":"{tier}","commit":"{commit}","dirty":{dirty},"pilot":false,"engine_sha256":"{}","outcome":"{outcome}","metrics":{metrics},"tolerance":{tolerance}}}"#,
+        r#"{{"schema":4,"failures":[],"filter":null,"case":"{case}","tier":"{tier}","commit":"{commit}","dirty":{dirty},"pilot":false,"engine_sha256":"{}","outcome":"{outcome}","metrics":{metrics},"tolerance":{tolerance}}}"#,
         "ab".repeat(32)
     )
 }
@@ -351,4 +354,167 @@ fn a_results_file_that_its_own_numbers_contradict_is_refused() {
         assert!(has(&found, why), "{why}: {found:?}");
         assert!(has(&s11(&root), why), "{why}");
     }
+}
+
+#[test]
+fn science_s11_derives_each_row_again_from_its_pinned_record_and_names_any_other_row() {
+    let root = cases("pinned");
+    let head = commit(&root, "head");
+    push_records(&root, &head);
+    assert!(lever(&["results", "collect"], &root).is_empty());
+    assert!(lever(&["results", "render"], &root).is_empty());
+    assert_eq!(s11(&root), Vec::<String>::new());
+    let (results, pinned) = (
+        read(&root, "benchmarks/RESULTS.toml"),
+        read(&root, "benchmarks/RECORDS.jsonl"),
+    );
+    assert_eq!(pinned.lines().count(), 2, "{pinned}");
+    let row = "1_a: its row in benchmarks/RESULTS.toml differs from what its record in benchmarks/RECORDS.jsonl gives";
+    write(
+        &root,
+        "benchmarks/RESULTS.toml",
+        &results.replace(
+            "measured = 5e-13\nratio = 5e-1",
+            "measured = 2.5e-13\nratio = 2.5e-1",
+        ),
+    );
+    assert!(has(&s11(&root), row), "{:?}", s11(&root));
+    write(&root, "benchmarks/RESULTS.toml", &results);
+    write(
+        &root,
+        "benchmarks/RECORDS.jsonl",
+        &pinned.replace("5e-13", "4e-13"),
+    );
+    assert!(has(
+        &s11(&root),
+        "1_a: record_sha256 is not the sha256 of its record in benchmarks/RECORDS.jsonl"
+    ));
+    let extra = record("2_b", "node", &head, false, "pass", r#"{"e_error":0.5}"#);
+    write(
+        &root,
+        "benchmarks/RECORDS.jsonl",
+        &format!("{pinned}{extra}\n"),
+    );
+    assert!(has(
+        &s11(&root),
+        "benchmarks/RECORDS.jsonl holds a record of 2_b, which no row uses"
+    ));
+    write(&root, "benchmarks/RECORDS.jsonl", &pinned);
+    write(
+        &root,
+        "benchmarks/4_d/case.toml",
+        &EXACT.replace("\"active\"", "\"planned\""),
+    );
+    assert!(has(
+        &s11(&root),
+        "but the active cases are [\"1_a\", \"2_b\"]"
+    ));
+}
+
+#[test]
+fn a_record_that_names_no_pilot_flag_false_or_an_unread_schema_is_refused() {
+    let root = cases("schema");
+    let head = commit(&root, "head");
+    let one = record(
+        "1_a",
+        "push",
+        &head,
+        false,
+        "pass",
+        r#"{"x_error":5e-13,"share":0.4}"#,
+    );
+    for (record, why) in [
+        (
+            one.replace("\"pilot\":false", "\"pilot\":\"false\""),
+            "1_a names no pilot flag false",
+        ),
+        (
+            one.replace("\"schema\":4", "\"schema\":3"),
+            "1_a has record schema 3; results reads schema [4]",
+        ),
+        (
+            one.replace("\"share_min\":0.1", "\"share_min\":0.2"),
+            "1_a: the record bounds share_min at 2e-1, which its case's [tolerance] does not",
+        ),
+    ] {
+        write(&root, "target/benchmarks/push/1_a.json", &record);
+        assert!(has(&lever(&["results", "collect"], &root), why), "{why}");
+    }
+}
+
+#[test]
+fn a_passing_record_that_measures_fewer_bounds_than_its_case_is_refused_and_a_failing_one_is_kept()
+{
+    let root = cases("missing-bound");
+    write(
+        &root,
+        "benchmarks/1_a/case.toml",
+        &format!("{PUSH}y_error_max = 1.0\n"),
+    );
+    let head = commit(&root, "records");
+    for (outcome, refused) in [("pass", true), ("fail", false)] {
+        let one = record(
+            "1_a",
+            "push",
+            &head,
+            false,
+            outcome,
+            r#"{"x_error":5e-13,"share":0.4}"#,
+        );
+        write(&root, "target/benchmarks/push/1_a.json", &one);
+        let found = lever(&["results", "collect"], &root);
+        let named = "1_a passes without a measure of each bound of its case's [tolerance]";
+        match refused {
+            true => assert!(has(&found, named), "{outcome}: {found:?}"),
+            false => {
+                assert_eq!(found, Vec::<String>::new(), "{outcome}");
+                let results = read(&root, "benchmarks/RESULTS.toml");
+                let row = results
+                    .split("[[case]]")
+                    .find(|r| r.contains("id = \"1_a\""))
+                    .unwrap();
+                assert!(row.contains("outcome = \"fail\""), "{results}");
+            }
+        }
+    }
+}
+
+#[test]
+fn science_s11_names_a_kept_row_whose_record_its_case_now_refuses() {
+    let root = cases("refused-row");
+    let head = commit(&root, "records");
+    push_records(&root, &head);
+    assert!(lever(&["results", "collect"], &root).is_empty());
+    write(
+        &root,
+        "benchmarks/1_a/case.toml",
+        &PUSH.replace("x_error_max = 1e-12", "x_error_max = 1e-11"),
+    );
+    let found = s11(&root);
+    assert!(
+        has(
+            &found,
+            "1_a: its record in benchmarks/RECORDS.jsonl is refused: "
+        ),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_control_character_in_a_results_string_is_written_as_its_escape() {
+    let root = cases("control");
+    write(
+        &root,
+        "benchmarks/results-what.toml",
+        &WHAT.replace("what = \"x vs analytic\"", "what = \"x vs\\u0007analytic\""),
+    );
+    let head = commit(&root, "records");
+    push_records(&root, &head);
+    assert!(lever(&["results", "collect"], &root).is_empty());
+    let results = read(&root, "benchmarks/RESULTS.toml");
+    assert!(
+        results.contains("what = \"x vs\\u0007analytic\""),
+        "{results}"
+    );
+    assert!(!results.contains('\u{7}'), "{results}");
 }

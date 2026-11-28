@@ -1,10 +1,15 @@
+mod card;
+mod claim;
+
 use crate::{
     Findings,
     case::{self, Bound, Case, Status, Tier},
     git, walk,
 };
+use claim::Claim;
 use serde::Deserialize;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fmt::Write as _,
@@ -15,6 +20,8 @@ use std::{
 pub(crate) const RESULTS: &str = "benchmarks/RESULTS.toml";
 pub(crate) const WHAT: &str = "benchmarks/results-what.toml";
 pub(crate) const PAGE: &str = "benchmarks/README.md";
+pub(crate) const RECORDS: &str = "benchmarks/RECORDS.jsonl";
+const HISTORY: [u64; 1] = [4];
 pub(crate) const LIGHT: &str = "assets/benchmarks/results-light.svg";
 pub(crate) const DARK: &str = "assets/benchmarks/results-dark.svg";
 const SCHEMA: u32 = 1;
@@ -36,6 +43,8 @@ struct Row {
     engine_sha256: Option<String>,
     #[serde(default, rename = "metric")]
     metrics: Vec<Metric>,
+    record_sha256: Option<String>,
+    claim: Option<Claim>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
@@ -165,6 +174,10 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
         Ok(None) => BTreeMap::new(),
         Err(e) => return vec![e],
     };
+    let mut evidence = match pinned(root) {
+        Ok(lines) => lines,
+        Err(e) => return vec![e],
+    };
     for tier in chosen {
         let dir = base.join(tier.name());
         let files = jsons(&dir);
@@ -172,8 +185,17 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
             findings.push(format!("results: no record in {}", dir.display()));
         }
         for path in files {
-            match row(root, tier, &path, &cases, &whats) {
+            let text = match fs::read_to_string(&path) {
+                Ok(text) => text,
+                Err(e) => {
+                    findings.push(format!("results: {}: {e}", path.display()));
+                    continue;
+                }
+            };
+            let line = text.strip_suffix('\n').unwrap_or(&text);
+            match row(root, tier, line, &cases, &whats) {
                 Ok(Some(row)) => {
+                    evidence.insert(row.id.clone(), line.to_owned());
                     rows.insert(row.id.clone(), row);
                 }
                 Ok(None) => {}
@@ -196,22 +218,42 @@ pub(crate) fn collect(root: &Path, tiers: &[String], records: Option<&Path>) -> 
             commit: None,
             engine_sha256: None,
             metrics: Vec::new(),
+            record_sha256: None,
+            claim: None,
         });
         if row.outcome != Outcome::NoRecord
             && let Err(e) = headline(&mut row.metrics, &what.metric)
         {
             findings.push(format!("results: {RESULTS}: {id}: {e}"));
         }
-        row.what.clone_from(&what.what);
-        row.unit.clone_from(&what.unit);
-        row.exact.clone_from(&what.exact);
-        row.tier = case.tier();
+        complete(&mut row, what, case);
+        if let Err(e) = consistent(&row) {
+            findings.push(format!("results: {RESULTS}: {id}: {e}"));
+        }
         kept.push(row);
     }
     if !findings.is_empty() {
         return findings;
     }
-    if let Err(e) = fs::write(root.join(RESULTS), write(&kept)) {
+    let mut lines = String::new();
+    for row in kept.iter().filter(|r| r.record_sha256.is_some()) {
+        match evidence.get(&row.id) {
+            Some(line) => {
+                lines.push_str(line);
+                lines.push('\n');
+            }
+            None => findings.push(format!(
+                "results: {RECORDS} holds no record of {}; collect its record again",
+                row.id
+            )),
+        }
+    }
+    if !findings.is_empty() {
+        return findings;
+    }
+    if let Err(e) = (fs::write(root.join(RECORDS), lines))
+        .and_then(|()| fs::write(root.join(RESULTS), write(&kept)))
+    {
         return vec![format!("results: {RESULTS}: {e}")];
     }
     for row in &kept {
@@ -244,12 +286,14 @@ fn jsons(dir: &Path) -> Vec<PathBuf> {
 fn row(
     root: &Path,
     tier: Tier,
-    path: &Path,
+    line: &str,
     cases: &BTreeMap<u32, (String, Case)>,
     whats: &BTreeMap<u32, What>,
 ) -> Result<Option<Row>, String> {
-    let text = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let record: Value = serde_json::from_str(&text).map_err(|e| format!("not JSON: {e}"))?;
+    if line.contains('\n') {
+        return Err("a record is one line of JSON, as the harness writes it".into());
+    }
+    let record: Value = serde_json::from_str(line).map_err(|e| format!("not JSON: {e}"))?;
     let id = record["case"].as_str().ok_or("no case")?;
     let number = case::parse_id(id)?;
     let Some((_, case)) = cases.get(&number).filter(|(known, _)| known == id) else {
@@ -263,6 +307,11 @@ fn row(
     if record["pilot"] == Value::Bool(true) {
         return Err(format!(
             "{id} is a pilot record; a pilot prices a run and proves nothing"
+        ));
+    }
+    if record["pilot"] != Value::Bool(false) {
+        return Err(format!(
+            "{id} names no pilot flag false; only a record that says it is no pilot stands behind a number"
         ));
     }
     if record["tier"].as_str() != Some(tier.name()) {
@@ -295,8 +344,42 @@ fn row(
             ));
         }
     };
+    if tier != Tier::Claim
+        && !record["schema"]
+            .as_u64()
+            .is_some_and(|v| HISTORY.contains(&v))
+    {
+        return Err(format!(
+            "{id} has record schema {}; results reads schema {HISTORY:?}",
+            record["schema"]
+        ));
+    }
+    let clean = record["failures"].as_array().is_some_and(Vec::is_empty)
+        && (record["filter"].is_null() || record["filter"].as_array().is_some_and(Vec::is_empty));
+    if outcome == Outcome::Pass && !clean {
+        return Err(format!(
+            "{id} says pass, but names failures {} or a filter {}",
+            record["failures"], record["filter"]
+        ));
+    }
     let tolerance: BTreeMap<String, f64> = serde_json::from_value(record["tolerance"].clone())
         .map_err(|e| format!("{id}: tolerance: {e}"))?;
+    for (key, limit) in &tolerance {
+        if case
+            .tolerance()
+            .get(key)
+            .is_none_or(|l| l.to_bits() != limit.to_bits())
+        {
+            return Err(format!(
+                "{id}: the record bounds {key} at {limit:e}, which its case's [tolerance] does not"
+            ));
+        }
+    }
+    if outcome == Outcome::Pass && tolerance.len() != case.tolerance().len() {
+        return Err(format!(
+            "{id} passes without a measure of each bound of its case's [tolerance]"
+        ));
+    }
     let mut metrics = Vec::new();
     for (key, limit) in tolerance {
         let (name, bound) = case::bounded(&key).ok_or(format!("{id}: [tolerance].{key}"))?;
@@ -311,6 +394,12 @@ fn row(
         });
     }
     headline(&mut metrics, &whats[&number].metric).map_err(|e| format!("{id}: {e}"))?;
+    let claim = match (tier, outcome) {
+        (Tier::Claim, Outcome::Pass) => {
+            Some(claim::read(root, id, case, &record).map_err(|e| format!("{id}: {e}"))?)
+        }
+        _ => None,
+    };
     Ok(Some(Row {
         number,
         id: id.to_owned(),
@@ -323,7 +412,111 @@ fn row(
         commit: Some(commit.to_owned()),
         engine_sha256: Some(engine.to_owned()),
         metrics,
+        record_sha256: Some(sha256(line)),
+        claim,
     }))
+}
+
+fn complete(row: &mut Row, what: &What, case: &Case) {
+    row.what.clone_from(&what.what);
+    row.unit.clone_from(&what.unit);
+    row.exact.clone_from(&what.exact);
+    row.tier = case.tier();
+}
+
+fn derived(root: &Path, rows: &[Row]) -> Findings {
+    let s11 = |e: String| format!("science: S11 {e}");
+    let cases = match active(root) {
+        Ok(cases) => cases,
+        Err(e) => return vec![s11(e)],
+    };
+    let whats = match whats(root, &cases) {
+        Ok(whats) => whats,
+        Err(e) => return e.into_iter().map(s11).collect(),
+    };
+    let lines = match pinned(root) {
+        Ok(lines) => lines,
+        Err(e) => return vec![s11(e)],
+    };
+    let mut findings = Vec::new();
+    let active: Vec<&str> = cases.values().map(|(id, _)| id.as_str()).collect();
+    let listed: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
+    if active != listed {
+        findings.push(s11(format!(
+            "{RESULTS} has rows {listed:?}, but the active cases are {active:?}; run `cargo xtask results collect`"
+        )));
+    }
+    for kept in rows {
+        let (Some(sha), Some(run)) = (&kept.record_sha256, kept.run) else {
+            continue;
+        };
+        let Some(line) = lines.get(&kept.id) else {
+            findings.push(s11(format!("{RECORDS} holds no record of {}", kept.id)));
+            continue;
+        };
+        if sha256(line) != *sha {
+            findings.push(s11(format!(
+                "{}: record_sha256 is not the sha256 of its record in {RECORDS}",
+                kept.id
+            )));
+            continue;
+        }
+        let made = row(root, run, line, &cases, &whats);
+        match (made, cases.get(&kept.number), whats.get(&kept.number)) {
+            (Ok(Some(mut made)), Some((_, case)), Some(what)) => {
+                complete(&mut made, what, case);
+                if write(&[made]) != write(std::slice::from_ref(kept)) {
+                    findings.push(s11(format!(
+                        "{}: its row in {RESULTS} differs from what its record in {RECORDS} gives",
+                        kept.id
+                    )));
+                }
+            }
+            (Err(e), _, _) => findings.push(s11(format!(
+                "{}: its record in {RECORDS} is refused: {e}",
+                kept.id
+            ))),
+            _ => findings.push(s11(format!("{}: no active case of its record", kept.id))),
+        }
+    }
+    for id in lines.keys() {
+        if !rows
+            .iter()
+            .any(|r| &r.id == id && r.record_sha256.is_some())
+        {
+            findings.push(s11(format!(
+                "{RECORDS} holds a record of {id}, which no row uses"
+            )));
+        }
+    }
+    findings
+}
+
+fn sha256(text: &str) -> String {
+    Sha256::digest(text.as_bytes())
+        .iter()
+        .fold(String::new(), |mut out, b| {
+            let _ = write!(out, "{b:02x}");
+            out
+        })
+}
+
+fn pinned(root: &Path) -> Result<BTreeMap<String, String>, String> {
+    if fs::symlink_metadata(root.join(RECORDS)).is_err() {
+        return Ok(BTreeMap::new());
+    }
+    let mut lines = BTreeMap::new();
+    for line in walk::read(root, RECORDS).lines() {
+        let record: Value =
+            serde_json::from_str(line).map_err(|e| format!("results: {RECORDS}: not JSON: {e}"))?;
+        let id = record["case"]
+            .as_str()
+            .ok_or(format!("results: {RECORDS}: a record names no case"))?;
+        if lines.insert(id.to_owned(), line.to_owned()).is_some() {
+            return Err(format!("results: {RECORDS} holds {id} twice"));
+        }
+    }
+    Ok(lines)
 }
 
 fn headline(metrics: &mut [Metric], names: &[String]) -> Result<(), String> {
@@ -479,6 +672,12 @@ fn consistent(row: &Row) -> Result<(), String> {
     if row.what.trim().is_empty() {
         return Err("no what phrase".into());
     }
+    if none == row.record_sha256.is_some() {
+        return Err("a row has record_sha256 exactly when it has a record".into());
+    }
+    if row.claim.is_some() && (row.run, row.outcome) != (Some(Tier::Claim), Outcome::Pass) {
+        return Err("only a passing claim record gives a claim table".into());
+    }
     Ok(())
 }
 
@@ -493,7 +692,19 @@ fn num(v: f64) -> String {
 }
 
 fn quoted(text: &str) -> String {
-    format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
+    let mut out = String::from("\"");
+    for c in text.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            c if c.is_control() => {
+                let _ = write!(out, "\\u{:04X}", u32::from(c));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
 }
 
 fn write(rows: &[Row]) -> String {
@@ -528,6 +739,9 @@ fn write(rows: &[Row]) -> String {
                 quoted(engine)
             );
         }
+        if let Some(sha) = &row.record_sha256 {
+            let _ = writeln!(out, "record_sha256 = {}", quoted(sha));
+        }
         for m in &row.metrics {
             let side = match m.bound {
                 Side::Max => "max",
@@ -545,16 +759,22 @@ fn write(rows: &[Row]) -> String {
                 out.push_str("headline = true\n");
             }
         }
+        if let Some(claim) = &row.claim {
+            claim::write(&mut out, claim);
+        }
     }
     out
 }
 
-fn rendered(rows: &[Row]) -> [(&'static str, String); 3] {
+fn rendered(rows: &[Row]) -> Vec<(&'static str, Option<String>)> {
     [
-        (PAGE, page(rows)),
-        (LIGHT, chart(rows, &LIGHT_THEME)),
-        (DARK, chart(rows, &DARK_THEME)),
+        (PAGE, Some(page(rows))),
+        (LIGHT, Some(chart(rows, &LIGHT_THEME))),
+        (DARK, Some(chart(rows, &DARK_THEME))),
     ]
+    .into_iter()
+    .chain(card::cards(rows))
+    .collect()
 }
 
 pub(crate) fn render(root: &Path) -> Findings {
@@ -570,9 +790,13 @@ pub(crate) fn render(root: &Path) -> Findings {
     let mut findings = Vec::new();
     for (path, body) in rendered(&rows) {
         let path = root.join(path);
-        if let Err(e) =
-            (path.parent().map_or(Ok(()), fs::create_dir_all)).and_then(|()| fs::write(&path, body))
-        {
+        let done = match body {
+            Some(body) => (path.parent().map_or(Ok(()), fs::create_dir_all))
+                .and_then(|()| fs::write(&path, body)),
+            None if fs::symlink_metadata(&path).is_ok() => fs::remove_file(&path),
+            None => Ok(()),
+        };
+        if let Err(e) = done {
             findings.push(format!("results: {}: {e}", path.display()));
         }
     }
@@ -586,25 +810,31 @@ pub(crate) fn check(root: &Path) -> Findings {
     };
     let exists = |p: &str| fs::symlink_metadata(root.join(p)).is_ok();
     let Some(rows) = rows else {
-        return [PAGE, LIGHT, DARK]
-            .into_iter()
+        return ([PAGE, LIGHT, DARK, RECORDS].into_iter().chain(card::CARDS))
             .filter(|p| exists(p))
             .map(|p| {
                 format!("science: S11 {p} exists without {RESULTS}; render it from the records")
             })
             .collect();
     };
-    (rendered(&rows).into_iter())
-        .filter(|(path, want)| {
-            let file = fs::symlink_metadata(root.join(path)).is_ok_and(|m| m.is_file());
-            !file || walk::read(root, path) != *want
-        })
-        .map(|(path, _)| {
-            format!(
+    let mut findings = derived(root, &rows);
+    for (path, want) in rendered(&rows) {
+        let Some(want) = want else {
+            if exists(path) {
+                findings.push(format!(
+                    "science: S11 {path} exists, but no row of {RESULTS} backs it; `cargo xtask results render` removes it"
+                ));
+            }
+            continue;
+        };
+        let file = fs::symlink_metadata(root.join(path)).is_ok_and(|m| m.is_file());
+        if !file || walk::read(root, path) != want {
+            findings.push(format!(
                 "science: S11 {path} differs from what `cargo xtask results render` makes of {RESULTS}"
-            )
-        })
-        .collect()
+            ));
+        }
+    }
+    findings
 }
 
 fn headline_of(row: &Row) -> Option<&Metric> {
