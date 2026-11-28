@@ -316,7 +316,7 @@ fn a_paired_h_scales_columns_at_both_ends_of_the_exponent_range_exactly() {
     let quarter = plain(&vec![0.25; grid.points().len()]);
     let whole = Hamiltonian::assembled(&basis, &grid, &quarter, &[]).unwrap();
     let paired = whole.paired(&pairs).unwrap();
-    let (largest, tiniest) = (2f64.powi(1023), 2f64.powi(-1025));
+    let (largest, tiniest) = (2f64.powi(1023), f64::from_bits(1_u64 << 49));
     for column in [
         [1.0, largest],
         [largest, 1.0],
