@@ -1,0 +1,3 @@
+sha256 = "6c1992f3a540b5b93b3a8380c383af31686e10f86aae79d53aef43f5236836fb"
+reviewer = "claude-review-no-comments,codex-integration-review"
+reason = "release 0.0.1: the case runner's comments leave (no-comments) and its README reads move to fixtures; cases 20 to 22 bring r2SCAN energy, forces and stress; settings, tolerances and references reviewed unchanged in content (integration review round 2, all 22 AGREE)"

@@ -1,0 +1,3 @@
+sha256 = "5b7c4579a2496eecaac16510a2cdb9194e9db93ea3f23970e5ca4cf2b62433ae"
+reviewer = "captain-after-review-c418e69"
+reason = "lock-split mutants: blobs splits each cat-file record without index arithmetic, a locks directory whose pid is no number is named as a case, a new case takes a number above a case that only the lock still names, and Moving::take's AlreadyExists guard carries a reasoned .cargo/mutants.toml entry, for the four mutants CI's shard 5 missed at d996701"

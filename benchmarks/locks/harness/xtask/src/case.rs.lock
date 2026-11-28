@@ -1,0 +1,3 @@
+sha256 = "59a9cb80d90924422eac3908de8c3da736b7068bdd05900902770626cfc36387"
+reviewer = "captain-final-call after codex-review3-21"
+reason = "lock-split round 3: the move takes benchmarks/locks.move for its whole run, stages in benchmarks/locks.<pid>.partial, renames once, re-reads the lock and only then deletes benchmarks/LOCK; a hashed path or an old LOCK entry with a control character is refused by name"

@@ -83,8 +83,9 @@ pub(crate) fn tier(root: &Path, name: &str, case: Option<&str>, env: &Env) -> Fi
     let mut findings = cargo(env, root, &test, &vars);
     if lock::fingerprint(root) != before {
         findings.push(format!(
-            "{}: the run changed benchmarks/LOCK or a locked file",
-            tier.name()
+            "{}: the run changed {} or a locked file",
+            tier.name(),
+            lock::DIR
         ));
     }
     findings.extend(harness::verify(root, tier, &records, since, case));

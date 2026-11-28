@@ -35,7 +35,7 @@ pub(crate) fn check(root: &Path) -> Findings {
     for second in [".cargo/config", ".clippy.toml"] {
         if root.join(second).exists() {
             findings.push(format!(
-                "manifest: {second} is a second config that this lever and benchmarks/LOCK miss; remove it"
+                "manifest: {second} is a second config that this lever and benchmarks/locks miss; remove it"
             ));
         }
     }

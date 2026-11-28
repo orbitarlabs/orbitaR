@@ -1,0 +1,3 @@
+sha256 = "fabbaa50f87ff68ac57310d18c9eb08af5bae0383a27566388550e2eb08e2656"
+reviewer = "codex-review-pr6"
+reason = "no comments first, the rest: case comments into the validated [why] table that each record carries; reference scripts without comments or docstrings, their outputs byte-identical; reasons into reference/SOURCE.toml; no bound, input, or reference value changed"

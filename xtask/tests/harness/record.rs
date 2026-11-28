@@ -79,12 +79,13 @@ fn unreviewed_hashes_fail_the_tier() {
         "record-lock",
         &[
             ("benchmarks/1_a/case.toml", ACTIVE),
+            ("xtask/src/harness.rs", "// judge\n"),
             ("records/1_a.json", GOOD),
         ],
     );
     let f = findings(&root);
-    assert!(has(&f, "1_a is not in benchmarks/LOCK"), "{f:?}");
-    assert!(has(&f, "the harness is not in benchmarks/LOCK"), "{f:?}");
+    assert!(has(&f, "1_a is not in benchmarks/locks"), "{f:?}");
+    assert!(has(&f, "the harness is not in benchmarks/locks"), "{f:?}");
     assert!(lever(&["lock", "--reviewer", "owner", "--reason", "r"], &root).is_empty());
     write(
         &root,
@@ -92,19 +93,25 @@ fn unreviewed_hashes_fail_the_tier() {
         &ACTIVE.replace("1e-12", "1e-11"),
     );
     let f = findings(&root);
-    assert!(has(&f, "1_a changed since its LOCK review"), "{f:?}");
+    assert!(
+        has(
+            &f,
+            "1_a changed since its lock review: benchmarks/1_a/case.toml"
+        ),
+        "{f:?}"
+    );
     assert!(!has(&f, "the harness"), "{f:?}");
 }
 
 #[test]
 fn a_lock_that_does_not_parse_is_named_once() {
-    let lock = "# harness reviewer=a reason=b\n# harness reviewer=c reason=d\n";
+    let lock = "sha256 = \"removed\"\nreviewer = \"a\"\n";
     let root = tree(
         "record-lock-twice",
         &[
             ("benchmarks/1_a/case.toml", ACTIVE),
             ("benchmarks/2_b/case.toml", ACTIVE),
-            ("benchmarks/LOCK", lock),
+            ("benchmarks/locks/harness/x.rs.lock", lock),
             ("records/1_a.json", GOOD),
             ("records/2_b.json", &GOOD.replace("1_a", "2_b")),
         ],
@@ -112,10 +119,10 @@ fn a_lock_that_does_not_parse_is_named_once() {
     let f = findings(&root);
     let named: Vec<_> = f
         .iter()
-        .filter(|x| x.contains("lists harness twice"))
+        .filter(|x| x.contains("benchmarks/locks/harness/x.rs.lock: "))
         .collect();
     assert_eq!(named.len(), 1, "{f:?}");
-    assert!(!has(&f, "LOCK review"), "{f:?}");
+    assert!(!has(&f, "lock review"), "{f:?}");
 }
 
 #[test]
@@ -798,7 +805,7 @@ fn a_shard_of_other_files_or_commits_fails_the_union_but_another_cpu_does_not() 
     std::fs::write(&path, record.to_string()).unwrap();
     let found = shards(&root);
     for needle in [
-        "ran other case files than this tree's reviewed LOCK hashes",
+        "ran other case files than this tree's reviewed lock hashes",
         "the records ran more than one commit",
     ] {
         assert!(has(&found, needle), "{needle}: {found:?}");

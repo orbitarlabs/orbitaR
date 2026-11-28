@@ -447,8 +447,11 @@ fn unreviewed(root: &Path, id: &str) -> Option<String> {
     };
     match lock::state(root, id) {
         Ok(lock::State::Reviewed) => None,
-        Ok(lock::State::Stale) => Some(format!("{name} changed since its LOCK review")),
-        Ok(lock::State::Unlocked) => Some(format!("{name} is not in {}", lock::PATH)),
+        Ok(lock::State::Stale(files)) => Some(format!(
+            "{name} changed since its lock review: {}",
+            files.join(", ")
+        )),
+        Ok(lock::State::Unlocked) => Some(format!("{name} is not in {}", lock::DIR)),
         Ok(lock::State::Broken(e)) => Some(format!("{name}: {e}")),
         Err(e) => (id == lock::HARNESS).then_some(e),
     }
@@ -596,7 +599,7 @@ pub fn union(root: &Path, id: &str, dir: &Path) -> Findings {
         for (block, digest) in &digests {
             if record["lock"][block].as_str() != Some(digest.as_str()) {
                 findings.push(format!(
-                    "shards: {at} ran other {block} files than this tree's reviewed LOCK hashes"
+                    "shards: {at} ran other {block} files than this tree's reviewed lock hashes"
                 ));
             }
         }

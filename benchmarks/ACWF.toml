@@ -1,6 +1,3 @@
-# The ACWF tuning and exam parts, by structure type. xtask/src/harness/acwf.rs reads
-# this file; the harness block of benchmarks/LOCK hashes it, so a change needs a harness review.
-
 # The exam crystals that case 10 ran before the split: they count in the verdict; the verdict without them is a
 # readout.
 flagged = [

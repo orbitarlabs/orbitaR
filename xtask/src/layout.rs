@@ -295,11 +295,11 @@ pub(crate) fn new_case(root: &Path, slug: &str, reference: &str) -> Findings {
         Ok(ids) => ids,
         Err(e) => return vec![format!("new-case: {e}")],
     };
-    let locked = crate::lock::blocks(&walk::read(root, crate::lock::PATH)).unwrap_or_default();
+    let locked = crate::lock::blocks(root);
     let next = ids
         .iter()
         .map(String::as_str)
-        .chain(locked.keys().map(String::as_str))
+        .chain(locked.iter().map(String::as_str))
         .filter_map(|id| case::parse_id(id).ok())
         .max()
         .unwrap_or(0)

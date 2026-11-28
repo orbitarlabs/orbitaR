@@ -13,10 +13,10 @@ use std::{
 const KIND: &str = "native";
 const PYLOCK: &str = "python/pylock.toml";
 const PREFIXES: [&str; 4] = ["crate:", "python:", "mcp:", "tool:"];
-const DATA: [&str; 8] = [
-    ".md", ".toml", ".json", ".yml", ".yaml", ".cff", ".txt", ".csv",
+const DATA: [&str; 9] = [
+    ".md", ".toml", ".json", ".yml", ".yaml", ".cff", ".txt", ".csv", ".lock",
 ];
-const DATA_NAMES: [&str; 4] = ["Cargo.lock", "LOCK", ".gitignore", ".gitattributes"];
+const DATA_NAMES: [&str; 2] = [".gitignore", ".gitattributes"];
 const BLOCKS: [&str; 2] = ["(not tested: license", "(not tested: platform"];
 
 #[derive(Deserialize)]

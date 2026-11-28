@@ -93,7 +93,7 @@ enum Cli {
     Bench { tier: String, case: Option<String> },
     /// new-case <slug> <reference>: scaffold the next <N>_<slug>; regenerate the case table
     NewCase { slug: String, reference: String },
-    /// lock --reviewer <name> --reason <text>: hash into benchmarks/LOCK; each changed block gets a new review line
+    /// lock --reviewer <name> --reason <text>: hash into benchmarks/locks, one file per hashed file; each changed hash gets the new review
     Lock {
         #[arg(long)]
         reviewer: String,
