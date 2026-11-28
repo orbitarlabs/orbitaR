@@ -89,6 +89,34 @@ fn a_cargo_that_names_no_host_is_a_finding() {
 }
 
 #[test]
+fn a_cargo_whose_version_query_fails_is_a_finding_even_when_it_names_a_host() {
+    let root = tree("shard-version-fails", &[]);
+    let log = root.join("cargo.log");
+    write(
+        &root,
+        "cargo",
+        &format!(
+            "#!/bin/sh\ncase \"$1\" in\n  -vV) echo 'host: x86_64-unknown-linux-gnu'; exit 3 ;;\n  \
+             *) echo \"$*\" >> '{}' ;;\nesac\n",
+            log.display()
+        ),
+    );
+    let cargo = root.join("cargo");
+    fs::set_permissions(&cargo, fs::Permissions::from_mode(0o755)).unwrap();
+    let env = xtask::Env {
+        cargo: cargo.into(),
+        ..env(true)
+    };
+    let findings = xtask::run(&["check", "--unit", "1"], &root, &env);
+    assert_eq!(findings.len(), 1, "{findings:?}");
+    assert!(
+        findings[0].starts_with("cargo -vV exited with ") && findings[0].contains('3'),
+        "{findings:?}"
+    );
+    assert!(!log.exists());
+}
+
+#[test]
 fn lint_runs_every_check_step_but_the_test_step() {
     let root = tree("shard-lint", &[]);
     let env = cargo_stub_read_by_shell(&root, true, "echo \"$@\" >> cargo.log");

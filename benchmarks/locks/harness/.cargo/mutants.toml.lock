@@ -1,3 +1,3 @@
-sha256 = "c7668d1f7588a21c3e05bd213b64c39dd965da01c2be6dfefff268876760dc98"
-reviewer = "captain after codex-review3-28-mutants"
-reason = "PR 28 on integration-2, merged with main at cf0ae67: a run's guarded peak is the larger of wait4's RSS high-water mark and the Pss samples; the memory scope runs systemd-run and prlimit by name from a one-tool directory first on PATH; card.rs and log_log_slope keep their reviewed arithmetic and rendering, the slope taking atom counts (a fit with a measured point of no atoms stays NaN) and the scaling row search finding orbitaR inside it; tests catch 294 of the 296 mutants that CI's first full mutants run missed, one is gone with the reviewed skip-list rewrite, and one carries a reasoned .cargo/mutants.toml entry"
+sha256 = "5b7c4579a2496eecaac16510a2cdb9194e9db93ea3f23970e5ca4cf2b62433ae"
+reviewer = "captain-after-review-c418e69"
+reason = "lock-split mutants: blobs splits each cat-file record without index arithmetic, a locks directory whose pid is no number is named as a case, a new case takes a number above a case that only the lock still names, and Moving::take's AlreadyExists guard carries a reasoned .cargo/mutants.toml entry, for the four mutants CI's shard 5 missed at d996701"

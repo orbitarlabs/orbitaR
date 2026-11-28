@@ -1,3 +1,3 @@
-sha256 = "ca9aca71fa7d5cd468a014ecfb228eb36440e04d30a5397d74285b7647060a9d"
-reviewer = "captain-final-call after codex-review3-21"
-reason = "lock-split round 4: the move publishes only into an empty or absent benchmarks/locks and deletes nothing in it; a rerun after a finished move checks every entry and deletes the old LOCK; the move marker is linked whole and released only by its owner"
+sha256 = "eb642535254b75b36f6c0d0e1d900ddac8c5dc34073abeb488ba07749eb1b8d9"
+reviewer = "captain-after-review-c418e69"
+reason = "lock-split mutants: tests for every lock.rs mutant CI's shards 1 to 7 missed at d996701: S9 reads a base entry to its last byte, an easier case passes once reviewed, a stuck dead stage stops the move, a non-numeric pid is no stage, a new case numbers above a lock-only case, an empty entry name is named by S5, and a case directory with no file needs no entry; blobs splits each cat-file record without index arithmetic; one reasoned mutants entry for Moving::take"

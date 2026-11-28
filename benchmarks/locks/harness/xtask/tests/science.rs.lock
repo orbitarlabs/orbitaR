@@ -1,3 +1,3 @@
-sha256 = "16e2f5bdeab6dcab9c6d4ed8d0d95f85d406c2becf17a5934fd99f8ce0705645"
-reviewer = "captain-final-call after codex-review3-21"
-reason = "lock-split round 3: the move takes benchmarks/locks.move for its whole run, stages in benchmarks/locks.<pid>.partial, renames once, re-reads the lock and only then deletes benchmarks/LOCK; a hashed path or an old LOCK entry with a control character is refused by name"
+sha256 = "3fa66158ee45304dfe49e74fe3338d00e01961bb02b71af6985e31a846628d6a"
+reviewer = "captain-after-review-c418e69"
+reason = "lock-split mutants: tests catch the three mutants CI's shard 7 missed at d996701: S9 lets an easier case through once its case.toml has a new lock review (kept_review), S9 reads a base entry to its last byte without a final newline (blobs), and a dead move's stage that cannot be cleared stops the move and keeps the old lock (clear)"
