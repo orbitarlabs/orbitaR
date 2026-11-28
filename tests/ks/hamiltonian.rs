@@ -265,6 +265,48 @@ fn the_paired_h_of_a_block_is_the_paired_h_of_each_column_alone_with_and_without
 }
 
 #[test]
+fn each_column_of_a_paired_h_keeps_its_accuracy_beside_a_far_larger_or_a_zero_column() {
+    let cell = cell();
+    let mut r = stream(41);
+    for k in [[0.0; 3], [0.5, 0.0, 0.5]] {
+        let basis = Basis::sphere(&cell, k, 3.0);
+        let pairs = basis.pairs(k).unwrap();
+        let grid = Grid::coarse(&cell, 3.0);
+        let n = grid.points().len();
+        let v: Vec<f64> = (0..n).map(|_| r()).collect();
+        let v_tau: Vec<f64> = (0..n).map(|_| 0.5 + r()).collect();
+        let local = with_tau(&v, &v_tau);
+        let whole = Hamiltonian::assembled(&basis, &grid, &local, &[]).unwrap();
+        let paired = whole.paired(&pairs).unwrap();
+        let npw = basis.millers().len();
+        let small = Mat::from_fn(npw, 1, |_, _| r());
+        let alone = paired.h(small.as_ref());
+        for scale in [0.0, 1.0, 2f64.powi(20), 2f64.powi(55)] {
+            let other = Mat::from_fn(npw, 1, |_, _| scale * r());
+            let other_alone = paired.h(other.as_ref());
+            for small_first in [true, false] {
+                let (j, columns) = match small_first {
+                    true => (0, [small.as_ref(), other.as_ref()]),
+                    false => (1, [other.as_ref(), small.as_ref()]),
+                };
+                let x = Mat::from_fn(npw, 2, |g, c| columns[c][(g, 0)]);
+                let block = paired.h(x.as_ref());
+                let gap = (block.col(j) - alone.col(0)).norm_max();
+                assert!(
+                    gap <= 1e-14 * alone.norm_max(),
+                    "{k:?} beside {scale:e}, small first {small_first}: {gap:e}"
+                );
+                let other_gap = (block.col(1 - j) - other_alone.col(0)).norm_max();
+                assert!(
+                    other_gap <= 1e-14 * other_alone.norm_max(),
+                    "{k:?} the {scale:e} column, small first {small_first}: {other_gap:e}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn projectors_that_are_no_real_functions_have_no_paired_form() {
     let (cell, k) = (cell(), [0.0; 3]);
     let basis = Basis::sphere(&cell, k, 3.0);

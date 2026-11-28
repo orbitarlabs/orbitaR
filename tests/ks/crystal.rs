@@ -28,11 +28,22 @@ fn difference(a: &Outcome, b: &Outcome) -> f64 {
         all.push(o.scf().unwrap().fermi_level_ha);
         all
     };
-    let (p, q) = (flat(a), flat(b));
-    assert_eq!(p.len(), q.len());
-    p.iter()
-        .zip(&q)
-        .map(|(x, y)| (x - y).abs())
+    largest_gap(&flat(a), &flat(b))
+}
+
+fn largest_gap(a: &[f64], b: &[f64]) -> f64 {
+    assert!(
+        !a.is_empty() && a.len() == b.len(),
+        "{} values against {}",
+        a.len(),
+        b.len()
+    );
+    (a.iter().zip(b))
+        .map(|(x, y)| {
+            let gap = (x - y).abs();
+            assert!(gap.is_finite(), "{x} against {y}");
+            gap
+        })
         .fold(0.0, f64::max)
 }
 
@@ -135,12 +146,6 @@ fn the_dense_solver_gives_the_iterative_ground_state() {
     }
 }
 
-fn largest_gap(a: impl IntoIterator<Item = f64>, b: impl IntoIterator<Item = f64>) -> f64 {
-    (a.into_iter().zip(b))
-        .map(|(x, y)| (x - y).abs())
-        .fold(0.0, f64::max)
-}
-
 #[test]
 fn at_real_k_points_two_bands_per_transform_give_the_dense_complex_state_forces_and_stress() {
     let two = [[0.1, 0.2, 0.3], [0.62, 0.55, 0.83]];
@@ -160,14 +165,13 @@ fn at_real_k_points_two_bands_per_transform_give_the_dense_complex_state_forces_
         };
         let (paired, dense) = (at("lobpcg"), at("dense"));
         let state = difference(&paired, &dense);
-        let force = largest_gap(
-            forces(&paired).into_iter().flatten(),
-            forces(&dense).into_iter().flatten(),
-        );
-        let sigma = largest_gap(
-            stress(&paired).into_iter().flatten(),
-            stress(&dense).into_iter().flatten(),
-        );
+        let each_atom = |o: &Outcome| {
+            let f = forces(o);
+            assert_eq!(f.len(), two.len(), "{extra:?}: one force per atom");
+            f.concat()
+        };
+        let force = largest_gap(&each_atom(&paired), &each_atom(&dense));
+        let sigma = largest_gap(&stress(&paired).concat(), &stress(&dense).concat());
         eprintln!("{extra:?}: state {state:e} forces {force:e} stress {sigma:e}");
         assert!(
             state < 1e-10 && force < 1e-10 && sigma < 1e-11,

@@ -15,7 +15,6 @@ use crate::pw::{
     kinetic_strain, lowest, per_point, pool_threads, random, ritz_start, ritz_start_paired,
 };
 use crate::xc::Variable;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::f64::consts::TAU;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -110,14 +109,6 @@ impl Point {
             (Vectors::Real(_), None) => unreachable!("real vectors come from a point with pairs"),
         }
     }
-
-    fn complex<'b>(&self, vectors: &'b Vectors, columns: usize) -> Cow<'b, Mat<c64>> {
-        match (vectors, &self.real) {
-            (Vectors::Complex(x), _) => Cow::Borrowed(x),
-            (Vectors::Real(x), Some(real)) => Cow::Owned(real.pairs.complex(x.subcols(0, columns))),
-            (Vectors::Real(_), None) => unreachable!("real vectors come from a point with pairs"),
-        }
-    }
 }
 
 pub(super) struct Fine {
@@ -155,14 +146,13 @@ impl Vectors {
         }
     }
 
-    pub(super) fn widened(&self, added: usize, seed: u64) -> Self {
-        fn widened<T: Scalar>(x: &Mat<T>, added: usize, seed: u64) -> Mat<T> {
+    pub(super) fn widened(self, added: usize, seed: u64) -> Self {
+        fn widened<T: Scalar>(mut x: Mat<T>, added: usize, seed: u64) -> Mat<T> {
             let (rows, kept) = (x.nrows(), x.ncols());
-            let mut wide = Mat::zeros(rows, kept + added);
-            wide.subcols_mut(0, kept).copy_from(x);
-            wide.subcols_mut(kept, added)
+            x.resize_with(rows, kept + added, |_, _| T::zero_impl());
+            x.subcols_mut(kept, added)
                 .copy_from(random::<T>(rows, added, seed));
-            wide
+            x
         }
         match self {
             Self::Complex(x) => Self::Complex(widened(x, added, seed)),
@@ -759,13 +749,26 @@ impl<'a> Crystal<'a> {
                 .zip(bands.iter().zip(occupations))
                 .zip(weights);
             for (((point, &k), (b, f)), &weight) in solved {
-                let x = point.complex(&b.vectors, f.len());
-                let x = x.subcols(0, f.len());
+                let x = point.columns(&b.vectors);
                 for (a, projectors) in self.projectors(point).iter().enumerate() {
-                    let m = self.residual_projections(field, spin, a, projectors, x, &b.values);
+                    let p = x.projections(projectors, f.len());
+                    let m = self.residual_projections(field, spin, a, &p, &b.values);
                     for (axis, force) in forces[a].iter_mut().enumerate() {
-                        let derivative =
-                            Projectors::displaced(projectors, cell, k, &point.basis, x, axis);
+                        let basis = &point.basis;
+                        let derivative = match x {
+                            Columns::Complex(x) => Projectors::displaced(
+                                projectors,
+                                cell,
+                                k,
+                                basis,
+                                x.subcols(0, f.len()),
+                                axis,
+                            ),
+                            Columns::Real { .. } => x.projections(
+                                &Projectors::displacement(projectors, cell, k, basis, axis),
+                                f.len(),
+                            ),
+                        };
                         *force -= occupied_sum(weight, f, &derivative, &m);
                     }
                 }
@@ -778,18 +781,16 @@ impl<'a> Crystal<'a> {
         field: &Field,
         spin: usize,
         a: usize,
-        projectors: &Mat<c64>,
-        x: MatRef<'_, c64>,
+        p: &Mat<c64>,
         values: &[f64],
     ) -> Mat<c64> {
         let kind = &self.kinds[self.atoms[a].kind];
-        let p = projectors.adjoint() * x;
         let d = &field.d[a][spin];
-        let d_p = Mat::from_fn(d.nrows(), d.ncols(), |i, j| c64::new(d[(i, j)], 0.0)) * &p;
+        let d_p = Mat::from_fn(d.nrows(), d.ncols(), |i, j| c64::new(d[(i, j)], 0.0)) * p;
         let q_p = Mat::from_fn(d.nrows(), d.ncols(), |i, j| {
             c64::new(kind.overlap[(i, j)], 0.0)
-        }) * &p;
-        Mat::from_fn(p.nrows(), x.ncols(), |i, band| {
+        }) * p;
+        Mat::from_fn(p.nrows(), p.ncols(), |i, band| {
             d_p[(i, band)] - q_p[(i, band)] * values[band]
         })
     }
@@ -911,12 +912,11 @@ impl<'a> Crystal<'a> {
                 .zip(bands.iter().zip(occupations))
                 .zip(weights);
             for (((point, &k), (b, f)), &weight) in solved {
-                let x = point.complex(&b.vectors, f.len());
-                let x = x.subcols(0, f.len());
+                let x = point.columns(&b.vectors);
                 for (g, m) in point.basis.millers().iter().enumerate() {
                     let q = cell.wavevector(std::array::from_fn(|i| k[i] + f64::from(m[i])));
                     let held: f64 = (f.iter().enumerate())
-                        .map(|(band, occupation)| weight * occupation * x[(g, band)].norm_sqr())
+                        .map(|(band, occupation)| weight * occupation * x.square(g, band))
                         .sum();
                     for (i, row) in strain.iter_mut().enumerate() {
                         for (j, entry) in row.iter_mut().enumerate() {
@@ -929,7 +929,7 @@ impl<'a> Crystal<'a> {
                     buffers.resize(3 * n, Complex64::default());
                     for (band, &occupation) in f.iter().enumerate().filter(|&(_, &f)| f != 0.0) {
                         let scale = weight * occupation / volume;
-                        let c = |g: usize| x[(g, band)];
+                        let c = |g: usize| x.coefficient(g, band);
                         let shares =
                             kinetic_strain(&point.fft, &point.basis, c, scale, v_tau, &mut buffers);
                         for (row, add) in strain.iter_mut().zip(shares) {
@@ -941,7 +941,8 @@ impl<'a> Crystal<'a> {
                 }
                 let projectors = self.projectors(point);
                 for (a, (atom, projectors)) in self.atoms.iter().zip(&projectors).enumerate() {
-                    let m = self.residual_projections(field, spin, a, projectors, x, &b.values);
+                    let p = x.projections(projectors, f.len());
+                    let m = self.residual_projections(field, spin, a, &p, &b.values);
                     let strained = (self.kinds[atom.kind].projectors).strained(
                         cell,
                         k,
@@ -950,7 +951,8 @@ impl<'a> Crystal<'a> {
                     );
                     for (row, derivatives) in strain.iter_mut().zip(&strained) {
                         for (entry, derivative) in row.iter_mut().zip(derivatives) {
-                            *entry += occupied_sum(weight, f, &(derivative.adjoint() * x), &m);
+                            *entry +=
+                                occupied_sum(weight, f, &x.projections(derivative, f.len()), &m);
                         }
                     }
                 }
@@ -1168,7 +1170,9 @@ impl<'a> Crystal<'a> {
         };
         let guess = match start {
             Start::Warm(Vectors::Complex(guess)) => Guess::Vectors(guess),
-            Start::Warm(real) => Guess::Vectors(point.complex(&real, real.ncols()).into_owned()),
+            Start::Warm(Vectors::Real(_)) => {
+                unreachable!("real vectors come from a point with pairs")
+            }
             Start::Atoms { columns, seed } => {
                 ritz_start(&pencil, self.orbitals(point).as_ref(), columns, seed)
             }

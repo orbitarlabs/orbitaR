@@ -73,21 +73,21 @@ pub(super) enum Columns<'a> {
 }
 
 impl Columns<'_> {
-    fn coefficient(&self, g: usize, band: usize) -> c64 {
+    pub(super) fn coefficient(&self, g: usize, band: usize) -> c64 {
         match self {
             Self::Complex(x) => x[(g, band)],
             Self::Real { vectors, pairs, .. } => pairs.coefficient(|row| vectors[(row, band)], g),
         }
     }
 
-    fn square(&self, g: usize, band: usize) -> f64 {
+    pub(super) fn square(&self, g: usize, band: usize) -> f64 {
         match self {
             Self::Complex(x) => x[(g, band)].norm_sqr(),
             Self::Real { vectors, .. } => vectors[(g, band)] * vectors[(g, band)],
         }
     }
 
-    fn projections(&self, projectors: &Mat<c64>, bands: usize) -> Mat<c64> {
+    pub(super) fn projections(&self, projectors: &Mat<c64>, bands: usize) -> Mat<c64> {
         match self {
             Self::Complex(x) => projectors.adjoint() * x.subcols(0, bands),
             Self::Real { vectors, pairs, .. } => {

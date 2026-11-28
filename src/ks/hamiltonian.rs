@@ -213,30 +213,37 @@ impl Paired<'_> {
     pub fn h(&self, x: MatRef<'_, f64>) -> Mat<f64> {
         let (whole, pairs) = (self.whole, self.pairs);
         let mut out = self.nonlocal(x, |(_, d, _)| d);
-        let column = |j: usize| move |row: usize| x[(row, j)];
+        let scaled = |j: usize, scale: f64| move |row: usize| x[(row, j)] * scale;
         per_column_pair(
             out.as_mut(),
             || (whole.scratch(), Vec::new()),
             |(scratch, applied), first, mut columns| {
                 let kinetic = |g: usize, j: usize| x[(g, first + j)] * whole.kinetic[g];
-                if columns.ncols() == 1 {
-                    whole.apply_local(
-                        |g| pairs.coefficient(column(first), g),
-                        scratch,
-                        |g, v| columns[(g, 0)] += pairs.entry(g, v) + kinetic(g, 0),
-                    );
+                let peaks: Vec<f64> = (0..columns.ncols())
+                    .map(|j| x.col(first + j).norm_max())
+                    .collect();
+                if columns.ncols() == 1 || peaks.contains(&0.0) {
+                    for j in 0..columns.ncols() {
+                        whole.apply_local(
+                            |g| pairs.coefficient(scaled(first + j, 1.0), g),
+                            scratch,
+                            |g, v| columns[(g, j)] += pairs.entry(g, v) + kinetic(g, j),
+                        );
+                    }
                     return;
                 }
+                let exponents = [peaks[0], peaks[1]].map(|peak| libm::frexp(peak).1);
+                let [down, up] = [-1, 1].map(|sign| exponents.map(|e| libm::scalbn(1.0, sign * e)));
                 applied.clear();
                 whole.apply_local(
-                    |g| pairs.packed(column(first), column(first + 1), g),
+                    |g| pairs.packed(scaled(first, down[0]), scaled(first + 1, down[1]), g),
                     scratch,
                     |_, v| applied.push(v),
                 );
                 for g in 0..applied.len() {
                     let [a, b] = pairs.halves(applied, g);
-                    columns[(g, 0)] += pairs.entry(g, a) + kinetic(g, 0);
-                    columns[(g, 1)] += pairs.entry(g, b) + kinetic(g, 1);
+                    columns[(g, 0)] += pairs.entry(g, a) * up[0] + kinetic(g, 0);
+                    columns[(g, 1)] += pairs.entry(g, b) * up[1] + kinetic(g, 1);
                 }
             },
         );
