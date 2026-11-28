@@ -12,6 +12,11 @@ license = "PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE", "THIRD-PARTY-NOTICES"]
 dependencies = ["ase==3.29.0", "numpy==2.5.4", "scipy==1.18.1", "orbitar-jth==2.0.0"]
 
+[project.urls]
+Homepage = "https://orbitarlabs.org"
+Source = "https://github.com/orbitarlabs/orbitaR"
+Issues = "https://github.com/orbitarlabs/orbitaR/issues"
+
 [tool.maturin]
 bindings = "bin"
 python-source = "python"
